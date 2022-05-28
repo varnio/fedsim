@@ -14,7 +14,7 @@ class BaseDataManager(object):
     def __init__(
         self, root: str, dataset: str, num_clients: int, rule: str,
         sample_balance: float, label_balance: float, seed: int, 
-        save_path: str = None
+        save_path: str = None,
         ) -> None:
         self.root = root
         self.dataset_name = dataset
@@ -70,7 +70,7 @@ class BaseDataManager(object):
                 )
         partitioning_name = self.get_partitioning_name()
         if os.path.exists(
-            '{}/{}'.format(self.save_path, self.partitioning_name)
+            '{}/{}'.format(self.save_path, partitioning_name)
             ):
             with open(
                 os.path.join(self.save_path, partitioning_name + '.pkl'), 'rb'
@@ -100,7 +100,7 @@ class BaseDataManager(object):
             key: 
                 Subset(
                     value, self._local_parition_indices[key][id]
-                    ) for key, value in self.local_data
+                    ) for key, value in self.local_data.items()
             }
     
     def get_group_dataset(self, ids: Iterable[int]) -> Dict[str, Dataset]:
@@ -112,7 +112,7 @@ class BaseDataManager(object):
                         i for id in ids \
                             for i in self._local_parition_indices[key][id]]
                     )
-                 for key, value in self.local_data
+                 for key, value in self.local_data.items()
             }
     def get_global_dataset(self) -> Dict[str, Dataset]:
         return self.global_data
@@ -140,5 +140,5 @@ class BaseDataManager(object):
     def partition_local_data(
         self, datasets: Dict[str, object], num_clients: int, rule: str, 
         sample_balance: float,label_balance: float,
-        ) -> Dict[Iterable[Iterable[int]]]:
+        ) -> Dict[str, Iterable[Iterable[int]]]:
         raise NotImplementedError

@@ -1,12 +1,12 @@
+from email.policy import default
+from logging import root
 from typing import AnyStr, Optional
 import os
 import click
-import importlib
 from torch.utils.tensorboard import SummaryWriter
 #
 from data_manager.feddyn_data_manager import FedDynDataManager
-
-from federation import algorithms
+import utils
 
 # Enable click
 os.environ['LC_ALL'] = 'C.UTF-8'
@@ -39,7 +39,20 @@ def run():
     help='mean portion of num clients to sample.',
     )
 @click.option(
-    '--dataset', '-dst', type=str, default='cifar10', help='name of dataset.',
+    '--dataset', '-dst', type=click.Choice(['mnist', 'cifar10', 'cifar100']), 
+    default='mnist', help='name of dataset.',
+    )
+@click.option(
+    '--dataset-root', '-drt', type=str, 
+    default='data', help='root of dataset.',
+    )
+@click.option(
+    '--partitioning-root', '-prt', type=str, help='root of partitioning.',
+    default='data'
+    )
+@click.option(
+    '--partitioning-rule', '-prl', type=click.Choice(['dir', 'iid']), 
+    default='iid', help='partitioning rule.',
     )
 @click.option(
     '--sample-balance', '-b', type=float, default=0, show_default=True,
@@ -47,7 +60,7 @@ def run():
         (0 is balanced, 1 is very unbalanced).',
     )
 @click.option(
-    '--label-balance', '-l', type=float, default=0.03, show_default=True,
+    '--label-balance', '-lb', type=float, default=0.03, show_default=True,
     help='balance of the labels from among clients\
          (closer to 0 is more heterogeneous).',
     )
@@ -57,6 +70,48 @@ def run():
     default='fedavg', 
     show_default=True,
     help='federated learning algorithm.',
+    )
+@click.option(
+    '--model', '-m', 
+    type=click.Choice(['mlp_mnist', 'cnn_cifar10']), 
+    default='mlp_mnist', 
+    show_default=True,
+    help='model architecture.',
+    )
+@click.option(
+    '--epochs', '-e', 
+    type=int, 
+    default=5, 
+    show_default=True,
+    help='number of local epochs.',
+    )
+@click.option(
+    '--loss-fn', '-l', 
+    type=click.Choice(['ce', 'mse']), 
+    default='ce', 
+    show_default=True,
+    help='loss function to use (se stands for cross-entropy).',
+    )
+@click.option(
+    '--batch-size', '-bs', 
+    type=int, 
+    default=32, 
+    show_default=True,
+    help='local batch size.',
+    )
+@click.option(
+    '--test-batch-size', '-tbs', 
+    type=int, 
+    default=64, 
+    show_default=True,
+    help='inference batch size.',
+    )
+@click.option(
+    '--local_weight_decay', '-wd', 
+    type=float, 
+    default=0.001, 
+    show_default=True,
+    help='local weight decay.',
     )
 @click.option(
     '--clr', '-c', 
@@ -73,7 +128,7 @@ def run():
     help='server learning rarte.',
     )
 @click.option(
-    '--clr-decay', '-d', 
+    '--clr-decay', '-cd', 
     type=float, 
     default=1.0,
     show_default=True,
@@ -87,11 +142,17 @@ def run():
     help='type of decay for client learning rate decay.',
     )
 @click.option(
-    '--min-clr', '-m', 
+    '--min-clr', '-mc', 
     type=float, 
     default=1e-12, 
     show_default=True,
     help='minimum client leanring rate.',
+    )
+@click.option(
+    '--clr-step-size', '-cst', 
+    type=int, 
+    default=1, 
+    help='step size for clr decay (in rounds), used both with cosine and step',
     )
 @click.option(
     '--pseed', '-p', 
@@ -106,6 +167,12 @@ def run():
     help='seed for random generators after data is partitioned.',
     )
 @click.option(
+    '--device', '-d', 
+    type=click.Choice(['cpu','cuda','0', '1', '2', '3', '4', '5', '6', '7']), 
+    default='cuda', 
+    help='device to load model and data one',
+    )
+@click.option(
     '--log-dir', '-ldir', 
     type=click.Path(resolve_path=True), 
     default=None, 
@@ -113,16 +180,21 @@ def run():
     )
 @click.option(
     '--verbosity', '-v', 
-    type=click.Choice([0, 1, 2]), 
+    type=int, 
     default=0, 
     help='verbosity.',
     )
+@click.pass_context
 def fed_learn(
     ctx, rounds: int, num_clients: int, client_sample_scheme: str, 
-    client_sample_rate: float, dataset: str, sample_balance: float, 
-    label_balance: float, algorithm: AnyStr, clr: float, slr: float,
-    clr_decay: float, clr_decay_type: AnyStr, min_clr: float, pseed: int, 
-    seed: float, log_dir: str, verbosity: int) -> object:
+    client_sample_rate: float, dataset: str, dataset_root: str,
+    partitioning_root: str, partitioning_rule: str, sample_balance: float, 
+    label_balance: float, algorithm: str, model: str, epochs: int, 
+    loss_fn: str, batch_size: int, test_batch_size: int,
+    local_weight_decay: float, clr: float, slr: float, clr_decay: float,
+    clr_decay_type: str, min_clr: float, clr_step_size: int, pseed: int, 
+    seed: float, device: str, log_dir: str, verbosity: int
+    ) -> object:
     """_summary_
 
     Args:
@@ -132,16 +204,27 @@ def fed_learn(
         client_sample_scheme (str): client sampling scheme (default: uniform)
         client_sample_rate (float): client sampling rate
         dataset (str): name of the dataset to train on
+        dataset_root (str): root of the dataset
+        partitioning_root (str): root of partitioning destination
+        partitioning_rule (str): rule of partitioning ('dir', 'iid')
         sample_balance (float): balance of num samples on clients
         label_balance (float): balance of labels among clients
-        algorithm (AnyStr): federated learning algorithm to use for training
+        algorithm (str): federated learning algorithm to use for training
+        model (str): model architecture
+        epochs (int): number of local epochs
+        batch_size (int): batch size for local optimization
+        test_batch_size (int): batch size for inference
+        local_weight_decay (float): weight decay for local optimization
         clr (float): client learning rate
         slr (float): server learning rate
         clr_decay (float): decay of the client learning rate through rounds
-        clr_decay_type (AnyStr): type of clr decay (step or cosine)
+        clr_decay_type (str): type of clr decay (step or cosine)
         min_clr (float): min clr
+        clr_step_size (int): step size for clr decay (in rounds)
         pseed (int): partitioning random seed
         seed (float): seed of the training itself
+        device (str): device to load model and data on
+        log_dir (str): the directory to store logs
         verbosity (int): verbosity of the outputs
 
     Raises:
@@ -150,7 +233,6 @@ def fed_learn(
     Returns:
         object: average training loss of the last rounds
     """
-    
     # get algorithm specific parameters
     algorithm_params = dict()
     i = 0
@@ -161,36 +243,37 @@ def fed_learn(
         else:
             algorithm_params[ctx.args[i][2:]] = ctx.args[i + 1]
             i +=2
-
     # make data manager
     data_manager = FedDynDataManager(
-        dataset, num_clients, sample_balance, label_balance, pseed
+        dataset_root, dataset, num_clients, partitioning_rule, sample_balance, 
+        label_balance, pseed, partitioning_root,
         )
     # set the seed of random generators
-    # TODO: set the seed of random generators
+    utils.set_seed(seed, device)
 
-    # setup algorithm
-    if algorithm in algorithms.classes:
-        algorithm_module = importlib.import_module(
-            'federation.algorithms.{}'.format(algorithm)
-            )
-    else:
-        raise NotImplementedError
-
-    algorithm_class = getattr(algorithm_module, 'Algorithm')
-
+    algorithm_class = utils.get_from_module(
+        'federation.algorithms', algorithm, 'Algorithm'
+        )
     algorithm_instance = algorithm_class(
         data_manager=data_manager, 
         num_clients=num_clients, 
         sample_scheme=client_sample_scheme, 
         sample_rate=client_sample_rate, 
+        model=model,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        batch_size=batch_size,
+        test_batch_size=test_batch_size,
+        local_weight_decay=local_weight_decay,
         slr=slr, 
         clr=clr, 
         clr_decay=clr_decay,
         clr_decay_type=clr_decay_type, 
         min_clr=min_clr,
+        clr_step_size=clr_step_size,
         algorithm_params=algorithm_params,
         logger=SummaryWriter(log_dir),
+        device=device,
         verbosity=verbosity,
         )
 

@@ -2,6 +2,7 @@ from typing import Iterable, Dict
 from torchvision.datasets import MNIST
 import numpy as np
 from tqdm import tqdm
+import torchvision
 
 from data_manager.base_data_manager import BaseDataManager
 
@@ -10,33 +11,49 @@ class FedDynDataManager(BaseDataManager):
     def __init__(
         self, root: str, dataset: str, num_clients: int, rule: str,
         sample_balance: float, label_balance: float, seed: int,
-        save_path: str = None
+        save_path: str = None,
         ) -> None:
-        super().__init__(
+        super(FedDynDataManager, self).__init__(
             root, dataset, num_clients, rule, sample_balance, label_balance, 
-            label_balance, seed, save_path
+            seed, save_path,
             )
     
     # to implement by child
     def make_datasets(
         self, dataset_name: str, root: str, save_path: str,
         ) -> Iterable[Dict[str, object]]:
-        if dataset_name == 'MNIST':
-            return {'train': MNIST(root=root, download=True, train=True)},\
-                   {'test': MNIST(root=root, download=True, train=False)}
+        if dataset_name == 'mnist':
+            train_transform=torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+            ])
+            local_datasets = dict(
+                train=MNIST(
+                    root=root, download=True, train=True, 
+                    transform=train_transform
+                )
+            )
+            test_transform=train_transform
+            global_datasets = dict(
+                test=MNIST(
+                    root=root, download=True, train=False,
+                    transform=test_transform
+                    )
+                )
+            return local_datasets, global_datasets
+                    
+                    
         raise NotImplementedError
 
     def partition_local_data(
         self, datasets: Dict[str, object], num_clients: int, rule: str, 
         sample_balance: float, label_balance: float,
-        ) -> Dict[Iterable[Iterable[int]]]:
-        
-        targets = np.array(dataset.targets)
-        all_sample_count = len(targets)
-        num_classes = np.unique(targets)
+        ) -> Dict[str, Iterable[Iterable[int]]]:
 
         indices_dict= dict()
-        for key, dataset in datasets:
+        for key, dataset in datasets.items():
+            targets = np.array(dataset.targets)
+            all_sample_count = len(targets)
+            num_classes = np.unique(targets)
             # *********************************************************************
             # determine sample quota for each client
 
@@ -133,6 +150,6 @@ class FedDynDataManager(BaseDataManager):
                         clnt_quota_cum_sum[client_index + 1]
                         )
 
-            indices_dict[key] = np.asarray(indices)
+            indices_dict[key] = indices
 
         return indices_dict    
