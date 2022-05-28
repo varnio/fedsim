@@ -1,5 +1,4 @@
 from typing import Callable, Dict, Optional, Hashable
-from copy import deepcopy
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
@@ -9,7 +8,9 @@ from sklearn.metrics import accuracy_score
 import torch
 
 from federation.algorithms.fedavg import Algorithm
-from federation.utils import local_train_val, inference, vector_to_parameters_like
+from federation.utils import (
+    local_train_val, inference, vector_to_parameters_like
+    )
 
 class Algorithm(Algorithm):
     def __init__(
@@ -134,7 +135,6 @@ class Algorithm(Algorithm):
         vector_to_parameters(
             cloud_params.detach().clone().data, cloud_model.parameters()
             )
-
         # 
         for key, loader in dataloaders.items():
             results = inference(

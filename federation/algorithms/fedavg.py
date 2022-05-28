@@ -7,9 +7,9 @@ from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from sklearn.metrics import accuracy_score
 
 from federation.base_algorithm import BaseAlgorithm
-import utils
+from utils import search_in_submodules
 from federation.utils import (
-    local_train_val, inference, vector_to_parameters_like
+    local_train_val, inference
     )
 
 class Algorithm(BaseAlgorithm):
@@ -27,10 +27,7 @@ class Algorithm(BaseAlgorithm):
             slr, clr, clr_decay, clr_decay_type, min_clr, clr_step_size,
             algorithm_params, logger, device, verbosity
             )
-        
-        model_class = utils.get_from_module(
-            'models', 'mcmahan_nets', model
-        )
+        model_class = search_in_submodules('models', model)
         
         # make mode and optimizer
         model = model_class().to(self.device)

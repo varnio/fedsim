@@ -6,7 +6,8 @@ import click
 from torch.utils.tensorboard import SummaryWriter
 #
 from data_manager.feddyn_data_manager import FedDynDataManager
-import utils
+from utils import get_from_module, search_in_submodules, set_seed
+from federation import algorithms
 
 # Enable click
 os.environ['LC_ALL'] = 'C.UTF-8'
@@ -28,6 +29,10 @@ def run():
     help='number of communication rounds.',
     )
 @click.option(
+    '--data-manager', type=str, 
+    default='FedDynDataManager', help='name of data manager.',
+    )
+@click.option(
     '--num-clients', '-n', type=int, default=500, help='number of clients.',
     )
 @click.option(
@@ -39,8 +44,7 @@ def run():
     help='mean portion of num clients to sample.',
     )
 @click.option(
-    '--dataset', '-dst', type=click.Choice(['mnist', 'cifar10', 'cifar100']), 
-    default='mnist', help='name of dataset.',
+    '--dataset', '-dst', type=str, default='mnist', help='name of dataset.',
     )
 @click.option(
     '--dataset-root', '-drt', type=str, 
@@ -73,7 +77,7 @@ def run():
     )
 @click.option(
     '--model', '-m', 
-    type=click.Choice(['mlp_mnist', 'cnn_cifar10']), 
+    type=str, 
     default='mlp_mnist', 
     show_default=True,
     help='model architecture.',
@@ -186,11 +190,11 @@ def run():
     )
 @click.pass_context
 def fed_learn(
-    ctx, rounds: int, num_clients: int, client_sample_scheme: str, 
-    client_sample_rate: float, dataset: str, dataset_root: str,
-    partitioning_root: str, partitioning_rule: str, sample_balance: float, 
-    label_balance: float, algorithm: str, model: str, epochs: int, 
-    loss_fn: str, batch_size: int, test_batch_size: int,
+    ctx, rounds: int, data_manager: str, num_clients: int, 
+    client_sample_scheme: str, client_sample_rate: float, dataset: str, 
+    dataset_root: str, partitioning_root: str, partitioning_rule: str, 
+    sample_balance: float, label_balance: float, algorithm: str, model: str, 
+    epochs: int, loss_fn: str, batch_size: int, test_batch_size: int,
     local_weight_decay: float, clr: float, slr: float, clr_decay: float,
     clr_decay_type: str, min_clr: float, clr_step_size: int, pseed: int, 
     seed: float, device: str, log_dir: str, verbosity: int
@@ -200,6 +204,7 @@ def fed_learn(
     Args:
         ctx (_type_): for extra parameters passed to click
         rounds (int): number of training rounds
+        data_manager (str): name of data manager found under data_manager dir
         num_clients (int): number of clients
         client_sample_scheme (str): client sampling scheme (default: uniform)
         client_sample_rate (float): client sampling rate
@@ -243,19 +248,20 @@ def fed_learn(
         else:
             algorithm_params[ctx.args[i][2:]] = ctx.args[i + 1]
             i +=2
+    data_manager_class = search_in_submodules('data_manager', data_manager)
     # make data manager
-    data_manager = FedDynDataManager(
+    data_manager_instant = data_manager_class(
         dataset_root, dataset, num_clients, partitioning_rule, sample_balance, 
         label_balance, pseed, partitioning_root,
         )
     # set the seed of random generators
-    utils.set_seed(seed, device)
+    set_seed(seed, device)
 
-    algorithm_class = utils.get_from_module(
+    algorithm_class = get_from_module(
         'federation.algorithms', algorithm, 'Algorithm'
         )
     algorithm_instance = algorithm_class(
-        data_manager=data_manager, 
+        data_manager=data_manager_instant, 
         num_clients=num_clients, 
         sample_scheme=client_sample_scheme, 
         sample_rate=client_sample_rate, 
