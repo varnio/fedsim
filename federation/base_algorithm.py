@@ -45,6 +45,10 @@ class BaseAlgorithm(object):
         self.min_clr = min_clr
         self.clr_step_size = clr_step_size
         
+        default_params = self.assign_default_params()
+        if default_params is None:
+            default_params = dict()
+        algorithm_params = {**default_params, **algorithm_params}
         # register algorithm specific parameters
         if algorithm_params is not None:
             for k, v in algorithm_params.items():
@@ -68,6 +72,10 @@ class BaseAlgorithm(object):
                     for key, dataset in \
                         self._data_manager.get_global_dataset().items()
                     }
+        
+        self.oracle_dataset = self._data_manager.get_oracle_dataset()
+
+        self.rounds = 0
     
     def write_server(self, key: Hashable, obj: object) -> None:
         self._server_memory[key] = obj
@@ -83,12 +91,12 @@ class BaseAlgorithm(object):
         return None
 
     def read_client(self, client_id: int, key: Hashable) -> object:
-        if id >= self.num_clients:
+        if client_id >= self.num_clients:
             raise Exception(
                 "invalid client id {} >=".format(id, self.num_clients)
                 )
-        if key in self._client_memory[id]:
-            return self._client_memory[id][key]
+        if key in self._client_memory[client_id]:
+            return self._client_memory[client_id][key]
         return None
     
     def _sample_clients(self) -> None:
@@ -147,6 +155,9 @@ class BaseAlgorithm(object):
     def train(self, rounds: int) -> float:
         return self._train(rounds=rounds)
 
+    def assign_default_params(self) -> Optional[Dict[str,object]]:
+        raise NotImplementedError
+
     def send_to_client(self, client_id: int) -> Dict:
         raise NotImplementedError
 
@@ -169,7 +180,3 @@ class BaseAlgorithm(object):
         self, dataloaders: Dict[str, object], logger: object, device: str
         ):
         raise NotImplementedError
-
-
-
-    

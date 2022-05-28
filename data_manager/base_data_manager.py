@@ -114,6 +114,11 @@ class BaseDataManager(object):
                     )
                  for key, value in self.local_data.items()
             }
+    def get_oracle_dataset(self) -> Dict[str, Dataset]:
+        return {
+            key: value for key, value in self.local_data.items()
+            }
+            
     def get_global_dataset(self) -> Dict[str, Dataset]:
         return self.global_data
     # *************************************************************************

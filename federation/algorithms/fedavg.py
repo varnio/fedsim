@@ -1,5 +1,6 @@
 from copy import deepcopy
 from typing import Callable, Dict, Optional, Hashable
+from matplotlib.pyplot import step
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
@@ -7,7 +8,9 @@ from sklearn.metrics import accuracy_score
 
 from federation.base_algorithm import BaseAlgorithm
 import utils
-from federation.utils import local_train_val, inference
+from federation.utils import (
+    local_train_val, inference, vector_to_parameters_like
+    )
 
 class Algorithm(BaseAlgorithm):
     def __init__(
@@ -39,6 +42,9 @@ class Algorithm(BaseAlgorithm):
         self.write_server('cloud_model', model)
         self.write_server('cloud_params', params)
         self.write_server('optimizer', optimizer)
+    
+    def assign_default_params(self) -> Optional[Dict[str,object]]:
+        return None
     
     def send_to_client(self, client_id: int) -> Dict:
         # since fedavg broadcast the same model to all selected clients, 
@@ -86,10 +92,12 @@ class Algorithm(BaseAlgorithm):
                 client_msg['local_params'].clone().detach()
                 ) * num_samples
             aggregation_results['num_sum'] = num_samples
+            aggregation_results['counter'] = 1
         else:
             aggregation_results['param_sum'].data += num_samples * \
                 client_msg['local_params'].detach().clone().data
             aggregation_results['num_sum'] += num_samples
+            aggregation_results['counter'] += 1 
         # purge client info
         del client_msg
 
@@ -125,4 +133,5 @@ class Algorithm(BaseAlgorithm):
                 cloud_model, loader, 
                 {'{}_acc_score'.format(key):accuracy_score}, device=device
                 )
-            print(results)
+            for key, value in results.items():
+                logger.add_scalar(key, value, self.rounds)

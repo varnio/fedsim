@@ -1,9 +1,12 @@
 from copy import deepcopy
 from functools import partial
-from typing import Union, Iterator, Sized, Optional, Callable, AnyStr, Tuple, Dict
+from typing import (
+    Union, Iterator, Sized, Optional, Callable, AnyStr, Tuple, Dict, Iterable
+    )
 
 import torch
 from torch.nn.utils import clip_grad_norm_
+from torch.nn.utils.convert_parameters import _check_param_device
 from tqdm import tqdm
 from torch.nn import functional as F
 import sys
@@ -68,12 +71,15 @@ def default_closure(x, y, model, loss_fn, optimizer, max_grad_norm=1000):
     return loss
 
 
-def local_train_val(model: torch.nn.Module, train_data_loader: Union[Iterator, Sized],
-                    val_data_loader: Optional[Union[Iterator, Sized]], epochs: int, steps: int, step_val_interval: int,
-                    checkpoint_metric: Callable, loss_fn: Callable, optimizer: torch.optim.Optimizer,
-                    device: Union[AnyStr, int], name: Optional[str] = None,
-                    step_closure: Optional[Callable] = None, max_grad_norm: int = 1000) -> Tuple[Dict, int, int, int,
-                                                                                                 float, bool, float]:
+def local_train_val(
+    model: torch.nn.Module, train_data_loader: Union[Iterator, Sized],
+    val_data_loader: Optional[Union[Iterator, Sized]], epochs: int, steps: int,
+    step_val_interval: int, checkpoint_metric: Callable, loss_fn: Callable, 
+    optimizer: torch.optim.Optimizer, device: Union[AnyStr, int], 
+    name: Optional[str] = None, step_closure: Optional[Callable] = None, 
+    max_grad_norm: int = 1000) -> Tuple[
+        Dict, int, int, int, float, bool, float
+        ]:
     """
 
     :param model: model for training/validation
@@ -174,3 +180,39 @@ def get_metric_scores(metric_fn_dict, y_true, y_pred):
     for name, fn in metric_fn_dict.items():
         answer[name] = fn(y_true, y_pred)
     return answer
+
+
+def vector_to_parameters_like(
+    vec: torch.Tensor, parameters_like: Iterable[torch.Tensor]
+    ) -> Iterable[torch.Tensor]:
+    r"""Convert one vector to new parameters like the ones provided 
+
+    Args:
+        vec (Tensor): a single vector represents the parameters of a model.
+        parameters (Iterable[Tensor]): an iterator of Tensors that are the
+            parameters of a model. This is only used to get the sizes. New 
+            parametere are defined.
+    """
+    # Ensure vec of type Tensor
+    if not isinstance(vec, torch.Tensor):
+        raise TypeError('expected torch.Tensor, but got: {}'
+                        .format(torch.typename(vec)))
+    # Flag for the device where the parameter is located
+    param_device = None
+
+    # Pointer for slicing the vector for each parameter
+    pointer = 0
+    new_params = []
+    for param in parameters_like:
+        # Ensure the parameters are located in the same device
+        param_device = _check_param_device(param, param_device)
+
+        # The length of the parameter
+        num_param = param.numel()
+        # Slice the vector, reshape it, and replace the old data of the 
+        # parameter
+        new_params.append(vec[pointer:pointer + num_param].view_as(param).data)
+
+        # Increment the pointer
+        pointer += num_param
+    return new_params
