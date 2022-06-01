@@ -1,21 +1,46 @@
-from typing import Dict, Hashable, Optional, Callable
 from tqdm import trange
 import random
 import yaml
 import math
 from torch import nn
 from torch.utils.data import DataLoader
+from typing import (
+    Any,
+    Dict,
+    Hashable,
+    Iterable,
+    Mapping,
+    Optional,
+    Callable,
+    Union
+)
 
 
 class BaseAlgorithm(object):
     def __init__(
-        self, data_manager: object, num_clients: int, sample_scheme: str, 
-        sample_rate: float, model: object, epochs: int, loss_fn: str, 
-        batch_size: int, test_batch_size: int, local_weight_decay: float, 
-        slr: float, clr: float, clr_decay: float, clr_decay_type: str, 
-        min_clr: float, clr_step_size: int, algorithm_params: Dict, 
-        logger: object, device: str, verbosity: int,
-        ) -> None:
+        self, 
+        data_manager, 
+        num_clients, 
+        sample_scheme, 
+        sample_rate, 
+        model, 
+        epochs, 
+        loss_fn, 
+        batch_size,
+        test_batch_size,
+        local_weight_decay,
+        slr,
+        clr,
+        clr_decay,
+        clr_decay_type,
+        min_clr,
+        clr_step_size,
+        algorithm_params,
+        metric_logger,
+        device,
+        log_freq,
+        verbosity,
+    ):
         
         self._data_manager = data_manager
         self.num_clients = num_clients
@@ -25,8 +50,8 @@ class BaseAlgorithm(object):
             raise Exception(
                 'invalid client sample size for {}% of {} clients'.format(
                     sample_rate, num_clients
-                    )
                 )
+            )
         self.model = model
         self.epochs = epochs
         if loss_fn == 'ce':
@@ -57,8 +82,9 @@ class BaseAlgorithm(object):
                 else:
                     setattr(self, k, v)
 
-        self.logger = logger
+        self.metric_logger = metric_logger
         self.device = device
+        self.log_freq = log_freq
         self.verbosity = verbosity
 
         self._server_memory: Dict[Hashable, object] = dict()
@@ -68,50 +94,46 @@ class BaseAlgorithm(object):
         
         self.global_dataloaders = {
             key:DataLoader(
-                dataset, batch_size=self.test_batch_size, pin_memory=True) \
-                    for key, dataset in \
-                        self._data_manager.get_global_dataset().items()
-                    }
+                dataset,
+                batch_size=self.test_batch_size, 
+                pin_memory=True,
+            ) 
+            for key, dataset in self._data_manager.get_global_dataset().items()
+        }
         
         self.oracle_dataset = self._data_manager.get_oracle_dataset()
-
         self.rounds = 0
     
-    def write_server(self, key: Hashable, obj: object) -> None:
+    def write_server(self, key, obj):
         self._server_memory[key] = obj
     
-    def write_client(
-        self, client_id: int, key: Hashable, obj: object
-        ) -> None:
+    def write_client(self, client_id, key, obj):
         self._client_memory[client_id][key] = obj
     
-    def read_server(self, key: Hashable) -> object:
-        if key in self._server_memory:
-            return self._server_memory[key]
-        return None
+    def read_server(self, key):
+        return self._server_memory[key] if key in self._server_memory else None
 
-    def read_client(self, client_id: int, key: Hashable) -> object:
+    def read_client(self, client_id, key):
         if client_id >= self.num_clients:
             raise Exception(
                 "invalid client id {} >=".format(id, self.num_clients)
-                )
+            )
         if key in self._client_memory[client_id]:
             return self._client_memory[client_id][key]
         return None
     
-    def _sample_clients(self) -> None:
+    def _sample_clients(self):
         if self.sample_scheme == 'uniform':
             return random.sample(range(self.num_clients), self.sample_count)
         raise NotImplementedError
     
-    def _send_to_client(self, client_id: int) -> Dict:
+    def _send_to_client(self, client_id):
         return self.send_to_client(client_id=client_id)
     
-    def _send_to_server(self, client_id: int) -> Dict:
+    def _send_to_server(self, client_id):
         if self.clr_decay_type == 'step':
-            decayed_clr = self.clr * (
-                self.clr_decay ** (self.rounds // self.clr_step_size)
-                )
+            decayed_clr = self.clr * \
+                (self.clr_decay ** (self.rounds // self.clr_step_size))
         elif self.clr_decay_type == 'cosine':
             T_i = self.clr_step_size
             T_cur = self.rounds % T_i
@@ -128,55 +150,83 @@ class BaseAlgorithm(object):
             raise Exception('client should only return a dict!')
         return {**client_ctx, 'client_id': client_id}
 
-    def _receive_from_client(
-        self, client_msg: Dict, aggregation_results: Dict
-        ) -> None:
+    def _receive_from_client(self, client_msg, aggregation_results):
         client_id = client_msg.pop('client_id')
         return self.receive_from_client(
             client_id, client_msg, aggregation_results
-            )
+        )
 
-    def _optimize(self, aggr_results: Dict) -> None:
-        return self.optimize(self.slr, aggr_results)
+    def _optimize(self, aggr_results):
+        reports = self.optimize(self.slr, aggr_results)
+        # purge aggregated results
+        del aggr_results
+        return reports
     
-    def _report(self):
-        self.report(self.global_dataloaders, self.logger, self.device)
+    def _report(self, optimize_reports=None):
+        self.report(
+            self.global_dataloaders,
+            self.metric_logger,
+            self.device,
+            optimize_reports
+        )
 
-    def _train(self, rounds: int) -> float:
+    def _train(self, rounds):
         self._report()
         for self.rounds in trange(rounds):
             aggr_results = dict()
             for client_id in self._sample_clients():
                 client_msg = self._send_to_server(client_id)
                 self._receive_from_client(client_msg, aggr_results)
-            self._optimize(aggr_results)
-            self._report()
+            opt_reports = self._optimize(aggr_results)
+            if self.rounds % self.log_freq == 0:
+                self._report(opt_reports)
     
-    def train(self, rounds: int) -> float:
+    def train(self, rounds):
         return self._train(rounds=rounds)
 
-    def assign_default_params(self) -> Optional[Dict[str,object]]:
+    # we do not do type hinting, however, the hints for avstract 
+    # methods are provided to help clarity for users
+
+    def assign_default_params(self) -> Mapping[Hashable, Any]:
         raise NotImplementedError
 
-    def send_to_client(self, client_id: int) -> Dict:
+    def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
         raise NotImplementedError
 
     def send_to_server(
-        self, client_id: int, datasets: Dict[str, object], epochs: int, 
-        loss_fn: Callable, batch_size: int, lr: float, weight_decay: float = 0, 
-        device: str = 'cuda', ctx: Optional[Dict[Hashable, object]] = None,
-        ) -> Dict:
+        self, 
+        client_id: int, 
+        datasets: Dict[str, Iterable], 
+        epochs: int, 
+        loss_fn: nn.Module, 
+        batch_size: int, 
+        lr: float, 
+        weight_decay: float = 0, 
+        device: Union[int, str] = 'cuda', 
+        ctx: Optional[Dict[Hashable, Any]] = None,
+        ) -> Mapping[str, Any]:
         raise NotImplementedError
 
     def receive_from_client(
-        self, client_id: int, client_msg: Dict, aggregation_results: Dict
-        ):
+        self, 
+        client_id: int, 
+        client_msg: Mapping[Hashable, Any], 
+        aggregation_results: Dict[str, Any]
+    ):
         raise NotImplementedError
 
-    def optimize(self, lr: float, aggr_results: Dict) -> None:
+    def optimize(
+        self,
+        lr: float,
+        aggr_results: Dict[Hashable, Any]
+    ) -> Mapping[Hashable, Any]:
         raise NotImplementedError
     
     def report(
-        self, dataloaders: Dict[str, object], logger: object, device: str
-        ):
+        self, 
+        dataloaders, 
+        metric_logger: Any, 
+        device: str,
+        optimize_reports: Mapping[Hashable, Any]
+    ):
         raise NotImplementedError

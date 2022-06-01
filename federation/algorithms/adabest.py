@@ -8,7 +8,7 @@ from functools import partial
 
 import torch
 
-from federation.algorithms.fedavg import Algorithm
+from federation.algorithms.feddyn import Algorithm
 from federation.evaluation import local_train_val, inference
 from federation.utils import vector_to_parameters_like, get_metric_scores
 from utils import add_in_dict, add_dict_to_dict, apply_on_dict
@@ -64,15 +64,16 @@ class Algorithm(Algorithm):
         
         cloud_params = self.read_server('cloud_params')
         self.write_server('avg_params', cloud_params.detach().clone())
-        self.write_server('h', torch.zeros_like(cloud_params))
+
         for client_id in range(num_clients):
             self.write_client(client_id, 'h', torch.zeros_like(cloud_params))
+            self.write_client(client_id, 'last_round', -1 )
         # oracle read violation, num_clients read violation
         average_sample = len(self.oracle_dataset['train']) / self.num_clients
         self.write_server('average_sample', average_sample)
     
     def assign_default_params(self):
-        return dict(mu=0.01)
+        return dict(mu=0.01, beta=0.9)
 
     def send_to_server(
         self, 
@@ -125,16 +126,18 @@ class Algorithm(Algorithm):
                 return loss
             # backpropagation
             loss.backward()
-            params = parameters_to_vector(model.parameters())
-            grad_additive = 0.5 * (params - params_init) - h
+            grad_additive = - h
             grad_additive_list = vector_to_parameters_like(
                 mu_adaptive * grad_additive, model.parameters()
-                )
+            )
 
             for p, g_a in zip(model.parameters(), grad_additive_list):
                 p.grad += g_a
             # Clip gradients
-            clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm) 
+            clip_grad_norm_(
+                parameters=model.parameters(), 
+                max_norm=max_grad_norm
+            ) 
             # optimize
             optimizer.step()
             optimizer.zero_grad()
@@ -163,8 +166,11 @@ class Algorithm(Algorithm):
             params_init - \
             parameters_to_vector(model.parameters()).detach().clone().data
             )
-        new_h = h + pseudo_grads
+        t = self.rounds
+        new_h = 1 / (t - self.read_client(client_id, 'last_round')) * h +\
+            pseudo_grads
         self.write_client(client_id, 'h', new_h)
+        self.write_client(client_id, 'last_round', self.rounds)
 
         # return optimized model parameters and number of train samples
         return dict(
@@ -175,30 +181,6 @@ class Algorithm(Algorithm):
             trian_loss=loss,
             metrics=metrics,
         )
-    
-    def receive_from_client(self, client_id, client_msg, aggregation_results):
-
-        params = client_msg['local_params'].clone().detach().data
-        n_samples = client_msg['num_samples']
-        n_steps = client_msg['num_steps']
-        diverged = client_msg['diverged']
-        loss = client_msg['trian_loss']
-        metrics = client_msg['metrics']
-        
-        if diverged:
-            print('client {} diverged'.format(client_id))
-            print('exiting ...')
-            sys.exit(1)
-
-        add_in_dict('local_params', params, aggregation_results, scale=1)
-        add_in_dict('num_samples', n_samples, aggregation_results)
-        add_in_dict('num_steps', n_steps, aggregation_results)
-        add_in_dict('trian_loss', loss, aggregation_results, scale=n_steps)
-        add_in_dict('counter', 1, aggregation_results)
-        add_dict_to_dict(metrics, aggregation_results, scale=n_steps)
-    
-        # purge client info
-        del client_msg
 
     def optimize(self, lr, aggr_results):
 
@@ -209,10 +191,8 @@ class Algorithm(Algorithm):
             param_avg = aggr_results.pop('local_params') / counter
             
             cloud_params = self.read_server('cloud_params')
-            pseudo_grads = cloud_params - param_avg
-            h = self.read_server('h')
             # read total clients violation
-            h = h + counter / self.num_clients *  pseudo_grads
+            h = self.beta * (self.read_server('avg_params') - param_avg)
             new_params = param_avg - h
 
             modified_pseudo_grads = cloud_params - new_params
@@ -220,7 +200,6 @@ class Algorithm(Algorithm):
             new_params = cloud_params.data - lr * modified_pseudo_grads.data
             self.write_server('cloud_params', new_params)
             self.write_server('avg_params', param_avg.detach().clone())
-            self.write_server('h', h.data)
             
             # prepare for report
             n_steps = aggr_results.pop('num_steps')
@@ -233,29 +212,3 @@ class Algorithm(Algorithm):
             del param_avg
         return normalized_metrics
 
-    
-    def report(self, dataloaders, metric_logger, device, optimize_reports):
-        # load cloud stuff
-        deployment_points = dict(
-            cloud=self.read_server('cloud_params'),
-            avg=self.read_server('avg_params'),
-        )
-        model = self.read_server('model')
-        
-        for point_name, point in deployment_points.items():
-            # copy cloud params to cloud model to send to the client
-            vector_to_parameters(
-                point.detach().clone().data, model.parameters()
-            )
-
-            for key, loader in dataloaders.items():
-                metrics, _ = inference(
-                    model, 
-                    loader, 
-                    {'{}.{}_accuracy'.format(point_name, key): accuracy_score},
-                    device=device,
-                )
-                t = self.rounds
-                log_fn = metric_logger.add_scalar
-                apply_on_dict(metrics, log_fn, global_step=t)
-        apply_on_dict(optimize_reports, log_fn, global_step=t)

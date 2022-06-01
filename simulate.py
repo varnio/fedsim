@@ -1,17 +1,16 @@
-from email.policy import default
-from logging import root
-from typing import AnyStr, Optional
+from typing import TypeVar, Optional
 import os
 import click
 from torch.utils.tensorboard import SummaryWriter
 #
-from data_manager.feddyn_data_manager import FedDynDataManager
 from utils import get_from_module, search_in_submodules, set_seed
-from federation import algorithms
 
 # Enable click
 os.environ['LC_ALL'] = 'C.UTF-8'
 os.environ['LANG'] = 'C.UTF-8'
+
+T_co = TypeVar('T_co', covariant=True)
+T = TypeVar('T')
 
 @click.group()
 def run():
@@ -22,187 +21,266 @@ def run():
     context_settings = dict(
         ignore_unknown_options=True, 
         allow_extra_args=True,
-        )
     )
+)
 @click.option(
-    '--rounds', '-r', type=int, default=100, show_default=True, 
+    '--rounds', 
+    '-r', 
+    type=int, 
+    default=100, 
+    show_default=True, 
     help='number of communication rounds.',
-    )
+)
 @click.option(
-    '--data-manager', type=str, 
-    default='FedDynDataManager', help='name of data manager.',
-    )
+    '--data-manager', 
+    type=str, 
+    show_default=True,
+    default='FedDynDataManager', 
+    help='name of data manager.',
+)
 @click.option(
-    '--num-clients', '-n', type=int, default=500, help='number of clients.',
-    )
+    '--num-clients', 
+    '-n', 
+    type=int, 
+    default=500, 
+    show_default=True,
+    help='number of clients.',
+)
 @click.option(
-    '--client-sample-scheme', '-css', type=str, default='uniform', 
+    '--client-sample-scheme', 
+    type=str, 
+    default='uniform', 
+    show_default=True,
     help='client sampling scheme.',
-    )
+)
 @click.option(
-    '--client-sample-rate', '-csr', type=float, default=0.01, 
+    '--client-sample-rate', '-c', 
+    type=float, 
+    default=0.01,
+    show_default=True,
     help='mean portion of num clients to sample.',
-    )
+)
 @click.option(
-    '--dataset', '-dst', type=str, default='mnist', help='name of dataset.',
-    )
+    '--dataset', '-d', 
+    type=str, 
+    default='mnist', 
+    show_default=True,
+    help='name of dataset.',
+)
 @click.option(
-    '--dataset-root', '-drt', type=str, 
-    default='data', help='root of dataset.',
-    )
+    '--dataset-root', 
+    type=str, 
+    default='data', 
+    show_default=True,
+    help='root of dataset.',
+)
 @click.option(
-    '--partitioning-root', '-prt', type=str, help='root of partitioning.',
-    default='data'
-    )
+    '--partitioning-root', 
+    type=str, 
+    default='data', 
+    show_default=True,
+    help='root of partitioning.',
+)
 @click.option(
-    '--partitioning-rule', '-prl', type=click.Choice(['dir', 'iid']), 
-    default='iid', help='partitioning rule.',
-    )
+    '--partitioning-rule', 
+    type=str, 
+    default='iid', 
+    show_default=True,
+    help='partitioning rule.',
+)
 @click.option(
-    '--sample-balance', '-b', type=float, default=0, show_default=True,
+    '--sample-balance', 
+    type=float, 
+    default=0, 
+    show_default=True,
     help='balance of the number of samples per client \
         (0 is balanced, 1 is very unbalanced).',
-    )
+)
 @click.option(
-    '--label-balance', '-lb', type=float, default=0.03, show_default=True,
-    help='balance of the labels from among clients\
-         (closer to 0 is more heterogeneous).',
-    )
+    '--label-balance', 
+    type=float, 
+    default=0.03, 
+    show_default=True,
+    help='balance of the labels from among clients \
+        (closer to 0 is more heterogeneous).',
+)
 @click.option(
-    '--algorithm', '-a', 
-    type=click.Choice(['fedavg', 'scaffold', 'feddyn', 'adabest']), 
+    '--algorithm', 
+    '-a', 
+    type=str, 
     default='fedavg', 
     show_default=True,
     help='federated learning algorithm.',
-    )
+)
 @click.option(
-    '--model', '-m', 
+    '--model', 
+    '-m', 
     type=str, 
     default='mlp_mnist', 
     show_default=True,
     help='model architecture.',
-    )
+)
 @click.option(
-    '--epochs', '-e', 
+    '--epochs', 
+    '-e', 
     type=int, 
     default=5, 
     show_default=True,
     help='number of local epochs.',
-    )
+)
 @click.option(
-    '--loss-fn', '-l', 
+    '--loss-fn', 
     type=click.Choice(['ce', 'mse']), 
     default='ce', 
     show_default=True,
     help='loss function to use (se stands for cross-entropy).',
-    )
+)
 @click.option(
-    '--batch-size', '-bs', 
+    '--batch-size', 
     type=int, 
     default=32, 
     show_default=True,
     help='local batch size.',
-    )
+)
 @click.option(
-    '--test-batch-size', '-tbs', 
+    '--test-batch-size', 
     type=int, 
     default=64, 
     show_default=True,
     help='inference batch size.',
-    )
+)
 @click.option(
-    '--local_weight_decay', '-wd', 
+    '--local_weight_decay', 
     type=float, 
     default=0.001, 
     show_default=True,
     help='local weight decay.',
-    )
+)
 @click.option(
-    '--clr', '-c', 
+    '--clr', 
+    '-l', 
     type=float, 
     default=0.05, 
     show_default=True,
     help='client learning rate.',
-    )
+)
 @click.option(
-    '--slr', '-slr', 
+    '--slr', 
     type=float, 
     default=1.0, 
     show_default=True,
     help='server learning rarte.',
-    )
+)
 @click.option(
-    '--clr-decay', '-cd', 
+    '--clr-decay', 
     type=float, 
-    default=1.0,
+    default=1.0, 
     show_default=True,
     help='scalar for round to round decay of the client learning rate.',
-    )
+)
 @click.option(
-    '--clr-decay-type', '-t',
+    '--clr-decay-type', 
     type=click.Choice(['step', 'cosine']), 
     default='step', 
     show_default=True,
     help='type of decay for client learning rate decay.',
-    )
+)
 @click.option(
-    '--min-clr', '-mc', 
+    '--min-clr', 
     type=float, 
     default=1e-12, 
     show_default=True,
     help='minimum client leanring rate.',
-    )
+)
 @click.option(
-    '--clr-step-size', '-cst', 
+    '--clr-step-size',
     type=int, 
     default=1, 
+    show_default=True,
     help='step size for clr decay (in rounds), used both with cosine and step',
-    )
+)
 @click.option(
-    '--pseed', '-p', 
+    '--pseed', 
+    '-p', 
     type=int, 
     default=0, 
+    show_default=True,
     help='seed for data partitioning.',
-    )
+)
 @click.option(
-    '--seed', '-s', 
+    '--seed', 
+    '-s', 
     type=int, 
-    default=0, 
+    default=None, 
     help='seed for random generators after data is partitioned.',
-    )
+)
 @click.option(
-    '--device', '-d', 
-    type=click.Choice(['cpu','cuda','0', '1', '2', '3', '4', '5', '6', '7']), 
+    '--device', 
+    type=str, 
     default='cuda', 
+    show_default=True,
     help='device to load model and data one',
-    )
+)
 @click.option(
-    '--log-dir', '-ldir', 
+    '--log-dir', 
     type=click.Path(resolve_path=True), 
     default=None, 
+    show_default=True,
     help='directory to store the tensorboard logs.',
-    )
+)
 @click.option(
-    '--verbosity', '-v', 
+    '--log-freq', 
+    type=int, 
+    default=50, 
+    show_default=True,
+    help='gap between two reports in rounds.',
+)
+@click.option(
+    '--verbosity', 
+    '-v', 
     type=int, 
     default=0, 
     help='verbosity.',
-    )
+    show_default=True,
+)
 @click.pass_context
 def fed_learn(
-    ctx, rounds: int, data_manager: str, num_clients: int, 
-    client_sample_scheme: str, client_sample_rate: float, dataset: str, 
-    dataset_root: str, partitioning_root: str, partitioning_rule: str, 
-    sample_balance: float, label_balance: float, algorithm: str, model: str, 
-    epochs: int, loss_fn: str, batch_size: int, test_batch_size: int,
-    local_weight_decay: float, clr: float, slr: float, clr_decay: float,
-    clr_decay_type: str, min_clr: float, clr_step_size: int, pseed: int, 
-    seed: float, device: str, log_dir: str, verbosity: int
-    ) -> object:
-    """_summary_
+    ctx: click.core.Context, 
+    rounds: int, 
+    data_manager: str, 
+    num_clients: int, 
+    client_sample_scheme: str, 
+    client_sample_rate: float, 
+    dataset: str, 
+    dataset_root: str, 
+    partitioning_root: str, 
+    partitioning_rule: str, 
+    sample_balance: float, 
+    label_balance: float, 
+    algorithm: str, 
+    model: str, 
+    epochs: int, 
+    loss_fn: str, 
+    batch_size: int, 
+    test_batch_size: int,
+    local_weight_decay: float, 
+    clr: float, 
+    slr: float, 
+    clr_decay: float,
+    clr_decay_type: str, 
+    min_clr: float, 
+    clr_step_size: int, 
+    pseed: int, 
+    seed: Optional[float], 
+    device: str, 
+    log_dir: str, 
+    log_freq: int,
+    verbosity: int
+) -> None:
+    """simulates federated learning!
 
     Args:
-        ctx (_type_): for extra parameters passed to click
+        ctx (click.core.Context): for extra parameters passed to click
         rounds (int): number of training rounds
         data_manager (str): name of data manager found under data_manager dir
         num_clients (int): number of clients
@@ -230,13 +308,8 @@ def fed_learn(
         seed (float): seed of the training itself
         device (str): device to load model and data on
         log_dir (str): the directory to store logs
+        log_freq (int): gap between two reports in rounds.
         verbosity (int): verbosity of the outputs
-
-    Raises:
-        NotImplementedError: _description_
-
-    Returns:
-        object: average training loss of the last rounds
     """
     # get algorithm specific parameters
     algorithm_params = dict()
@@ -255,11 +328,14 @@ def fed_learn(
         label_balance, pseed, partitioning_root,
         )
     # set the seed of random generators
-    set_seed(seed, device)
+    if seed is  not None:
+        set_seed(seed, device)
 
     algorithm_class = get_from_module(
-        'federation.algorithms', algorithm, 'Algorithm'
-        )
+        'federation.algorithms', 
+        algorithm, 
+        'Algorithm',
+    )
     algorithm_instance = algorithm_class(
         data_manager=data_manager_instant, 
         num_clients=num_clients, 
@@ -278,16 +354,14 @@ def fed_learn(
         min_clr=min_clr,
         clr_step_size=clr_step_size,
         algorithm_params=algorithm_params,
-        logger=SummaryWriter(log_dir),
+        metric_logger=SummaryWriter(log_dir),
         device=device,
+        log_freq=log_freq,
         verbosity=verbosity,
-        )
+    )
 
-    loss = algorithm_instance.train(rounds)
-    print(loss)
-
-
-
+    alg_ret = algorithm_instance.train(rounds)
+    # click.echo(ret)
 
 
 def main():

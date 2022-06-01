@@ -61,7 +61,11 @@ class cnn_cifar10(nn.Module):
 
         self.feature_extractor = nn.Sequential(
             nn.Conv2d(
-                num_channels, 64, kernel_size=5, stride=1, padding='same'
+                num_channels, 
+                64, 
+                kernel_size=5, 
+                stride=1, 
+                padding='same'
                 ),
             nn.ReLU(),
             nn.ZeroPad2d((0, 1, 0, 1)),
