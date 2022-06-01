@@ -3,7 +3,7 @@ import os
 import click
 from torch.utils.tensorboard import SummaryWriter
 #
-from utils import get_from_module, search_in_submodules, set_seed
+from fedsim.utils import get_from_module, search_in_submodules, set_seed
 
 # Enable click
 os.environ['LC_ALL'] = 'C.UTF-8'
@@ -301,7 +301,8 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         else:
             algorithm_params[ctx.args[i][2:]] = ctx.args[i + 1]
             i += 2
-    data_manager_class = search_in_submodules('data_manager', data_manager)
+    data_manager_class = search_in_submodules('fedsim.data_manager',
+                                              data_manager)
     # make data manager
     data_manager_instant = data_manager_class(
         dataset_root,
@@ -318,7 +319,7 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         set_seed(seed, device)
 
     algorithm_class = get_from_module(
-        'federation.algorithms',
+        'fedsim.federation.algorithms',
         algorithm,
         'Algorithm',
     )

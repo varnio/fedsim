@@ -1,8 +1,8 @@
 import torch
-from utils import add_dict_to_dict, apply_on_dict
 from functools import partial
 
-from federation.utils import get_metric_scores, default_closure
+from fedsim.utils import add_dict_to_dict, apply_on_dict
+from fedsim.federation.utils import get_metric_scores, default_closure
 
 
 def inference(

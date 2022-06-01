@@ -5,14 +5,14 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
-from federation.base_algorithm import BaseAlgorithm
-from utils import (
+from fedsim.federation.base_algorithm import BaseAlgorithm
+from fedsim.utils import (
     search_in_submodules,
     add_in_dict,
     add_dict_to_dict,
     apply_on_dict,
 )
-from federation.evaluation import local_train_val, inference
+from fedsim.federation.evaluation import local_train_val, inference
 
 
 class Algorithm(BaseAlgorithm):
@@ -64,7 +64,7 @@ class Algorithm(BaseAlgorithm):
             log_freq,
             verbosity,
         )
-        model_class = search_in_submodules('models', model)
+        model_class = search_in_submodules('fedsim.models', model)
 
         # make mode and optimizer
         model = model_class().to(self.device)

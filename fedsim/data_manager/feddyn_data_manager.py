@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 import torchvision
 
-from data_manager.base_data_manager import BaseDataManager
+from fedsim.data_manager.base_data_manager import BaseDataManager
 
 
 class FedDynDataManager(BaseDataManager):

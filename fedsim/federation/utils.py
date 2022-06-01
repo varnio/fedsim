@@ -3,7 +3,6 @@ from inspect import signature
 import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.nn.utils.convert_parameters import _check_param_device
-from torch.nn import functional as F
 
 
 def get_metric_scores(metric_fn_dict, y_true, y_pred):

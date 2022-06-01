@@ -50,4 +50,9 @@ setup(
         'Programming Language :: Python :: 3'
     ],
     license='Apache License 2.0',
+    entry_points={
+        'console_scripts': [
+            'fedsim = fedsim.simulate:fed_learn',
+        ],
+    },
 )
