@@ -12,10 +12,16 @@ import random
 
 class BaseDataManager(object):
     def __init__(
-        self, root: str, dataset: str, num_clients: int, rule: str,
-        sample_balance: float, label_balance: float, seed: int, 
-        save_path: str = None,
-        ) -> None:
+        self,
+        root,
+        dataset,
+        num_clients,
+        rule,
+        sample_balance,
+        label_balance,
+        seed, 
+        save_path=None,
+    ):
         self.root = root
         self.dataset_name = dataset
         self.num_clients = num_clients
@@ -35,7 +41,7 @@ class BaseDataManager(object):
         # {'<split_name>': [<client index>:[<sample_index>,],]}
         self._local_parition_indices: Optional[
             Dict[Iterable[Iterable[int]]]
-            ] =  None
+        ] =  None
         # prepare stuff
         self._make_datasets()
         self._partition_local_data()
@@ -43,7 +49,7 @@ class BaseDataManager(object):
     def get_partitioning_name(self) -> str:
         partitioning_name = '{}_{}_{}'.format(
             self.dataset_name, self.num_clients, self.rule
-            )
+        )
         if self.rule == 'dir':
             partitioning_name += '_{}'.format(self.label_balance)
         if self.sample_balance == 0:
@@ -60,37 +66,38 @@ class BaseDataManager(object):
 
     def _make_datasets(self) -> None:
         self.local_data, self.global_data = self.make_datasets(
-            self.dataset_name, self.root, self.save_path,
-            )
+            self.dataset_name,
+            self.root,
+        )
     
     def _partition_local_data(self) -> None:
         if self.local_data is None:
             raise Exception(
                 "call a make_datasets that returns a dict of datasets first!"
-                )
+            )
         partitioning_name = self.get_partitioning_name()
         if os.path.exists(
             '{}/{}'.format(self.save_path, partitioning_name)
             ):
             with open(
                 os.path.join(self.save_path, partitioning_name + '.pkl'), 'rb'
-                ) as rfile:
+            ) as rfile:
                 self._local_parition_indices = pickle.load(rfile)    
         else:
 
             self._local_parition_indices = self.partition_local_data(
                 self.local_data, self.num_clients, self.rule, 
                 self.sample_balance, self.label_balance,
-                )
+            )
             # save on disk for later usage
             
             # create directories if not existing
             os.makedirs(
                 os.path.join(self.save_path), exist_ok=True
-                )
+            )
             with open(
                 os.path.join(self.save_path, partitioning_name + '.pkl'), 'wb'
-                ) as wfile:
+            ) as wfile:
                 pickle.dump(self._local_parition_indices, wfile)
 
     # *************************************************************************
@@ -100,8 +107,8 @@ class BaseDataManager(object):
             key: 
                 Subset(
                     value, self._local_parition_indices[key][id]
-                    ) for key, value in self.local_data.items()
-            }
+                ) for key, value in self.local_data.items()
+        }
     
     def get_group_dataset(self, ids: Iterable[int]) -> Dict[str, Dataset]:
         return {
@@ -110,22 +117,25 @@ class BaseDataManager(object):
                     value, 
                     [
                         i for id in ids \
-                            for i in self._local_parition_indices[key][id]]
-                    )
-                 for key, value in self.local_data.items()
-            }
+                            for i in self._local_parition_indices[key][id]
+                    ]
+                )
+                for key, value in self.local_data.items()
+        }
     def get_oracle_dataset(self) -> Dict[str, Dataset]:
         return {
             key: value for key, value in self.local_data.items()
-            }
+        }
             
     def get_global_dataset(self) -> Dict[str, Dataset]:
         return self.global_data
     # *************************************************************************
     # to implement by child
     def make_datasets(
-        self, dataset_name: str, root: str, save_path: str,
-        ) -> Iterable[Dict[str, object]]:
+        self, 
+        dataset_name: str,
+        root: str,
+    ) -> Iterable[Dict[str, object]]:
         """Abstract method to be implemented by child class.
 
         Args:
@@ -143,7 +153,11 @@ class BaseDataManager(object):
         raise NotImplementedError
 
     def partition_local_data(
-        self, datasets: Dict[str, object], num_clients: int, rule: str, 
-        sample_balance: float,label_balance: float,
-        ) -> Dict[str, Iterable[Iterable[int]]]:
+        self, 
+        datasets: Dict[str, object], 
+        num_clients: int, 
+        rule: str, 
+        sample_balance: float,
+        label_balance: float,
+    ) -> Dict[str, Iterable[Iterable[int]]]:
         raise NotImplementedError
