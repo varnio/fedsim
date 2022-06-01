@@ -39,7 +39,7 @@ setup(
         'Intended Audience :: Developers', 'Intended Audience :: Education',
         'Intended Audience :: Science/Research',
         'Intended Audience :: Information Technology'
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: Apache Software License',
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Mathematics',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
@@ -49,5 +49,5 @@ setup(
         'Topic :: System :: Distributed Computing',
         'Programming Language :: Python :: 3'
     ],
-    license='MIT License',
+    license='Apache License 2.0',
 )
