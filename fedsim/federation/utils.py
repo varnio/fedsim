@@ -6,7 +6,6 @@ from torch.nn.utils.convert_parameters import _check_param_device
 from torch.nn import functional as F
 
 
-
 def get_metric_scores(metric_fn_dict, y_true, y_pred):
     answer = {}
     if metric_fn_dict is None:
@@ -29,18 +28,16 @@ def get_metric_scores(metric_fn_dict, y_true, y_pred):
     return answer
 
 
-def default_closure(
-    x,
-    y,
-    model,
-    loss_fn,
-    optimizer,
-    metric_fn_dict, 
-    max_grad_norm=1000,
-    link_fn=partial(torch.argmax, dim=1),
-    device='cpu',
-    **kwargs
-):  
+def default_closure(x,
+                    y,
+                    model,
+                    loss_fn,
+                    optimizer,
+                    metric_fn_dict,
+                    max_grad_norm=1000,
+                    link_fn=partial(torch.argmax, dim=1),
+                    device='cpu',
+                    **kwargs):
     y_true = y.tolist()
     x = x.to(device)
     y = y.reshape(-1).long()
@@ -52,8 +49,8 @@ def default_closure(
         return loss
     # backpropagation
     loss.backward()
-     # Clip gradients
-    clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm) 
+    # Clip gradients
+    clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm)
     # optimize
     optimizer.step()
     optimizer.zero_grad()
@@ -73,8 +70,8 @@ def vector_to_parameters_like(vec, parameters_like):
     """
     # Ensure vec of type Tensor
     if not isinstance(vec, torch.Tensor):
-        raise TypeError('expected torch.Tensor, but got: {}'
-                        .format(torch.typename(vec)))
+        raise TypeError('expected torch.Tensor, but got: {}'.format(
+            torch.typename(vec)))
     # Flag for the device where the parameter is located
     param_device = None
 
@@ -87,7 +84,7 @@ def vector_to_parameters_like(vec, parameters_like):
 
         # The length of the parameter
         num_param = param.numel()
-        # Slice the vector, reshape it, and replace the old data of the 
+        # Slice the vector, reshape it, and replace the old data of the
         # parameter
         new_params.append(vec[pointer:pointer + num_param].view_as(param).data)
 

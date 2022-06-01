@@ -5,6 +5,7 @@ from torchvision.transforms import Resize
 
 
 class mlp_mnist(nn.Module):
+
     def __init__(self, num_classes=10, num_channels=1):
         super(mlp_mnist, self).__init__()
 
@@ -12,7 +13,7 @@ class mlp_mnist(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(num_channels*28*28, 200),
+            nn.Linear(num_channels * 28 * 28, 200),
             nn.ReLU(),
             nn.Linear(200, 200),
             nn.ReLU(),
@@ -24,7 +25,9 @@ class mlp_mnist(nn.Module):
         x = self.classifier(x)
         return x
 
+
 class cnn_mnist(nn.Module):
+
     def __init__(self, num_classes=10, num_channels=1):
         super(cnn_mnist, self).__init__()
 
@@ -41,7 +44,7 @@ class cnn_mnist(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(64*7*7, 512),
+            nn.Linear(64 * 7 * 7, 512),
             nn.ReLU(),
             nn.Linear(512, num_classes),
         )
@@ -54,33 +57,32 @@ class cnn_mnist(nn.Module):
 
 
 class cnn_cifar10(nn.Module):
-    def __init__(self, num_classes=10, num_channels=3, input_size=(24,24)):
+
+    def __init__(self, num_classes=10, num_channels=3, input_size=(24, 24)):
         super(cnn_cifar10, self).__init__()
 
         self.resize = Resize(input_size)
 
         self.feature_extractor = nn.Sequential(
-            nn.Conv2d(
-                num_channels, 
-                64, 
-                kernel_size=5, 
-                stride=1, 
-                padding='same'
-                ),
+            nn.Conv2d(num_channels,
+                      64,
+                      kernel_size=5,
+                      stride=1,
+                      padding='same'),
             nn.ReLU(),
             nn.ZeroPad2d((0, 1, 0, 1)),
             nn.MaxPool2d(3, stride=2, padding=0),
-            nn.LocalResponseNorm(4, alpha=0.001/9),
+            nn.LocalResponseNorm(4, alpha=0.001 / 9),
             nn.Conv2d(64, 64, kernel_size=5, stride=1, padding='same'),
             nn.ReLU(),
-            nn.LocalResponseNorm(4, alpha=0.001/9),
-            nn.ZeroPad2d((0, 1, 0, 1)), 
+            nn.LocalResponseNorm(4, alpha=0.001 / 9),
+            nn.ZeroPad2d((0, 1, 0, 1)),
             nn.MaxPool2d(3, stride=2, padding=0),
         )
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(64*6*6, 384),
+            nn.Linear(64 * 6 * 6, 384),
             nn.ReLU(),
             nn.Linear(384, 192),
             nn.ReLU(),

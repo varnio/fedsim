@@ -8,19 +8,24 @@ FedSim is a Generic Federated Learning Simulator. It aims to provide the researc
 
 
 # Supported Datasets
-- [ ] MNIST
+- MNIST
 
 # Supported Architectures
-- [ ] McMahan's 2 layer mlp for MNIST
-- [ ] McMahan's CNN for CIFAR10 and CIFAR100
+- McMahan's 2 layer mlp for MNIST
+- McMahan's CNN for CIFAR10 and CIFAR100
 
 
 
 # Contributor's Guide
-- [ ] We use PEP-8's recommendation for the maximul lenght of each line. 
+- We use PEP-8's recommendation for the maximul lenght of each line. 
 That is "79 characters (and docstrings/comments to 72)." 
 If you are not motivated on why this is important, please see [this answer](https://stackoverflow.com/a/2793525/9784436) on stack overflow.
 
-- [ ] For now, type hinting is only used for variables or arguments that otherwise are confused.
+- We use `yapf` for formatting the style of the code. Before your merge request:
+    - make sure `yapf` is installed.
+    - inyour terminal, locate at the root of the project
+    - launch the following command: `yapf -ir -vv --no-local-style ./`
+
+- For now, type hinting is only used for variables or arguments that otherwise are confused.
 
 

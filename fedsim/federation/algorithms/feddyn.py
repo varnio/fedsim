@@ -8,21 +8,23 @@ from functools import partial
 
 import torch
 
-from federation.algorithms.feddyn import Algorithm
+from federation.algorithms.fedavg import Algorithm
 from federation.evaluation import local_train_val, inference
 from federation.utils import vector_to_parameters_like, get_metric_scores
 from utils import add_in_dict, add_dict_to_dict, apply_on_dict
 
+
 class Algorithm(Algorithm):
+
     def __init__(
-        self, 
-        data_manager, 
-        num_clients, 
-        sample_scheme, 
-        sample_rate, 
-        model, 
-        epochs, 
-        loss_fn, 
+        self,
+        data_manager,
+        num_clients,
+        sample_scheme,
+        sample_rate,
+        model,
+        epochs,
+        loss_fn,
         batch_size,
         test_batch_size,
         local_weight_decay,
@@ -61,22 +63,21 @@ class Algorithm(Algorithm):
             log_freq,
             verbosity,
         )
-        
+
         cloud_params = self.read_server('cloud_params')
         self.write_server('avg_params', cloud_params.detach().clone())
-
+        self.write_server('h', torch.zeros_like(cloud_params))
         for client_id in range(num_clients):
             self.write_client(client_id, 'h', torch.zeros_like(cloud_params))
-            self.write_client(client_id, 'last_round', -1 )
         # oracle read violation, num_clients read violation
         average_sample = len(self.oracle_dataset['train']) / self.num_clients
         self.write_server('average_sample', average_sample)
-    
+
     def assign_default_params(self):
-        return dict(mu=0.01, beta=0.9)
+        return dict(mu=0.01)
 
     def send_to_server(
-        self, 
+        self,
         client_id,
         datasets,
         epochs,
@@ -87,34 +88,32 @@ class Algorithm(Algorithm):
         device='cuda',
         ctx=None,
     ):
-        data_split_name = 'train' 
+        data_split_name = 'train'
         # create train data loader
         train_laoder = DataLoader(
-            datasets[data_split_name], 
-            batch_size=batch_size, 
+            datasets[data_split_name],
+            batch_size=batch_size,
             shuffle=False,
         )
         model = ctx['model']
         optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
-        
+
         params_init = parameters_to_vector(model.parameters()).detach().clone()
         h = self.read_client(client_id, 'h')
         mu_adaptive = self.mu / len(datasets['train']) *\
             self.read_server('average_sample')
 
         # closure to be performed at each local step
-        def step_closure(
-            x,
-            y,
-            model,
-            loss_fn,
-            optimizer,
-            metric_fn_dict, 
-            max_grad_norm=1000,
-            link_fn=partial(torch.argmax, dim=1),
-            device='cpu',
-            **kwargs
-        ):  
+        def step_closure(x,
+                         y,
+                         model,
+                         loss_fn,
+                         optimizer,
+                         metric_fn_dict,
+                         max_grad_norm=1000,
+                         link_fn=partial(torch.argmax, dim=1),
+                         device='cpu',
+                         **kwargs):
             y_true = y.tolist()
             x = x.to(device)
             y = y.reshape(-1).long()
@@ -126,39 +125,36 @@ class Algorithm(Algorithm):
                 return loss
             # backpropagation
             loss.backward()
-            grad_additive = - h
+            params = parameters_to_vector(model.parameters())
+            grad_additive = 0.5 * (params - params_init) - h
             grad_additive_list = vector_to_parameters_like(
-                mu_adaptive * grad_additive, model.parameters()
-            )
+                mu_adaptive * grad_additive, model.parameters())
 
             for p, g_a in zip(model.parameters(), grad_additive_list):
                 p.grad += g_a
             # Clip gradients
-            clip_grad_norm_(
-                parameters=model.parameters(), 
-                max_norm=max_grad_norm
-            ) 
+            clip_grad_norm_(parameters=model.parameters(),
+                            max_norm=max_grad_norm)
             # optimize
             optimizer.step()
             optimizer.zero_grad()
             y_pred = link_fn(outputs).tolist()
             metrics = get_metric_scores(metric_fn_dict, y_true, y_pred)
             return loss, metrics
-        
+
         # optimize the model locally
-        opt_result = local_train_val(
-            model,
-            train_laoder,
-            epochs,
-            0,
-            loss_fn,
-            optimizer,
-            device,
-            metric_fn_dict={
-                '{}_accuracy'.format(data_split_name): accuracy_score,
-            },
-            step_closure=step_closure
-        )
+        opt_result = local_train_val(model,
+                                     train_laoder,
+                                     epochs,
+                                     0,
+                                     loss_fn,
+                                     optimizer,
+                                     device,
+                                     metric_fn_dict={
+                                         '{}_accuracy'.format(data_split_name):
+                                         accuracy_score,
+                                     },
+                                     step_closure=step_closure)
         num_train_samples, num_steps, diverged, loss, metrics = opt_result
 
         # update local h
@@ -166,11 +162,8 @@ class Algorithm(Algorithm):
             params_init - \
             parameters_to_vector(model.parameters()).detach().clone().data
             )
-        t = self.rounds
-        new_h = 1 / (t - self.read_client(client_id, 'last_round')) * h +\
-            pseudo_grads
+        new_h = h + pseudo_grads
         self.write_client(client_id, 'h', new_h)
-        self.write_client(client_id, 'last_round', self.rounds)
 
         # return optimized model parameters and number of train samples
         return dict(
@@ -182,6 +175,30 @@ class Algorithm(Algorithm):
             metrics=metrics,
         )
 
+    def receive_from_client(self, client_id, client_msg, aggregation_results):
+
+        params = client_msg['local_params'].clone().detach().data
+        n_samples = client_msg['num_samples']
+        n_steps = client_msg['num_steps']
+        diverged = client_msg['diverged']
+        loss = client_msg['trian_loss']
+        metrics = client_msg['metrics']
+
+        if diverged:
+            print('client {} diverged'.format(client_id))
+            print('exiting ...')
+            sys.exit(1)
+
+        add_in_dict('local_params', params, aggregation_results, scale=1)
+        add_in_dict('num_samples', n_samples, aggregation_results)
+        add_in_dict('num_steps', n_steps, aggregation_results)
+        add_in_dict('trian_loss', loss, aggregation_results, scale=n_steps)
+        add_in_dict('counter', 1, aggregation_results)
+        add_dict_to_dict(metrics, aggregation_results, scale=n_steps)
+
+        # purge client info
+        del client_msg
+
     def optimize(self, lr, aggr_results):
 
         # get average gradient
@@ -189,10 +206,12 @@ class Algorithm(Algorithm):
         if n_samples > 0:
             counter = n_samples = aggr_results.pop('counter')
             param_avg = aggr_results.pop('local_params') / counter
-            
+
             cloud_params = self.read_server('cloud_params')
+            pseudo_grads = cloud_params - param_avg
+            h = self.read_server('h')
             # read total clients violation
-            h = self.beta * (self.read_server('avg_params') - param_avg)
+            h = h + counter / self.num_clients * pseudo_grads
             new_params = param_avg - h
 
             modified_pseudo_grads = cloud_params - new_params
@@ -200,15 +219,39 @@ class Algorithm(Algorithm):
             new_params = cloud_params.data - lr * modified_pseudo_grads.data
             self.write_server('cloud_params', new_params)
             self.write_server('avg_params', param_avg.detach().clone())
-            
+            self.write_server('h', h.data)
+
             # prepare for report
             n_steps = aggr_results.pop('num_steps')
             normalized_metrics = apply_on_dict(
                 aggr_results,
-                lambda _, value: value/n_steps, 
-                return_as_dict=True
-            )
+                lambda _, value: value / n_steps,
+                return_as_dict=True)
             # purge aggregated results
             del param_avg
         return normalized_metrics
 
+    def report(self, dataloaders, metric_logger, device, optimize_reports):
+        # load cloud stuff
+        deployment_points = dict(
+            cloud=self.read_server('cloud_params'),
+            avg=self.read_server('avg_params'),
+        )
+        model = self.read_server('model')
+
+        for point_name, point in deployment_points.items():
+            # copy cloud params to cloud model to send to the client
+            vector_to_parameters(point.detach().clone().data,
+                                 model.parameters())
+
+            for key, loader in dataloaders.items():
+                metrics, _ = inference(
+                    model,
+                    loader,
+                    {'{}.{}_accuracy'.format(point_name, key): accuracy_score},
+                    device=device,
+                )
+                t = self.rounds
+                log_fn = metric_logger.add_scalar
+                apply_on_dict(metrics, log_fn, global_step=t)
+        apply_on_dict(optimize_reports, log_fn, global_step=t)
