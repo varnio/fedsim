@@ -7,10 +7,10 @@ from functools import partial
 
 import torch
 
-from federation.algorithms.feddyn import Algorithm
-from federation.evaluation import local_train_val, inference
-from federation.utils import vector_to_parameters_like, get_metric_scores
-from utils import apply_on_dict
+from fedsim.federation.algorithms.feddyn import Algorithm
+from fedsim.federation.evaluation import local_train_val, inference
+from fedsim.federation.utils import vector_to_parameters_like, get_metric_scores
+from fedsim.utils import apply_on_dict
 
 
 class Algorithm(Algorithm):
