@@ -1,19 +1,19 @@
 from torch.optim import SGD
 from torch.utils.data import DataLoader
-from torch.nn.utils import parameters_to_vector, vector_to_parameters
+from torch.nn.utils import parameters_to_vector
 from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
 from functools import partial
 
 import torch
 
-from fedsim.federation.algorithms.feddyn import Algorithm
-from fedsim.federation.evaluation import local_train_val, inference
+from fedsim.federation.algorithms import feddyn
+from fedsim.federation.evaluation import local_train_val
 from fedsim.federation.utils import vector_to_parameters_like, get_metric_scores
 from fedsim.utils import apply_on_dict
 
 
-class Algorithm(Algorithm):
+class Algorithm(feddyn):
 
     def __init__(
         self,

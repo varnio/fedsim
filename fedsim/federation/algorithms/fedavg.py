@@ -150,10 +150,7 @@ class Algorithm(BaseAlgorithm):
             print('exiting ...')
             sys.exit(1)
 
-        add_in_dict('local_params',
-                    params,
-                    aggregation_results,
-                    scale=weight)
+        add_in_dict('local_params', params, aggregation_results, scale=weight)
         add_in_dict('weight', weight, aggregation_results)
         add_in_dict('num_samples', n_samples, aggregation_results)
         add_in_dict('num_steps', n_steps, aggregation_results)
@@ -166,7 +163,6 @@ class Algorithm(BaseAlgorithm):
     def receive_from_client(self, client_id, client_msg, aggregation_results):
         weight = client_msg['num_samples']
         self.agg(client_id, client_msg, aggregation_results, weight=weight)
-        
 
     def optimize(self, lr, aggr_results):
         # get average gradient

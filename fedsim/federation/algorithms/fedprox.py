@@ -1,19 +1,19 @@
-from torch.optim import SGD
 from torch.utils.data import DataLoader
-from torch.nn.utils import parameters_to_vector, vector_to_parameters
-from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
+from fedsim.federation.evaluation import local_train_val
+from torch.nn.utils import parameters_to_vector
+from torch.optim import SGD
 from functools import partial
-
+from torch.nn.utils import clip_grad_norm_
 import torch
 
-from fedsim.federation.algorithms import fedavg
-from fedsim.federation.evaluation import local_train_val, inference
 from fedsim.federation.utils import (
     vector_to_parameters_like,
     get_metric_scores,
 )
-from fedsim.utils import apply_on_dict
+
+
+from fedsim.federation.algorithms import fedavg
 
 
 class Algorithm(fedavg.Algorithm):
@@ -66,17 +66,8 @@ class Algorithm(fedavg.Algorithm):
             verbosity,
         )
 
-        cloud_params = self.read_server('cloud_params')
-        self.write_server('avg_params', cloud_params.detach().clone())
-        self.write_server('h', torch.zeros_like(cloud_params))
-        for client_id in range(num_clients):
-            self.write_client(client_id, 'h', torch.zeros_like(cloud_params))
-        # oracle read violation, num_clients read violation
-        average_sample = len(self.oracle_dataset['train']) / self.num_clients
-        self.write_server('average_sample', average_sample)
-
     def assign_default_params(self):
-        return dict(mu=0.01)
+        return dict(mu=0.0001)
 
     def send_to_server(
         self,
@@ -101,10 +92,7 @@ class Algorithm(fedavg.Algorithm):
         optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
 
         params_init = parameters_to_vector(model.parameters()).detach().clone()
-        h = self.read_client(client_id, 'h')
-        mu_adaptive = self.mu / len(datasets['train']) *\
-            self.read_server('average_sample')
-
+        mu = self.mu
         # closure to be performed at each local step
         def step_closure(x,
                          y,
@@ -128,9 +116,9 @@ class Algorithm(fedavg.Algorithm):
             # backpropagation
             loss.backward()
             params = parameters_to_vector(model.parameters())
-            grad_additive = 0.5 * (params - params_init) - h
+            grad_additive = 0.5 * (params - params_init)
             grad_additive_list = vector_to_parameters_like(
-                mu_adaptive * grad_additive, model.parameters())
+                mu * grad_additive, model.parameters())
 
             for p, g_a in zip(model.parameters(), grad_additive_list):
                 p.grad += g_a
@@ -158,15 +146,6 @@ class Algorithm(fedavg.Algorithm):
                                      },
                                      step_closure=step_closure)
         num_train_samples, num_steps, diverged, loss, metrics = opt_result
-
-        # update local h
-        pseudo_grads = (
-            params_init - \
-            parameters_to_vector(model.parameters()).detach().clone().data
-            )
-        new_h = h + pseudo_grads
-        self.write_client(client_id, 'h', new_h)
-
         # return optimized model parameters and number of train samples
         return dict(
             local_params=parameters_to_vector(model.parameters()),
@@ -176,64 +155,3 @@ class Algorithm(fedavg.Algorithm):
             trian_loss=loss,
             metrics=metrics,
         )
-
-    def receive_from_client(self, client_id, client_msg, aggregation_results):
-        weight = 1
-        self.agg(client_id, client_msg, aggregation_results, weight=weight)
-
-    def optimize(self, lr, aggr_results):
-
-        # get average gradient
-        n_samples = aggr_results.pop('num_samples')
-        weight = aggr_results.pop('weight')
-        if n_samples > 0:
-            param_avg = aggr_results.pop('local_params') / weight
-
-            cloud_params = self.read_server('cloud_params')
-            pseudo_grads = cloud_params - param_avg
-            h = self.read_server('h')
-            # read total clients violation
-            h = h + weight / self.num_clients * pseudo_grads
-            new_params = param_avg - h
-
-            modified_pseudo_grads = cloud_params - new_params
-            # apply sgd
-            new_params = cloud_params.data - lr * modified_pseudo_grads.data
-            self.write_server('cloud_params', new_params)
-            self.write_server('avg_params', param_avg.detach().clone())
-            self.write_server('h', h.data)
-
-            # prepare for report
-            n_steps = aggr_results.pop('num_steps')
-            normalized_metrics = apply_on_dict(
-                aggr_results,
-                lambda _, value: value / n_steps,
-                return_as_dict=True)
-            # purge aggregated results
-            del param_avg
-        return normalized_metrics
-
-    def report(self, dataloaders, metric_logger, device, optimize_reports):
-        # load cloud stuff
-        deployment_points = dict(
-            cloud=self.read_server('cloud_params'),
-            avg=self.read_server('avg_params'),
-        )
-        model = self.read_server('model')
-
-        for point_name, point in deployment_points.items():
-            # copy cloud params to cloud model to send to the client
-            vector_to_parameters(point.detach().clone().data,
-                                 model.parameters())
-
-            for key, loader in dataloaders.items():
-                metrics, _ = inference(
-                    model,
-                    loader,
-                    {'{}.{}_accuracy'.format(point_name, key): accuracy_score},
-                    device=device,
-                )
-                t = self.rounds
-                log_fn = metric_logger.add_scalar
-                apply_on_dict(metrics, log_fn, global_step=t)
-        apply_on_dict(optimize_reports, log_fn, global_step=t)
