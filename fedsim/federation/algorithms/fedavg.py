@@ -137,8 +137,7 @@ class Algorithm(BaseAlgorithm):
             metrics=metrics,
         )
 
-    def receive_from_client(self, client_id, client_msg, aggregation_results):
-
+    def agg(self, client_id, client_msg, aggregation_results, weight=1):
         params = client_msg['local_params'].clone().detach().data
         n_samples = client_msg['num_samples']
         n_steps = client_msg['num_steps']
@@ -154,7 +153,8 @@ class Algorithm(BaseAlgorithm):
         add_in_dict('local_params',
                     params,
                     aggregation_results,
-                    scale=n_samples)
+                    scale=weight)
+        add_in_dict('weight', weight, aggregation_results)
         add_in_dict('num_samples', n_samples, aggregation_results)
         add_in_dict('num_steps', n_steps, aggregation_results)
         add_in_dict('trian_loss', loss, aggregation_results, scale=n_steps)
@@ -163,11 +163,17 @@ class Algorithm(BaseAlgorithm):
         # purge client info
         del client_msg
 
+    def receive_from_client(self, client_id, client_msg, aggregation_results):
+        weight = client_msg['num_samples']
+        self.agg(client_id, client_msg, aggregation_results, weight=weight)
+        
+
     def optimize(self, lr, aggr_results):
         # get average gradient
         n_samples = aggr_results.pop('num_samples')
+        weight = aggr_results.pop('weight')
         if n_samples > 0:
-            param_avg = aggr_results.pop('local_params') / n_samples
+            param_avg = aggr_results.pop('local_params') / weight
 
             cloud_params = self.read_server('cloud_params')
             pseudo_grads = cloud_params - param_avg

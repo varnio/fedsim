@@ -181,9 +181,9 @@ class Algorithm(Algorithm):
 
         # get average gradient
         n_samples = aggr_results.pop('num_samples')
+        weight = aggr_results.pop('weight')
         if n_samples > 0:
-            counter = n_samples = aggr_results.pop('counter')
-            param_avg = aggr_results.pop('local_params') / counter
+            param_avg = aggr_results.pop('local_params') / weight
 
             cloud_params = self.read_server('cloud_params')
             # read total clients violation

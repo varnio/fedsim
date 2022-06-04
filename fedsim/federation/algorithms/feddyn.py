@@ -8,13 +8,16 @@ from functools import partial
 
 import torch
 
-from fedsim.federation.algorithms.fedavg import Algorithm
+from fedsim.federation.algorithms import fedavg
 from fedsim.federation.evaluation import local_train_val, inference
-from fedsim.federation.utils import vector_to_parameters_like, get_metric_scores
+from fedsim.federation.utils import (
+    vector_to_parameters_like,
+    get_metric_scores,
+)
 from fedsim.utils import add_in_dict, add_dict_to_dict, apply_on_dict
 
 
-class Algorithm(Algorithm):
+class Algorithm(fedavg.Algorithm):
 
     def __init__(
         self,
@@ -176,42 +179,23 @@ class Algorithm(Algorithm):
         )
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):
+        weight = 1
+        self.agg(client_id, client_msg, aggregation_results, weight=weight)
 
-        params = client_msg['local_params'].clone().detach().data
-        n_samples = client_msg['num_samples']
-        n_steps = client_msg['num_steps']
-        diverged = client_msg['diverged']
-        loss = client_msg['trian_loss']
-        metrics = client_msg['metrics']
-
-        if diverged:
-            print('client {} diverged'.format(client_id))
-            print('exiting ...')
-            sys.exit(1)
-
-        add_in_dict('local_params', params, aggregation_results, scale=1)
-        add_in_dict('num_samples', n_samples, aggregation_results)
-        add_in_dict('num_steps', n_steps, aggregation_results)
-        add_in_dict('trian_loss', loss, aggregation_results, scale=n_steps)
-        add_in_dict('counter', 1, aggregation_results)
-        add_dict_to_dict(metrics, aggregation_results, scale=n_steps)
-
-        # purge client info
-        del client_msg
 
     def optimize(self, lr, aggr_results):
 
         # get average gradient
         n_samples = aggr_results.pop('num_samples')
+        weight = aggr_results.pop('weight')
         if n_samples > 0:
-            counter = n_samples = aggr_results.pop('counter')
-            param_avg = aggr_results.pop('local_params') / counter
+            param_avg = aggr_results.pop('local_params') / weight
 
             cloud_params = self.read_server('cloud_params')
             pseudo_grads = cloud_params - param_avg
             h = self.read_server('h')
             # read total clients violation
-            h = h + counter / self.num_clients * pseudo_grads
+            h = h + weight / self.num_clients * pseudo_grads
             new_params = param_avg - h
 
             modified_pseudo_grads = cloud_params - new_params
