@@ -1,3 +1,9 @@
+r""" This file contains an implementation of the following paper:
+    Title: "Minimizing Client Drift in Federated Learning via Adaptive Bias Estimation"
+    Authors: Farshid Varno, Marzie Saghayi, Laya Rafiee, Sharut Gupta, Stan Matwin, Mohammad Havaei
+    Publication date: [Submitted on 27 Apr 2022 (v1), last revised 23 May 2022 (this version, v2)]
+    Link: https://arxiv.org/abs/2204.13170
+"""
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.nn.utils import parameters_to_vector

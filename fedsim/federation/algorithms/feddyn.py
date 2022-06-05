@@ -1,3 +1,9 @@
+r""" This file contains an implementation of the following paper:
+    Title: "Federated Learning Based on Dynamic Regularization"
+    Authors: Durmus Alp Emre Acar, Yue Zhao, Ramon Matas, Matthew Mattina, Paul Whatmough, Venkatesh Saligrama
+    Publication date: [28 Sept 2020 (modified: 25 Mar 2021)]
+    Link: https://openreview.net/forum?id=B7v4QMR6Z9w
+"""
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.nn.utils import parameters_to_vector, vector_to_parameters

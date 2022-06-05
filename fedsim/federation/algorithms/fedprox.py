@@ -1,3 +1,9 @@
+r""" This file contains an implementation of the following paper:
+    Title: "Federated Optimization in Heterogeneous Networks"
+    Authors: Tian Li, Anit Kumar Sahu, Manzil Zaheer, Maziar Sanjabi, Ameet Talwalkar, Virginia Smith
+    Publication date: [Submitted on 14 Dec 2018 (v1), last revised 21 Apr 2020 (this version, v5)]
+    Link: https://arxiv.org/abs/1812.06127
+"""
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score
 from fedsim.federation.evaluation import local_train_val
