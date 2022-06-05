@@ -215,9 +215,10 @@ class BaseAlgorithm(object):
     def deploy(self):
         raise NotImplementedError
 
-    def report(
-        self, dataloaders, metric_logger: Any, device: str,
-        optimize_reports: Mapping[Hashable, Any], 
-        deployment_points: Mapping[Hashable, torch.Tensor] = None
-    ):
+    def report(self,
+               dataloaders,
+               metric_logger: Any,
+               device: str,
+               optimize_reports: Mapping[Hashable, Any],
+               deployment_points: Mapping[Hashable, torch.Tensor] = None):
         raise NotImplementedError

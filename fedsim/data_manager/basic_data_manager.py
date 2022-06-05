@@ -80,23 +80,21 @@ class BasicDataManager(BaseDataManager):
                 torchvision.transforms.ToTensor(),
                 torchvision.transforms.RandomCrop(24),
                 torchvision.transforms.RandomHorizontalFlip(),
-                torchvision.transforms.ColorJitter(
-                    brightness=(0.5, 1.5),
-                    contrast=(0.5, 1.5)
-                ),
+                torchvision.transforms.ColorJitter(brightness=(0.5, 1.5),
+                                                   contrast=(0.5, 1.5)),
             ])
             local_datasets = dict(train=dst_class(root=root,
-                                              download=True,
-                                              train=True,
-                                              transform=train_transform))
+                                                  download=True,
+                                                  train=True,
+                                                  transform=train_transform))
             test_transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
                 torchvision.transforms.CenterCrop(24),
             ])
             global_datasets = dict(test=dst_class(root=root,
-                                              download=True,
-                                              train=False,
-                                              transform=test_transform))
+                                                  download=True,
+                                                  train=False,
+                                                  transform=test_transform))
             return local_datasets, global_datasets
 
         raise NotImplementedError
@@ -109,7 +107,7 @@ class BasicDataManager(BaseDataManager):
             targets = np.array(dataset.targets)
             all_sample_count = len(targets)
             num_classes = np.unique(targets)
-            # the special case of exclusive rule: 
+            # the special case of exclusive rule:
             if self.rule == 'exclusive':
                 # TODO: implement this
                 raise NotImplementedError
@@ -118,7 +116,7 @@ class BasicDataManager(BaseDataManager):
             #     for label, label_count in enumerate(label_counts):
             #         # randomly select k clients
             #         # determine the quota for each client from a lognorm
-            #         # reassign the 
+            #         # reassign the
             # *********************************************************
             # determine sample quota for each client
 

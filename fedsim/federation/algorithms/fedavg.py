@@ -196,27 +196,28 @@ class Algorithm(BaseAlgorithm):
     def deploy(self):
         return dict(avg=self.read_server('cloud_params'), )
 
-    def report(
-        self,
-        dataloaders,
-        metric_logger,
-        device,
-        optimize_reports,
-        deployment_points=None
-    ):
+    def report(self,
+               dataloaders,
+               metric_logger,
+               device,
+               optimize_reports,
+               deployment_points=None):
         model = self.read_server('model')
 
         if deployment_points is not None:
             for point_name, point in deployment_points.items():
                 # copy cloud params to cloud model to send to the client
                 vector_to_parameters(point.detach().clone().data,
-                                    model.parameters())
+                                     model.parameters())
 
                 for key, loader in dataloaders.items():
                     metrics, _ = inference(
                         model,
                         loader,
-                        {'{}.{}_accuracy'.format(point_name, key): accuracy_score},
+                        {
+                            '{}.{}_accuracy'.format(point_name, key):
+                            accuracy_score
+                        },
                         device=device,
                     )
                     t = self.rounds
