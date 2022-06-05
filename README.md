@@ -35,9 +35,9 @@ fedsim --help
 
 # TODO
 - [ ] fix the implemntation of adabest (auto avg_m as paper proposed)
-- [ ] add impolementation of scaffold
+- [ ] add implementation of scaffold
 - [ ] publish the code
-
+- [ ] add doc (sphinx)
 
 
 # Contributor's Guide
