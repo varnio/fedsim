@@ -70,7 +70,7 @@ class Algorithm(BaseAlgorithm):
         model = model_class().to(self.device)
         params = deepcopy(
             parameters_to_vector(model.parameters()).clone().detach())
-        optimizer = SGD(params=model.parameters(), lr=slr)
+        optimizer = SGD(params=[params], lr=slr)
         # write model and optimizer to server
         self.write_server('model', model)
         self.write_server('cloud_params', params)
@@ -164,18 +164,19 @@ class Algorithm(BaseAlgorithm):
         weight = client_msg['num_samples']
         self.agg(client_id, client_msg, aggregation_results, weight=weight)
 
-    def optimize(self, lr, aggr_results):
+    def optimize(self, aggr_results):
         # get average gradient
         n_samples = aggr_results.pop('num_samples')
         weight = aggr_results.pop('weight')
         if n_samples > 0:
             param_avg = aggr_results.pop('local_params') / weight
-
+            optimizer = self.read_server('optimizer')
             cloud_params = self.read_server('cloud_params')
-            pseudo_grads = cloud_params - param_avg
-            # apply sgd
-            new_params = cloud_params.data - lr * pseudo_grads.data
-            self.write_server('cloud_params', new_params)
+            pseudo_grads = cloud_params.data - param_avg
+            # update cloud params
+            optimizer.zero_grad()
+            cloud_params.grad = pseudo_grads
+            optimizer.step()
 
             # prepare for report
             n_steps = aggr_results.pop('num_steps')

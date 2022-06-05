@@ -181,25 +181,26 @@ class Algorithm(fedavg.Algorithm):
         weight = 1
         self.agg(client_id, client_msg, aggregation_results, weight=weight)
 
-    def optimize(self, lr, aggr_results):
+    def optimize(self, aggr_results):
 
         # get average gradient
         n_samples = aggr_results.pop('num_samples')
         weight = aggr_results.pop('weight')
         if n_samples > 0:
             param_avg = aggr_results.pop('local_params') / weight
-
+            optimizer = self.read_server('optimizer')
             cloud_params = self.read_server('cloud_params')
-            pseudo_grads = cloud_params - param_avg
+            pseudo_grads = cloud_params.data - param_avg
             h = self.read_server('h')
-            # read total clients violation
+            # read total clients VIOLATION
             h = h + weight / self.num_clients * pseudo_grads
             new_params = param_avg - h
 
-            modified_pseudo_grads = cloud_params - new_params
-            # apply sgd
-            new_params = cloud_params.data - lr * modified_pseudo_grads.data
-            self.write_server('cloud_params', new_params)
+            modified_pseudo_grads = cloud_params.data - new_params
+            # update cloud params
+            optimizer.zero_grad()
+            cloud_params.grad = modified_pseudo_grads
+            optimizer.step()
             self.write_server('avg_params', param_avg.detach().clone())
             self.write_server('h', h.data)
 

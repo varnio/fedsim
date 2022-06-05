@@ -13,7 +13,7 @@ from fedsim.federation.utils import vector_to_parameters_like, get_metric_scores
 from fedsim.utils import apply_on_dict
 
 
-class Algorithm(feddyn):
+class Algorithm(feddyn.Algorithm):
 
     def __init__(
         self,
@@ -177,23 +177,24 @@ class Algorithm(feddyn):
             metrics=metrics,
         )
 
-    def optimize(self, lr, aggr_results):
+    def optimize(self, aggr_results):
 
         # get average gradient
         n_samples = aggr_results.pop('num_samples')
         weight = aggr_results.pop('weight')
         if n_samples > 0:
             param_avg = aggr_results.pop('local_params') / weight
-
+            optimizer = self.read_server('optimizer')
             cloud_params = self.read_server('cloud_params')
             # read total clients violation
             h = self.beta * (self.read_server('avg_params') - param_avg)
             new_params = param_avg - h
 
-            modified_pseudo_grads = cloud_params - new_params
-            # apply sgd
-            new_params = cloud_params.data - lr * modified_pseudo_grads.data
-            self.write_server('cloud_params', new_params)
+            modified_pseudo_grads = cloud_params.data - new_params
+            # update cloud params
+            optimizer.zero_grad()
+            cloud_params.grad = modified_pseudo_grads
+            optimizer.step()
             self.write_server('avg_params', param_avg.detach().clone())
 
             # prepare for report

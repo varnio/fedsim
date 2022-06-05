@@ -153,7 +153,7 @@ class BaseAlgorithm(object):
                                         aggregation_results)
 
     def _optimize(self, aggr_results):
-        reports = self.optimize(self.slr, aggr_results)
+        reports = self.optimize(aggr_results)
         # purge aggregated results
         del aggr_results
         return reports
@@ -204,7 +204,7 @@ class BaseAlgorithm(object):
                             aggregation_results: Dict[str, Any]):
         raise NotImplementedError
 
-    def optimize(self, lr: float,
+    def optimize(self,
                  aggr_results: Dict[Hashable, Any]) -> Mapping[Hashable, Any]:
         raise NotImplementedError
 
