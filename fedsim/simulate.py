@@ -323,6 +323,7 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         algorithm,
         'Algorithm',
     )
+    summary_writer = SummaryWriter(log_dir)
     algorithm_instance = algorithm_class(
         data_manager=data_manager_instant,
         num_clients=num_clients,
@@ -341,13 +342,14 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         min_clr=min_clr,
         clr_step_size=clr_step_size,
         algorithm_params=algorithm_params,
-        metric_logger=SummaryWriter(log_dir),
+        metric_logger=summary_writer,
         device=device,
         log_freq=log_freq,
         verbosity=verbosity,
     )
 
     alg_ret = algorithm_instance.train(rounds)
+    summary_writer.flush()
     # click.echo(ret)
 
 

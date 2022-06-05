@@ -1,3 +1,9 @@
+r""" This file contains an implementation of the following paper:
+    Title: "Communication-Efficient Learning of Deep Networks from Decentralized Data"
+    Authors: H. Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson, Blaise Agüera y Arcas
+    Publication date: February 17th, 2016
+    Link: https://arxiv.org/abs/1602.05629
+"""
 import sys
 from copy import deepcopy
 from sklearn.metrics import accuracy_score
@@ -65,12 +71,11 @@ class Algorithm(BaseAlgorithm):
             verbosity,
         )
         model_class = search_in_submodules('fedsim.models', model)
-
         # make mode and optimizer
         model = model_class().to(self.device)
         params = deepcopy(
             parameters_to_vector(model.parameters()).clone().detach())
-        optimizer = SGD(params=model.parameters(), lr=slr)
+        optimizer = SGD(params=[params], lr=slr)
         # write model and optimizer to server
         self.write_server('model', model)
         self.write_server('cloud_params', params)
@@ -133,17 +138,16 @@ class Algorithm(BaseAlgorithm):
             num_samples=num_train_samples,
             num_steps=num_steps,
             diverged=diverged,
-            trian_loss=loss,
+            train_loss=loss,
             metrics=metrics,
         )
 
-    def receive_from_client(self, client_id, client_msg, aggregation_results):
-
+    def agg(self, client_id, client_msg, aggregation_results, weight=1):
         params = client_msg['local_params'].clone().detach().data
         n_samples = client_msg['num_samples']
         n_steps = client_msg['num_steps']
         diverged = client_msg['diverged']
-        loss = client_msg['trian_loss']
+        loss = client_msg['train_loss']
         metrics = client_msg['metrics']
 
         if diverged:
@@ -151,29 +155,33 @@ class Algorithm(BaseAlgorithm):
             print('exiting ...')
             sys.exit(1)
 
-        add_in_dict('local_params',
-                    params,
-                    aggregation_results,
-                    scale=n_samples)
+        add_in_dict('local_params', params, aggregation_results, scale=weight)
+        add_in_dict('weight', weight, aggregation_results)
         add_in_dict('num_samples', n_samples, aggregation_results)
         add_in_dict('num_steps', n_steps, aggregation_results)
-        add_in_dict('trian_loss', loss, aggregation_results, scale=n_steps)
+        add_in_dict('train_loss', loss, aggregation_results, scale=n_steps)
         add_dict_to_dict(metrics, aggregation_results, scale=n_steps)
 
         # purge client info
         del client_msg
 
-    def optimize(self, lr, aggr_results):
+    def receive_from_client(self, client_id, client_msg, aggregation_results):
+        weight = client_msg['num_samples']
+        self.agg(client_id, client_msg, aggregation_results, weight=weight)
+
+    def optimize(self, aggr_results):
         # get average gradient
         n_samples = aggr_results.pop('num_samples')
+        weight = aggr_results.pop('weight')
         if n_samples > 0:
-            param_avg = aggr_results.pop('local_params') / n_samples
-
+            param_avg = aggr_results.pop('local_params') / weight
+            optimizer = self.read_server('optimizer')
             cloud_params = self.read_server('cloud_params')
-            pseudo_grads = cloud_params - param_avg
-            # apply sgd
-            new_params = cloud_params.data - lr * pseudo_grads.data
-            self.write_server('cloud_params', new_params)
+            pseudo_grads = cloud_params.data - param_avg
+            # update cloud params
+            optimizer.zero_grad()
+            cloud_params.grad = pseudo_grads
+            optimizer.step()
 
             # prepare for report
             n_steps = aggr_results.pop('num_steps')
@@ -185,24 +193,33 @@ class Algorithm(BaseAlgorithm):
             del param_avg
         return normalized_metrics
 
-    def report(self, dataloaders, metric_logger, device, optimize_reports):
-        # load cloud stuff
-        deployment_points = dict(avg=self.read_server('cloud_params'), )
+    def deploy(self):
+        return dict(avg=self.read_server('cloud_params'), )
+
+    def report(
+        self,
+        dataloaders,
+        metric_logger,
+        device,
+        optimize_reports,
+        deployment_points=None
+    ):
         model = self.read_server('model')
 
-        for point_name, point in deployment_points.items():
-            # copy cloud params to cloud model to send to the client
-            vector_to_parameters(point.detach().clone().data,
-                                 model.parameters())
+        if deployment_points is not None:
+            for point_name, point in deployment_points.items():
+                # copy cloud params to cloud model to send to the client
+                vector_to_parameters(point.detach().clone().data,
+                                    model.parameters())
 
-            for key, loader in dataloaders.items():
-                metrics, _ = inference(
-                    model,
-                    loader,
-                    {'{}.{}_accuracy'.format(point_name, key): accuracy_score},
-                    device=device,
-                )
-                t = self.rounds
-                log_fn = metric_logger.add_scalar
-                apply_on_dict(metrics, log_fn, global_step=t)
+                for key, loader in dataloaders.items():
+                    metrics, _ = inference(
+                        model,
+                        loader,
+                        {'{}.{}_accuracy'.format(point_name, key): accuracy_score},
+                        device=device,
+                    )
+                    t = self.rounds
+                    log_fn = metric_logger.add_scalar
+                    apply_on_dict(metrics, log_fn, global_step=t)
         apply_on_dict(optimize_reports, log_fn, global_step=t)

@@ -1,19 +1,25 @@
+r""" This file contains an implementation of the following paper:
+    Title: "Minimizing Client Drift in Federated Learning via Adaptive Bias Estimation"
+    Authors: Farshid Varno, Marzie Saghayi, Laya Rafiee, Sharut Gupta, Stan Matwin, Mohammad Havaei
+    Publication date: [Submitted on 27 Apr 2022 (v1), last revised 23 May 2022 (this version, v2)]
+    Link: https://arxiv.org/abs/2204.13170
+"""
 from torch.optim import SGD
 from torch.utils.data import DataLoader
-from torch.nn.utils import parameters_to_vector, vector_to_parameters
+from torch.nn.utils import parameters_to_vector
 from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
 from functools import partial
 
 import torch
 
-from fedsim.federation.algorithms.feddyn import Algorithm
-from fedsim.federation.evaluation import local_train_val, inference
+from fedsim.federation.algorithms import feddyn
+from fedsim.federation.evaluation import local_train_val
 from fedsim.federation.utils import vector_to_parameters_like, get_metric_scores
 from fedsim.utils import apply_on_dict
 
-
-class Algorithm(Algorithm):
+# TODO: add dynamic avg_m to avoid violation of reading prior info
+class Algorithm(feddyn.Algorithm):
 
     def __init__(
         self,
@@ -173,27 +179,28 @@ class Algorithm(Algorithm):
             num_samples=num_train_samples,
             num_steps=num_steps,
             diverged=diverged,
-            trian_loss=loss,
+            train_loss=loss,
             metrics=metrics,
         )
 
-    def optimize(self, lr, aggr_results):
+    def optimize(self, aggr_results):
 
         # get average gradient
         n_samples = aggr_results.pop('num_samples')
+        weight = aggr_results.pop('weight')
         if n_samples > 0:
-            counter = n_samples = aggr_results.pop('counter')
-            param_avg = aggr_results.pop('local_params') / counter
-
+            param_avg = aggr_results.pop('local_params') / weight
+            optimizer = self.read_server('optimizer')
             cloud_params = self.read_server('cloud_params')
             # read total clients violation
             h = self.beta * (self.read_server('avg_params') - param_avg)
             new_params = param_avg - h
 
-            modified_pseudo_grads = cloud_params - new_params
-            # apply sgd
-            new_params = cloud_params.data - lr * modified_pseudo_grads.data
-            self.write_server('cloud_params', new_params)
+            modified_pseudo_grads = cloud_params.data - new_params
+            # update cloud params
+            optimizer.zero_grad()
+            cloud_params.grad = modified_pseudo_grads
+            optimizer.step()
             self.write_server('avg_params', param_avg.detach().clone())
 
             # prepare for report

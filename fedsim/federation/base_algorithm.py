@@ -2,10 +2,10 @@ from tqdm import trange
 import random
 import yaml
 import math
+import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from typing import (Any, Dict, Hashable, Iterable, Mapping, Optional, Callable,
-                    Union)
+from typing import Any, Dict, Hashable, Iterable, Mapping, Optional, Union
 
 
 class BaseAlgorithm(object):
@@ -153,17 +153,16 @@ class BaseAlgorithm(object):
                                         aggregation_results)
 
     def _optimize(self, aggr_results):
-        reports = self.optimize(self.slr, aggr_results)
+        reports = self.optimize(aggr_results)
         # purge aggregated results
         del aggr_results
         return reports
 
-    def _report(self, optimize_reports=None):
+    def _report(self, optimize_reports=None, deployment_points=None):
         self.report(self.global_dataloaders, self.metric_logger, self.device,
-                    optimize_reports)
+                    optimize_reports, deployment_points)
 
     def _train(self, rounds):
-        self._report()
         for self.rounds in trange(rounds):
             aggr_results = dict()
             for client_id in self._sample_clients():
@@ -171,7 +170,12 @@ class BaseAlgorithm(object):
                 self._receive_from_client(client_msg, aggr_results)
             opt_reports = self._optimize(aggr_results)
             if self.rounds % self.log_freq == 0:
-                self._report(opt_reports)
+                deploy_poiont = self.deploy()
+                self._report(opt_reports, deploy_poiont)
+        # one last report
+        if self.rounds % self.log_freq > 0:
+            deploy_poiont = self.deploy()
+            self._report(opt_reports, deploy_poiont)
 
     def train(self, rounds):
         return self._train(rounds=rounds)
@@ -204,10 +208,16 @@ class BaseAlgorithm(object):
                             aggregation_results: Dict[str, Any]):
         raise NotImplementedError
 
-    def optimize(self, lr: float,
-                 aggr_results: Dict[Hashable, Any]) -> Mapping[Hashable, Any]:
+    def optimize(self, aggr_results: Dict[Hashable,
+                                          Any]) -> Mapping[Hashable, Any]:
         raise NotImplementedError
 
-    def report(self, dataloaders, metric_logger: Any, device: str,
-               optimize_reports: Mapping[Hashable, Any]):
+    def deploy(self):
+        raise NotImplementedError
+
+    def report(
+        self, dataloaders, metric_logger: Any, device: str,
+        optimize_reports: Mapping[Hashable, Any], 
+        deployment_points: Mapping[Hashable, torch.Tensor] = None
+    ):
         raise NotImplementedError
