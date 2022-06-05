@@ -18,7 +18,7 @@ from fedsim.federation.evaluation import local_train_val
 from fedsim.federation.utils import vector_to_parameters_like, get_metric_scores
 from fedsim.utils import apply_on_dict
 
-
+# TODO: add dynamic avg_m to avoid violation of reading prior info
 class Algorithm(feddyn.Algorithm):
 
     def __init__(

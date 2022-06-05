@@ -220,27 +220,8 @@ class Algorithm(fedavg.Algorithm):
             del param_avg
         return normalized_metrics
 
-    def report(self, dataloaders, metric_logger, device, optimize_reports):
-        # load cloud stuff
-        deployment_points = dict(
+    def deploy(self):
+        return dict(
             cloud=self.read_server('cloud_params'),
             avg=self.read_server('avg_params'),
         )
-        model = self.read_server('model')
-
-        for point_name, point in deployment_points.items():
-            # copy cloud params to cloud model to send to the client
-            vector_to_parameters(point.detach().clone().data,
-                                 model.parameters())
-
-            for key, loader in dataloaders.items():
-                metrics, _ = inference(
-                    model,
-                    loader,
-                    {'{}.{}_accuracy'.format(point_name, key): accuracy_score},
-                    device=device,
-                )
-                t = self.rounds
-                log_fn = metric_logger.add_scalar
-                apply_on_dict(metrics, log_fn, global_step=t)
-        apply_on_dict(optimize_reports, log_fn, global_step=t)

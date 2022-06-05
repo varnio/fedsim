@@ -2,6 +2,7 @@ from tqdm import trange
 import random
 import yaml
 import math
+import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from typing import Any, Dict, Hashable, Iterable, Mapping, Optional, Union
@@ -157,9 +158,9 @@ class BaseAlgorithm(object):
         del aggr_results
         return reports
 
-    def _report(self, optimize_reports=None):
+    def _report(self, optimize_reports=None, deployment_points=None):
         self.report(self.global_dataloaders, self.metric_logger, self.device,
-                    optimize_reports)
+                    optimize_reports, deployment_points)
 
     def _train(self, rounds):
         for self.rounds in trange(rounds):
@@ -169,10 +170,12 @@ class BaseAlgorithm(object):
                 self._receive_from_client(client_msg, aggr_results)
             opt_reports = self._optimize(aggr_results)
             if self.rounds % self.log_freq == 0:
-                self._report(opt_reports)
+                deploy_poiont = self.deploy()
+                self._report(opt_reports, deploy_poiont)
         # one last report
         if self.rounds % self.log_freq > 0:
-            self._report(opt_reports)
+            deploy_poiont = self.deploy()
+            self._report(opt_reports, deploy_poiont)
 
     def train(self, rounds):
         return self._train(rounds=rounds)
@@ -209,6 +212,12 @@ class BaseAlgorithm(object):
                                           Any]) -> Mapping[Hashable, Any]:
         raise NotImplementedError
 
-    def report(self, dataloaders, metric_logger: Any, device: str,
-               optimize_reports: Mapping[Hashable, Any]):
+    def deploy(self):
+        raise NotImplementedError
+
+    def report(
+        self, dataloaders, metric_logger: Any, device: str,
+        optimize_reports: Mapping[Hashable, Any], 
+        deployment_points: Mapping[Hashable, torch.Tensor] = None
+    ):
         raise NotImplementedError

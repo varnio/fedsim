@@ -1,5 +1,5 @@
 from typing import Iterable, Dict
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10, CIFAR100
 import numpy as np
 from tqdm import tqdm
 import torchvision
@@ -42,6 +42,31 @@ class FedDynDataManager(BaseDataManager):
                                               transform=train_transform))
             test_transform = train_transform
             global_datasets = dict(test=MNIST(root=root,
+                                              download=True,
+                                              train=False,
+                                              transform=test_transform))
+            return local_datasets, global_datasets
+
+        if dataset_name == 'cifar10' or dataset_name == 'cifar100':
+            dst_class = CIFAR10 if dataset_name == 'cifar10' else CIFAR100
+            train_transform = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                torchvision.transforms.RandomCrop(24),
+                torchvision.transforms.RandomHorizontalFlip(),
+                torchvision.transforms.ColorJitter(
+                    brightness=(0.5, 1.5),
+                    contrast=(0.5, 1.5)
+                ),
+            ])
+            local_datasets = dict(train=dst_class(root=root,
+                                              download=True,
+                                              train=True,
+                                              transform=train_transform))
+            test_transform = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                torchvision.transforms.CenterCrop(24),
+            ])
+            global_datasets = dict(test=dst_class(root=root,
                                               download=True,
                                               train=False,
                                               transform=test_transform))
