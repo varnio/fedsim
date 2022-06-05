@@ -35,7 +35,7 @@ def run():
     '--data-manager',
     type=str,
     show_default=True,
-    default='FedDynDataManager',
+    default='BasicDataManager',
     help='name of data manager.',
 )
 @click.option(

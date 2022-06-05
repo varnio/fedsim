@@ -94,3 +94,8 @@ class cnn_cifar10(nn.Module):
         x = self.feature_extractor(x)
         x = self.classifier(x)
         return x
+
+class cnn_cifar100(cnn_cifar10):
+    def __init__(self, num_classes=100, num_channels=3, input_size=(24, 24)):
+        super(cnn_cifar100, self).__init__(
+            num_classes=num_classes, num_channels=num_channels, input_size=input_size)

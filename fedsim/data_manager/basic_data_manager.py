@@ -7,7 +7,7 @@ import torchvision
 from fedsim.data_manager.base_data_manager import BaseDataManager
 
 
-class FedDynDataManager(BaseDataManager):
+class BasicDataManager(BaseDataManager):
 
     def __init__(
         self,
@@ -20,7 +20,34 @@ class FedDynDataManager(BaseDataManager):
         seed,
         save_path=None,
     ):
-        super(FedDynDataManager, self).__init__(
+        """A basic data manager for partitioning the data. Currecntly three 
+        rules of partitioning are supported:
+        
+        - iid: 
+            same label distribution among clients. sample balance determines 
+            quota of each client samples from a lognorm distribution. 
+        - dir: 
+            Dirichlete distribution with concentration parameter given by 
+            label_balance determines label balance of each client. 
+            sample balance determines quota of each client samples from a
+            lognorm distribution. 
+        - exclusive: 
+            samples corresponding to each label are randomly splitted to 
+            k clients where k = total_sample_size * label_balance. 
+            sample_balance determines the way this split happens (quota).
+            This rule also is know as "shards splitting".
+
+        Args:
+            root (str): root dir of the dataset to partition
+            dataset (str): name of the dataset
+            num_clients (int): number of partitions or clients
+            rule (str): rule of partitioning
+            sample_balance (float): balance of number of samples among clients
+            label_balance (float): balance of the labels on each clietns
+            seed (int): random seed of partitioning
+            save_path (str, optional): path to save partitioned indices.
+        """
+        super(BasicDataManager, self).__init__(
             root,
             dataset,
             num_clients,
@@ -82,6 +109,16 @@ class FedDynDataManager(BaseDataManager):
             targets = np.array(dataset.targets)
             all_sample_count = len(targets)
             num_classes = np.unique(targets)
+            # the special case of exclusive rule: 
+            if self.rule == 'exclusive':
+                # TODO: implement this
+                raise NotImplementedError
+            #     # get number of samples per label
+            #     label_counts = [(targets==i).sum() for i in range(num_classes)]
+            #     for label, label_count in enumerate(label_counts):
+            #         # randomly select k clients
+            #         # determine the quota for each client from a lognorm
+            #         # reassign the 
             # *********************************************************
             # determine sample quota for each client
 
@@ -169,6 +206,8 @@ class FedDynDataManager(BaseDataManager):
                     indices[client_index] = np.arange(
                         clnt_quota_cum_sum[client_index],
                         clnt_quota_cum_sum[client_index + 1])
+            else:
+                raise NotImplementedError
 
             indices_dict[key] = indices
 
