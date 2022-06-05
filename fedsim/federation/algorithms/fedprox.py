@@ -12,7 +12,6 @@ from fedsim.federation.utils import (
     get_metric_scores,
 )
 
-
 from fedsim.federation.algorithms import fedavg
 
 
@@ -93,6 +92,7 @@ class Algorithm(fedavg.Algorithm):
 
         params_init = parameters_to_vector(model.parameters()).detach().clone()
         mu = self.mu
+
         # closure to be performed at each local step
         def step_closure(x,
                          y,
@@ -152,6 +152,6 @@ class Algorithm(fedavg.Algorithm):
             num_samples=num_train_samples,
             num_steps=num_steps,
             diverged=diverged,
-            trian_loss=loss,
+            train_loss=loss,
             metrics=metrics,
         )

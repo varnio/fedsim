@@ -4,8 +4,7 @@ import yaml
 import math
 from torch import nn
 from torch.utils.data import DataLoader
-from typing import (Any, Dict, Hashable, Iterable, Mapping, Optional, Callable,
-                    Union)
+from typing import Any, Dict, Hashable, Iterable, Mapping, Optional, Union
 
 
 class BaseAlgorithm(object):
@@ -163,7 +162,6 @@ class BaseAlgorithm(object):
                     optimize_reports)
 
     def _train(self, rounds):
-        self._report()
         for self.rounds in trange(rounds):
             aggr_results = dict()
             for client_id in self._sample_clients():
@@ -172,6 +170,9 @@ class BaseAlgorithm(object):
             opt_reports = self._optimize(aggr_results)
             if self.rounds % self.log_freq == 0:
                 self._report(opt_reports)
+        # one last report
+        if self.rounds % self.log_freq > 0:
+            self._report(opt_reports)
 
     def train(self, rounds):
         return self._train(rounds=rounds)
@@ -204,8 +205,8 @@ class BaseAlgorithm(object):
                             aggregation_results: Dict[str, Any]):
         raise NotImplementedError
 
-    def optimize(self,
-                 aggr_results: Dict[Hashable, Any]) -> Mapping[Hashable, Any]:
+    def optimize(self, aggr_results: Dict[Hashable,
+                                          Any]) -> Mapping[Hashable, Any]:
         raise NotImplementedError
 
     def report(self, dataloaders, metric_logger: Any, device: str,

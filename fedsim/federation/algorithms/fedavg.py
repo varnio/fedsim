@@ -133,7 +133,7 @@ class Algorithm(BaseAlgorithm):
             num_samples=num_train_samples,
             num_steps=num_steps,
             diverged=diverged,
-            trian_loss=loss,
+            train_loss=loss,
             metrics=metrics,
         )
 
@@ -142,7 +142,7 @@ class Algorithm(BaseAlgorithm):
         n_samples = client_msg['num_samples']
         n_steps = client_msg['num_steps']
         diverged = client_msg['diverged']
-        loss = client_msg['trian_loss']
+        loss = client_msg['train_loss']
         metrics = client_msg['metrics']
 
         if diverged:
@@ -154,7 +154,7 @@ class Algorithm(BaseAlgorithm):
         add_in_dict('weight', weight, aggregation_results)
         add_in_dict('num_samples', n_samples, aggregation_results)
         add_in_dict('num_steps', n_steps, aggregation_results)
-        add_in_dict('trian_loss', loss, aggregation_results, scale=n_steps)
+        add_in_dict('train_loss', loss, aggregation_results, scale=n_steps)
         add_dict_to_dict(metrics, aggregation_results, scale=n_steps)
 
         # purge client info

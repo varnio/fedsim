@@ -173,7 +173,7 @@ class Algorithm(fedavg.Algorithm):
             num_samples=num_train_samples,
             num_steps=num_steps,
             diverged=diverged,
-            trian_loss=loss,
+            train_loss=loss,
             metrics=metrics,
         )
 
