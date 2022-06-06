@@ -8,7 +8,7 @@ from fedsim.federation.algorithms import fedavg
 from torch.optim import SGD
 
 
-class Algorithm(fedavg.Algorithm):
+class FedAvgM(fedavg.FedAvg):
 
     def __init__(
         self,
@@ -28,13 +28,17 @@ class Algorithm(fedavg.Algorithm):
         clr_decay_type,
         min_clr,
         clr_step_size,
-        algorithm_params,
         metric_logger,
         device,
         log_freq,
-        verbosity,
+        momentum=0.9,
+        *args,
+        **kwargs,
     ):
-        super(Algorithm, self).__init__(
+
+        self.momentum = momentum
+
+        super(FedAvgM, self).__init__(
             data_manager,
             num_clients,
             sample_scheme,
@@ -51,16 +55,11 @@ class Algorithm(fedavg.Algorithm):
             clr_decay_type,
             min_clr,
             clr_step_size,
-            algorithm_params,
             metric_logger,
             device,
             log_freq,
-            verbosity,
         )
         # over write optimizer
         params = self.read_server('cloud_params')
         optimizer = SGD(params=[params], lr=slr, momentum=self.momentum)
         self.write_server('optimizer', optimizer)
-
-    def assign_default_params(self):
-        return dict(momentum=0.9)

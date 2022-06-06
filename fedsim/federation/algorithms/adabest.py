@@ -20,7 +20,7 @@ from fedsim.utils import apply_on_dict
 
 
 # TODO: add dynamic avg_m to avoid violation of reading prior info
-class Algorithm(feddyn.Algorithm):
+class AdaBest(feddyn.FedDyn):
 
     def __init__(
         self,
@@ -40,13 +40,17 @@ class Algorithm(feddyn.Algorithm):
         clr_decay_type,
         min_clr,
         clr_step_size,
-        algorithm_params,
         metric_logger,
         device,
         log_freq,
-        verbosity,
+        mu=0.02,
+        beta=0.98,
+        *args,
+        **kwargs,
     ):
-        super(Algorithm, self).__init__(
+        self.beta = beta
+
+        super(AdaBest, self).__init__(
             data_manager,
             num_clients,
             sample_scheme,
@@ -63,11 +67,10 @@ class Algorithm(feddyn.Algorithm):
             clr_decay_type,
             min_clr,
             clr_step_size,
-            algorithm_params,
             metric_logger,
             device,
             log_freq,
-            verbosity,
+            mu=mu,
         )
 
         cloud_params = self.read_server('cloud_params')
@@ -97,7 +100,7 @@ class Algorithm(feddyn.Algorithm):
     ):
         data_split_name = 'train'
         # create train data loader
-        train_laoder = DataLoader(
+        train_loader = DataLoader(
             datasets[data_split_name],
             batch_size=batch_size,
             shuffle=False,
@@ -150,7 +153,7 @@ class Algorithm(feddyn.Algorithm):
 
         # optimize the model locally
         opt_result = local_train_val(model,
-                                     train_laoder,
+                                     train_loader,
                                      epochs,
                                      0,
                                      loss_fn,

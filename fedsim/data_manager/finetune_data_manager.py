@@ -4,26 +4,28 @@ import numpy as np
 from tqdm import tqdm
 import torchvision
 
-from fedsim.data_manager.base_data_manager import BaseDataManager
+from fedsim.data_manager.basic_data_manager import BasicDataManager
 
 
-class BasicDataManager(BaseDataManager):
+class FineTuneDataManager(BasicDataManager):
 
     def __init__(
         self,
         root,
-        dataset='mnist',
-        num_partitions=500,
-        rule='iid',
-        sample_balance=0.,
-        label_balance=1.,
-        seed=10,
+        dataset,
+        num_clients,
+        rule,
+        sample_balance,
+        label_balance,
+        seed,
         save_path=None,
+        valid_portion=0.3,
+        stratified=True,
         *args,
         **kwargs,
     ):
-        """A basic data manager for partitioning the data. Currecntly three 
-        rules of partitioning are supported:
+        """A data manager for partitioning the data to be used in fine tuning.
+        Currecntly three rules of partitioning are supported:
         
         - iid: 
             same label distribution among clients. sample balance determines 
@@ -49,21 +51,19 @@ class BasicDataManager(BaseDataManager):
             seed (int): random seed of partitioning
             save_path (str, optional): path to save partitioned indices.
         """
-        self.dataset_name = dataset
-        self.num_partitions = num_partitions
-        self.rule = rule
-        self.sample_balance = sample_balance
-        self.label_balance = label_balance
-
-        # super should be called at the end because abstract classes are  called in its __init__
-        super(BasicDataManager, self).__init__(
+        super(FineTuneDataManager, self).__init__(
             root,
+            dataset,
+            num_clients,
+            rule,
+            sample_balance,
+            label_balance,
             seed,
-            save_path=save_path,
+            save_path,
         )
 
-    def make_datasets(self, root):
-        if self.dataset_name == 'mnist':
+    def make_datasets(self, dataset_name, root):
+        if dataset_name == 'mnist':
             train_transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
             ])
@@ -78,8 +78,8 @@ class BasicDataManager(BaseDataManager):
                                               transform=test_transform))
             return local_datasets, global_datasets
 
-        if self.dataset_name == 'cifar10' or self.dataset_name == 'cifar100':
-            dst_class = CIFAR10 if self.dataset_name == 'cifar10' else CIFAR100
+        if dataset_name == 'cifar10' or dataset_name == 'cifar100':
+            dst_class = CIFAR10 if dataset_name == 'cifar10' else CIFAR100
             train_transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
                 torchvision.transforms.RandomCrop(24),
@@ -103,9 +103,9 @@ class BasicDataManager(BaseDataManager):
 
         raise NotImplementedError
 
-    def partition_local_data(self, datasets):
+    def partition_local_data(self, datasets, num_clients, rule, sample_balance,
+                             label_balance):
         indices_dict = dict()
-        n = self.num_partitions
         for key, dataset in datasets.items():
             targets = np.array(dataset.targets)
             all_sample_count = len(targets)
@@ -123,13 +123,13 @@ class BasicDataManager(BaseDataManager):
             # *********************************************************
             # determine sample quota for each client
 
-            sample_per_client = all_sample_count // n
-            if self.sample_balance != 0:
+            sample_per_client = all_sample_count // num_clients
+            if sample_balance != 0:
                 # Draw from lognormal distribution
                 client_quota = (np.random.lognormal(
                     mean=np.log(sample_per_client),
-                    sigma=self.sample_balance,
-                    size=n))
+                    sigma=sample_balance,
+                    size=num_clients))
                 quota_sum = np.sum(client_quota)
                 client_quota = (client_quota / quota_sum *
                                 all_sample_count).astype(int)
@@ -137,33 +137,35 @@ class BasicDataManager(BaseDataManager):
 
                 # Add/Sub the excess number starting from first client
                 if diff != 0:
-                    for clnt_i in range(n):
+                    for clnt_i in range(num_clients):
                         if client_quota[clnt_i] > diff:
                             client_quota[clnt_i] -= diff
                             break
             else:
-                client_quota = np.ones(n, dtype=int) * sample_per_client
+                client_quota = np.ones(num_clients, dtype=int) *\
+                    sample_per_client
 
             indices = [
                 np.zeros(client_quota[client], dtype=int) \
-                    for client in range(n)
+                    for client in range(num_clients)
              ]
             # *********************************************************
-            if self.rule == 'dir':
+            if rule == 'dir':
                 # Dirichlet partitioning rule
-                cls_priors = np.random.dirichlet(alpha=[self.label_balance] *
+                cls_priors = np.random.dirichlet(alpha=[label_balance] *
                                                  num_classes,
-                                                 size=n)
+                                                 size=num_clients)
                 prior_cumsum = np.cumsum(cls_priors, axis=1)
                 idx_list = [
                     np.where(targets == i)[0] for i in range(num_classes)
                 ]
-                cls_amount = np.array([len(idx_list[i]) for i in range(n)])
+                cls_amount = np.array(
+                    [len(idx_list[i]) for i in range(num_clients)])
 
                 print('partitionig')
                 pbar = tqdm(total=np.sum(client_quota))
                 while np.sum(client_quota) != 0:
-                    curr_clnt = np.random.randint(n)
+                    curr_clnt = np.random.randint(num_clients)
                     # If current node is full resample a client
                     if client_quota[curr_clnt] <= 0:
                         continue
@@ -201,7 +203,7 @@ class BasicDataManager(BaseDataManager):
             elif self.rule == 'iid':
                 clnt_quota_cum_sum = np.concatenate(
                     ([0], np.cumsum(client_quota)))
-                for client_index in range(n):
+                for client_index in range(num_clients):
                     indices[client_index] = np.arange(
                         clnt_quota_cum_sum[client_index],
                         clnt_quota_cum_sum[client_index + 1])
@@ -211,13 +213,3 @@ class BasicDataManager(BaseDataManager):
             indices_dict[key] = indices
 
         return indices_dict
-
-    def get_identifiers(self):
-        identifiers = [self.dataset_name, str(self.num_partitions), self.rule]
-        if self.rule == 'dir':
-            identifiers.append(str(self.label_balance))
-        if self.sample_balance == 0:
-            identifiers.append('balanced')
-        else:
-            identifiers.append('unbalanced')
-        return identifiers

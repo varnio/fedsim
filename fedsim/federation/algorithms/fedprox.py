@@ -21,7 +21,7 @@ from fedsim.federation.utils import (
 from fedsim.federation.algorithms import fedavg
 
 
-class Algorithm(fedavg.Algorithm):
+class FedProx(fedavg.FedAvg):
 
     def __init__(
         self,
@@ -41,13 +41,16 @@ class Algorithm(fedavg.Algorithm):
         clr_decay_type,
         min_clr,
         clr_step_size,
-        algorithm_params,
         metric_logger,
         device,
         log_freq,
-        verbosity,
+        mu=0.0001,
+        *args,
+        **kwargs,
     ):
-        super(Algorithm, self).__init__(
+        self.mu = mu
+
+        super(FedProx, self).__init__(
             data_manager,
             num_clients,
             sample_scheme,
@@ -64,15 +67,10 @@ class Algorithm(fedavg.Algorithm):
             clr_decay_type,
             min_clr,
             clr_step_size,
-            algorithm_params,
             metric_logger,
             device,
             log_freq,
-            verbosity,
         )
-
-    def assign_default_params(self):
-        return dict(mu=0.0001)
 
     def send_to_server(
         self,
@@ -88,7 +86,7 @@ class Algorithm(fedavg.Algorithm):
     ):
         data_split_name = 'train'
         # create train data loader
-        train_laoder = DataLoader(
+        train_loader = DataLoader(
             datasets[data_split_name],
             batch_size=batch_size,
             shuffle=False,
@@ -140,7 +138,7 @@ class Algorithm(fedavg.Algorithm):
 
         # optimize the model locally
         opt_result = local_train_val(model,
-                                     train_laoder,
+                                     train_loader,
                                      epochs,
                                      0,
                                      loss_fn,

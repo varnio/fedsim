@@ -21,7 +21,7 @@ from fedsim.utils import (
 from fedsim.federation.evaluation import local_train_val, inference
 
 
-class Algorithm(BaseAlgorithm):
+class FedAvg(BaseAlgorithm):
 
     def __init__(
         self,
@@ -41,13 +41,13 @@ class Algorithm(BaseAlgorithm):
         clr_decay_type,
         min_clr,
         clr_step_size,
-        algorithm_params,
         metric_logger,
         device,
         log_freq,
-        verbosity,
+        *args,
+        **kwargs,
     ):
-        super(Algorithm, self).__init__(
+        super(FedAvg, self).__init__(
             data_manager,
             num_clients,
             sample_scheme,
@@ -64,11 +64,9 @@ class Algorithm(BaseAlgorithm):
             clr_decay_type,
             min_clr,
             clr_step_size,
-            algorithm_params,
             metric_logger,
             device,
             log_freq,
-            verbosity,
         )
         model_class = search_in_submodules('fedsim.models', model)
         # make mode and optimizer

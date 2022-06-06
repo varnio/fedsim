@@ -7,7 +7,7 @@ r""" This file contains an implementation of the following paper:
 from fedsim.federation.algorithms import fedavg
 
 
-class Algorithm(fedavg.Algorithm):
+class FedNova(fedavg.FedAvg):
 
     def __init__(
         self,
@@ -27,13 +27,13 @@ class Algorithm(fedavg.Algorithm):
         clr_decay_type,
         min_clr,
         clr_step_size,
-        algorithm_params,
         metric_logger,
         device,
         log_freq,
-        verbosity,
+        *args,
+        **kwargs,
     ):
-        super(Algorithm, self).__init__(
+        super(FedNova, self).__init__(
             data_manager,
             num_clients,
             sample_scheme,
@@ -50,11 +50,9 @@ class Algorithm(fedavg.Algorithm):
             clr_decay_type,
             min_clr,
             clr_step_size,
-            algorithm_params,
             metric_logger,
             device,
             log_freq,
-            verbosity,
         )
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):

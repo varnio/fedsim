@@ -1,7 +1,13 @@
 import click
+import os
 from typing import Optional
 from torch.utils.tensorboard import SummaryWriter
-from fedsim.utils import get_from_module, search_in_submodules, set_seed
+from fedsim.utils import search_in_submodules, set_seed
+import inspect
+import yaml
+from collections import namedtuple
+import logging
+from pprint import pformat
 
 
 @click.command(name='fed-learn',
@@ -48,14 +54,6 @@ from fedsim.utils import get_from_module, search_in_submodules, set_seed
     help='mean portion of num clients to sample.',
 )
 @click.option(
-    '--dataset',
-    '-d',
-    type=str,
-    default='mnist',
-    show_default=True,
-    help='name of dataset.',
-)
-@click.option(
     '--dataset-root',
     type=str,
     default='data',
@@ -70,33 +68,10 @@ from fedsim.utils import get_from_module, search_in_submodules, set_seed
     help='root of partitioning.',
 )
 @click.option(
-    '--partitioning-rule',
-    type=str,
-    default='iid',
-    show_default=True,
-    help='partitioning rule.',
-)
-@click.option(
-    '--sample-balance',
-    type=float,
-    default=0,
-    show_default=True,
-    help='balance of the number of samples per client \
-        (0 is balanced, 1 is very unbalanced).',
-)
-@click.option(
-    '--label-balance',
-    type=float,
-    default=0.03,
-    show_default=True,
-    help='balance of the labels from among clients \
-        (closer to 0 is more heterogeneous).',
-)
-@click.option(
     '--algorithm',
     '-a',
     type=str,
-    default='fedavg',
+    default='FedAvg',
     show_default=True,
     help='federated learning algorithm.',
 )
@@ -129,21 +104,6 @@ from fedsim.utils import get_from_module, search_in_submodules, set_seed
     default=32,
     show_default=True,
     help='local batch size.',
-)
-@click.option(
-    '--local-val-portion',
-    type=float,
-    default=0.,
-    show_default=True,
-    help='portion of valid split for local-dataset. If > 0, valid accuracy is \
-        measured after local fine-tuning.',
-)
-@click.option(
-    '--local-val-batch-size',
-    type=int,
-    default=64,
-    show_default=True,
-    help='local valid batch size.',
 )
 @click.option(
     '--test-batch-size',
@@ -249,17 +209,17 @@ from fedsim.utils import get_from_module, search_in_submodules, set_seed
 @click.pass_context
 def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
               num_clients: int, client_sample_scheme: str,
-              client_sample_rate: float, dataset: str, dataset_root: str,
-              partitioning_root: str, partitioning_rule: str,
-              sample_balance: float, label_balance: float, algorithm: str,
-              model: str, epochs: int, loss_fn: str, batch_size: int,
-              local_val_portion: float, local_val_batch_size: int,
-              test_batch_size: int, local_weight_decay: float, clr: float,
-              slr: float, clr_decay: float, clr_decay_type: str,
-              min_clr: float, clr_step_size: int, pseed: int,
-              seed: Optional[float], device: str, log_dir: str, log_freq: int,
+              client_sample_rate: float, dataset_root: str,
+              partitioning_root: str, algorithm: str, model: str, epochs: int,
+              loss_fn: str, batch_size: int, test_batch_size: int,
+              local_weight_decay: float, clr: float, slr: float,
+              clr_decay: float, clr_decay_type: str, min_clr: float,
+              clr_step_size: int, pseed: int, seed: Optional[float],
+              device: str, log_dir: str, log_freq: int,
               verbosity: int) -> None:
-    """simulates federated learning!
+    """ simulates federated learning! 
+        - Additional arg for Algorithm is specified using prefix `--a-`
+        - Additional arg for DataManager is specified using prefix `--d-`
 
     Args:
         ctx (click.core.Context): for extra parameters passed to click
@@ -268,18 +228,12 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         num_clients (int): number of clients
         client_sample_scheme (str): client sampling scheme (default: uniform)
         client_sample_rate (float): client sampling rate
-        dataset (str): name of the dataset to train on
         dataset_root (str): root of the dataset
         partitioning_root (str): root of partitioning destination
-        partitioning_rule (str): rule of partitioning ('dir', 'iid')
-        sample_balance (float): balance of num samples on clients
-        label_balance (float): balance of labels among clients
         algorithm (str): federated learning algorithm to use for training
         model (str): model architecture
         epochs (int): number of local epochs
         batch_size (int): batch size for local optimization
-        local_val_portion (float): portion of valid split for local-dataset.
-        local_val_batch_size (int): batch size for local inference
         test_batch_size (int): batch size for inference
         local_weight_decay (float): weight decay for local optimization
         clr (float): client learning rate
@@ -295,39 +249,70 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         log_freq (int): gap between two reports in rounds.
         verbosity (int): verbosity of the outputs
     """
-    # get algorithm specific parameters
-    algorithm_params = dict()
-    i = 0
-    while i < len(ctx.args):
-        if i == len(ctx.args) - 1 or ctx.args[i + 1][:2] == '--':
-            algorithm_params[ctx.args[i][2:]] = 'True'
-            i += 1
-        else:
-            algorithm_params[ctx.args[i][2:]] = ctx.args[i + 1]
-            i += 2
+    summary_writer = SummaryWriter(log_dir)
+    log_dir = summary_writer.get_logdir()
+    print('log available at %s', os.path.join(log_dir, 'log.log'))
+    print('run the following for monitoring:\n\t tensorboard --logdir=%s',
+          log_dir)
+    logging.basicConfig(filename=os.path.join(log_dir, 'log.log'),
+                        level=verbosity * 10)
+    logging.info('arguments: ' + pformat(ctx.params))
+    # get the classes
     data_manager_class = search_in_submodules('fedsim.data_manager',
                                               data_manager)
-    # make data manager
-    data_manager_instant = data_manager_class(
-        dataset_root,
-        dataset,
-        num_clients,
-        partitioning_rule,
-        sample_balance,
-        label_balance,
-        pseed,
-        partitioning_root,
+    if data_manager_class is None:
+        pass
+    algorithm_class = search_in_submodules('fedsim.federation.algorithms',
+                                           algorithm)
+
+    dtm_args = dict()
+    alg_args = dict()
+
+    ClassContext = namedtuple('ClassContext', ['cls', 'prefix', 'arg_dict'])
+
+    context_pool = dict(
+        alg_context=ClassContext(algorithm_class, 'a-', alg_args),
+        dtm_context=ClassContext(data_manager_class, 'd-', dtm_args),
     )
+
+    def add_arg(key, value, prefix):
+        context = list(
+            filter(lambda x: x.prefix == prefix, context_pool.values()))[0]
+        if key in inspect.signature(context.cls).parameters.keys():
+            context.arg_dict[key] = yaml.safe_load(value)
+        else:
+            raise Exception('{} is not an argument of {}'.format(
+                key, context.cls.__name__))
+
+    i = 0
+    while i < len(ctx.args):
+        if ctx.args[i][:2] != '--':
+            raise Exception('unexpected option {}'.format(ctx.args[i]))
+        prefix = ctx.args[i][2:4]
+        arg = ctx.args[i][4:]
+        if i == len(ctx.args) - 1 or ctx.args[i + 1][:2] == '--':
+            add_arg(arg, 'True', prefix)
+            i += 1
+        else:
+            next_arg = ctx.args[i + 1]
+            add_arg(arg, next_arg, prefix)
+            i += 2
+
+    data_manager_args = dict(
+        root=dataset_root,
+        num_clients=num_clients,
+        seed=pseed,
+        save_path=partitioning_root,
+    )
+    data_manager_instant = data_manager_class(**{
+        **data_manager_args,
+        **context_pool['dtm_context'].arg_dict
+    })
+
     # set the seed of random generators
     if seed is not None:
         set_seed(seed, device)
 
-    algorithm_class = get_from_module(
-        'fedsim.federation.algorithms',
-        algorithm,
-        'Algorithm',
-    )
-    summary_writer = SummaryWriter(log_dir)
     algorithm_instance = algorithm_class(
         data_manager=data_manager_instant,
         num_clients=num_clients,
@@ -337,8 +322,6 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         epochs=epochs,
         loss_fn=loss_fn,
         batch_size=batch_size,
-        local_val_portion=local_val_portion,
-        local_val_batch_size=local_val_batch_size,
         test_batch_size=test_batch_size,
         local_weight_decay=local_weight_decay,
         slr=slr,
@@ -347,12 +330,10 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         clr_decay_type=clr_decay_type,
         min_clr=min_clr,
         clr_step_size=clr_step_size,
-        algorithm_params=algorithm_params,
         metric_logger=summary_writer,
         device=device,
         log_freq=log_freq,
-        verbosity=verbosity,
-    )
+        **context_pool['alg_context'].arg_dict)
 
     alg_ret = algorithm_instance.train(rounds)
     summary_writer.flush()

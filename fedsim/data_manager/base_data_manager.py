@@ -1,6 +1,6 @@
 import os
 import pickle
-from typing import Iterable, Dict, Optional
+from typing import Iterable, Dict, Optional, Sequence
 from torch.utils.data import Dataset
 from torch.utils.data import Subset
 
@@ -14,22 +14,14 @@ class BaseDataManager(object):
     def __init__(
         self,
         root,
-        dataset,
-        num_clients,
-        rule,
-        sample_balance,
-        label_balance,
         seed,
-        save_path=None,
+        save_dir=None,
+        *args,
+        **kwargs,
     ):
         self.root = root
-        self.dataset_name = dataset
-        self.num_clients = num_clients
-        self.rule = rule
-        self.sample_balance = sample_balance
-        self.label_balance = label_balance
         self.seed = seed
-        self.save_path = save_path
+        self.save_dir = root if save_dir is None else save_dir
 
         # *********************************************************************
         # define class vars
@@ -41,56 +33,37 @@ class BaseDataManager(object):
         # {'<split_name>': [<client index>:[<sample_index>,],]}
         self._local_parition_indices: Optional[Dict[Iterable[
             Iterable[int]]]] = None
+
+        # set random seed for partitioning
+        if seed is not None:
+            np.random.seed(seed)
+            random.seed(seed)
+
         # prepare stuff
         self._make_datasets()
         self._partition_local_data()
 
-    def get_partitioning_name(self) -> str:
-        partitioning_name = '{}_{}_{}'.format(self.dataset_name,
-                                              self.num_clients, self.rule)
-        if self.rule == 'dir':
-            partitioning_name += '_{}'.format(self.label_balance)
-        if self.sample_balance == 0:
-            partitioning_name += '_balanced'
-        else:
-            partitioning_name += '_unbalanced_{}'.format(self.sample_balance)
-        if self.seed is not None:
-            partitioning_name += '_seed_{}'.format(self.seed)
-        # set random seed for partitioning
-        if self.seed is not None:
-            np.random.seed(self.seed)
-            random.seed(self.seed)
-        return partitioning_name
-
     def _make_datasets(self) -> None:
-        self.local_data, self.global_data = self.make_datasets(
-            self.dataset_name,
-            self.root,
-        )
+        self.local_data, self.global_data = self.make_datasets(self.root)
 
     def _partition_local_data(self) -> None:
         if self.local_data is None:
             raise Exception(
                 "call a make_datasets that returns a dict of datasets first!")
-        partitioning_name = self.get_partitioning_name()
-        if os.path.exists('{}/{}'.format(self.save_path, partitioning_name)):
-            with open(os.path.join(self.save_path, partitioning_name + '.pkl'),
+        name = self.get_partitioning_name()
+        if os.path.exists('{}/{}'.format(self.save_dir, name)):
+            with open(os.path.join(self.save_dir, name + '.pkl'),
                       'rb') as rfile:
                 self._local_parition_indices = pickle.load(rfile)
         else:
 
             self._local_parition_indices = self.partition_local_data(
-                self.local_data,
-                self.num_clients,
-                self.rule,
-                self.sample_balance,
-                self.label_balance,
-            )
+                self.local_data, )
             # save on disk for later usage
 
             # create directories if not existing
-            os.makedirs(os.path.join(self.save_path), exist_ok=True)
-            with open(os.path.join(self.save_path, partitioning_name + '.pkl'),
+            os.makedirs(os.path.join(self.save_dir), exist_ok=True)
+            with open(os.path.join(self.save_dir, name + '.pkl'),
                       'wb') as wfile:
                 pickle.dump(self._local_parition_indices, wfile)
 
@@ -121,11 +94,17 @@ class BaseDataManager(object):
     def get_global_dataset(self) -> Dict[str, Dataset]:
         return self.global_data
 
+    def get_partitioning_name(self) -> str:
+        identifiers = self.get_identifiers()
+        name = '_'.join(identifiers)
+        if self.seed is not None:
+            name += '_seed{}'.format(self.seed)
+        return name
+
     # *************************************************************************
     # to implement by child
     def make_datasets(
         self,
-        dataset_name: str,
         root: str,
     ) -> Iterable[Dict[str, object]]:
         """Abstract method to be implemented by child class.
@@ -147,9 +126,18 @@ class BaseDataManager(object):
     def partition_local_data(
         self,
         datasets: Dict[str, object],
-        num_clients: int,
-        rule: str,
-        sample_balance: float,
-        label_balance: float,
     ) -> Dict[str, Iterable[Iterable[int]]]:
+        raise NotImplementedError
+
+    def get_identifiers(self) -> Sequence[str]:
+        """ Returns identifiers 
+            to be used for saving the partition info.
+
+        Raises:
+            NotImplementedError: this abstract method should be 
+                implemented by child classes
+
+        Returns:
+            Sequence[str]: a sequence of str identifing class instance 
+        """
         raise NotImplementedError

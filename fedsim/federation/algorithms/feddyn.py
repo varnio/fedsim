@@ -6,7 +6,7 @@ r""" This file contains an implementation of the following paper:
 """
 from torch.optim import SGD
 from torch.utils.data import DataLoader
-from torch.nn.utils import parameters_to_vector, vector_to_parameters
+from torch.nn.utils import parameters_to_vector
 from torch.nn.utils import clip_grad_norm_
 from sklearn.metrics import accuracy_score
 from functools import partial
@@ -22,7 +22,7 @@ from fedsim.federation.utils import (
 from fedsim.utils import apply_on_dict
 
 
-class Algorithm(fedavg.Algorithm):
+class FedDyn(fedavg.FedAvg):
 
     def __init__(
         self,
@@ -42,13 +42,16 @@ class Algorithm(fedavg.Algorithm):
         clr_decay_type,
         min_clr,
         clr_step_size,
-        algorithm_params,
         metric_logger,
         device,
         log_freq,
-        verbosity,
+        mu=0.02,
+        *args,
+        **kwargs,
     ):
-        super(Algorithm, self).__init__(
+        self.mu = mu
+
+        super(FedDyn, self).__init__(
             data_manager,
             num_clients,
             sample_scheme,
@@ -65,11 +68,9 @@ class Algorithm(fedavg.Algorithm):
             clr_decay_type,
             min_clr,
             clr_step_size,
-            algorithm_params,
             metric_logger,
             device,
             log_freq,
-            verbosity,
         )
 
         cloud_params = self.read_server('cloud_params')
@@ -80,9 +81,6 @@ class Algorithm(fedavg.Algorithm):
         # oracle read violation, num_clients read violation
         average_sample = len(self.oracle_dataset['train']) / self.num_clients
         self.write_server('average_sample', average_sample)
-
-    def assign_default_params(self):
-        return dict(mu=0.01)
 
     def send_to_server(
         self,
@@ -98,7 +96,7 @@ class Algorithm(fedavg.Algorithm):
     ):
         data_split_name = 'train'
         # create train data loader
-        train_laoder = DataLoader(
+        train_loader = DataLoader(
             datasets[data_split_name],
             batch_size=batch_size,
             shuffle=False,
@@ -152,7 +150,7 @@ class Algorithm(fedavg.Algorithm):
 
         # optimize the model locally
         opt_result = local_train_val(model,
-                                     train_laoder,
+                                     train_loader,
                                      epochs,
                                      0,
                                      loss_fn,

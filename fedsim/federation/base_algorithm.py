@@ -1,11 +1,13 @@
 from tqdm import trange
 import random
-import yaml
 import math
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from typing import Any, Dict, Hashable, Iterable, Mapping, Optional, Union
+import logging
+import inspect
+from pprint import pformat
 
 
 class BaseAlgorithm(object):
@@ -28,12 +30,22 @@ class BaseAlgorithm(object):
         clr_decay_type,
         min_clr,
         clr_step_size,
-        algorithm_params,
         metric_logger,
         device,
         log_freq,
-        verbosity,
+        *args,
+        **kwargs,
     ):
+        grandpa = inspect.getmro(self.__class__)[-2]
+        cls = self.__class__
+
+        grandpa_args = set(inspect.signature(grandpa).parameters.keys())
+        self_args = set(inspect.signature(cls).parameters.keys())
+
+        added_args = self_args - grandpa_args
+        added_args_dict = {key: getattr(self, key) for key in added_args}
+        if len(added_args_dict) > 0:
+            logging.info('algorithm arguments: ' + pformat(added_args_dict))
 
         self._data_manager = data_manager
         self.num_clients = num_clients
@@ -61,22 +73,9 @@ class BaseAlgorithm(object):
         self.min_clr = min_clr
         self.clr_step_size = clr_step_size
 
-        default_params = self.assign_default_params()
-        if default_params is None:
-            default_params = dict()
-        algorithm_params = {**default_params, **algorithm_params}
-        # register algorithm specific parameters
-        if algorithm_params is not None:
-            for k, v in algorithm_params.items():
-                if isinstance(v, str):
-                    setattr(self, k, yaml.safe_load(v))
-                else:
-                    setattr(self, k, v)
-
         self.metric_logger = metric_logger
         self.device = device
         self.log_freq = log_freq
-        self.verbosity = verbosity
 
         self._server_memory: Dict[Hashable, object] = dict()
         self._client_memory: Dict[int, Dict[object]] = {
@@ -182,9 +181,6 @@ class BaseAlgorithm(object):
 
     # we do not do type hinting, however, the hints for avstract
     # methods are provided to help clarity for users
-
-    def assign_default_params(self) -> Mapping[Hashable, Any]:
-        raise NotImplementedError
 
     def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
         raise NotImplementedError
