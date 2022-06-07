@@ -9,7 +9,7 @@ import numpy as np
 import random
 
 
-class BaseDataManager(object):
+class DataManager(object):
 
     def __init__(
         self,

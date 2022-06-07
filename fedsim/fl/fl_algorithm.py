@@ -9,8 +9,11 @@ import logging
 import inspect
 from pprint import pformat
 
+from .aggregators import SerialAggregator
+from fedsim.utils import search_in_submodules
 
-class BaseAlgorithm(object):
+
+class FLAlgorithm(object):
 
     def __init__(
         self,
@@ -18,7 +21,7 @@ class BaseAlgorithm(object):
         num_clients,
         sample_scheme,
         sample_rate,
-        model,
+        model_class,
         epochs,
         loss_fn,
         batch_size,
@@ -55,7 +58,13 @@ class BaseAlgorithm(object):
             raise Exception(
                 'invalid client sample size for {}% of {} clients'.format(
                     sample_rate, num_clients))
-        self.model = model
+                    
+        if isinstance(model_class, str):
+            self.model_class = search_in_submodules('fedsim.models', model_class)
+        elif isinstance(model_class, nn.Module):
+            self.model_class = model_class
+        else:
+            raise Exception("incompatiple model!")
         self.epochs = epochs
         if loss_fn == 'ce':
             self.loss_fn = nn.CrossEntropyLoss()
@@ -146,15 +155,14 @@ class BaseAlgorithm(object):
             raise Exception('client should only return a dict!')
         return {**client_ctx, 'client_id': client_id}
 
-    def _receive_from_client(self, client_msg, aggregation_results):
+    def _receive_from_client(self, client_msg, aggregator):
         client_id = client_msg.pop('client_id')
-        return self.receive_from_client(client_id, client_msg,
-                                        aggregation_results)
+        return self.receive_from_client(client_id, client_msg, aggregator)
 
-    def _optimize(self, aggr_results):
-        reports = self.optimize(aggr_results)
+    def _optimize(self, aggregator):
+        reports = self.optimize(aggregator)
         # purge aggregated results
-        del aggr_results
+        del aggregator
         return reports
 
     def _report(self, optimize_reports=None, deployment_points=None):
@@ -163,11 +171,11 @@ class BaseAlgorithm(object):
 
     def _train(self, rounds):
         for self.rounds in trange(rounds):
-            aggr_results = dict()
+            aggregator = SerialAggregator()
             for client_id in self._sample_clients():
                 client_msg = self._send_to_server(client_id)
-                self._receive_from_client(client_msg, aggr_results)
-            opt_reports = self._optimize(aggr_results)
+                self._receive_from_client(client_msg, aggregator)
+            opt_reports = self._optimize(aggregator)
             if self.rounds % self.log_freq == 0:
                 deploy_poiont = self.deploy()
                 self._report(opt_reports, deploy_poiont)
@@ -179,10 +187,26 @@ class BaseAlgorithm(object):
     def train(self, rounds):
         return self._train(rounds=rounds)
 
+    def get_model_class(self):
+        return self.model_class
+
     # we do not do type hinting, however, the hints for avstract
     # methods are provided to help clarity for users
 
     def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
+        """ returns context to send to the client corresponding to client_id.
+            Do not send shared objects like server model if you made any 
+            before you deepcopy it.
+
+        Args:
+            client_id (int): id of the receiving client
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+
+        Returns:
+            Mapping[Hashable, Any]: the context to be sent in form of a Mapping
+        """
         raise NotImplementedError
 
     def send_to_server(
@@ -196,25 +220,84 @@ class BaseAlgorithm(object):
         weight_decay: float = 0,
         device: Union[int, str] = 'cuda',
         ctx: Optional[Dict[Hashable, Any]] = None,
+        *args,
+        **kwargs,
     ) -> Mapping[str, Any]:
+        """ client operation on the recieved information.
+
+        Args:
+            client_id (int): id of the client
+            datasets (Dict[str, Iterable]): this comes from Data Manager
+            epochs (int): number of epochs to train
+            loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
+            batch_size (int): training batch_size
+            lr (float): client learning rate
+            weight_decay (float, optional): weight decay for SGD. Defaults to 0.
+            device (Union[int, str], optional): Defaults to 'cuda'.
+            ctx (Optional[Dict[Hashable, Any]], optional): context reveived from server. Defaults to None.
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+
+        Returns:
+            Mapping[str, Any]: client context to be sent to the server
+        """
         raise NotImplementedError
 
     def receive_from_client(self, client_id: int, client_msg: Mapping[Hashable,
                                                                       Any],
-                            aggregation_results: Dict[str, Any]):
+                            aggregator: Any):
+        """receive and aggregate info from selected clients 
+
+        Args:
+            client_id (int): id of the sender (client)
+            client_msg (Mapping[Hashable, Any]): client context that is sent
+            aggregator (Any): aggregator instance to collect info
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+        """
         raise NotImplementedError
 
-    def optimize(self, aggr_results: Dict[Hashable,
-                                          Any]) -> Mapping[Hashable, Any]:
+    def optimize(self, aggregator: Any) -> Mapping[Hashable, Any]:
+        """ optimize server mdoel(s) and return metrics to be reported
+
+        Args:
+            aggregator (Any): Aggregator instance
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+
+        Returns:
+            Mapping[Hashable, Any]: context to be reported
+        """
         raise NotImplementedError
 
-    def deploy(self):
+    def deploy(self) -> Optional[Mapping[Hashable, Any]]:
+        """ return Mapping of name -> parameters_set to test the model
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+        """
         raise NotImplementedError
 
     def report(self,
-               dataloaders,
+               dataloaders: Dict[str, Any],
                metric_logger: Any,
                device: str,
                optimize_reports: Mapping[Hashable, Any],
-               deployment_points: Mapping[Hashable, torch.Tensor] = None):
+               deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None
+               ) -> None:
+        """test on global data and report info
+
+        Args:
+            dataloaders (Any): dict of data loaders to test the global model(s)
+            metric_logger (Any): the logging object (e.g., SummaryWriter)
+            device (str): 'cuda', 'cpu' or gpu number
+            optimize_reports (Mapping[Hashable, Any]): dict returned by optimzier
+            deployment_points (Mapping[Hashable, torch.Tensor], optional): output of deploy method
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+        """
         raise NotImplementedError

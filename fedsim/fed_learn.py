@@ -2,7 +2,7 @@ import click
 import os
 from typing import Optional
 from torch.utils.tensorboard import SummaryWriter
-from fedsim.utils import search_in_submodules, set_seed
+from utils import search_in_submodules, set_seed
 import inspect
 import yaml
 from collections import namedtuple
@@ -262,7 +262,7 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
                                               data_manager)
     if data_manager_class is None:
         pass
-    algorithm_class = search_in_submodules('fedsim.federation.algorithms',
+    algorithm_class = search_in_submodules('fedsim.fl.algorithms',
                                            algorithm)
 
     dtm_args = dict()
@@ -288,6 +288,10 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
     while i < len(ctx.args):
         if ctx.args[i][:2] != '--':
             raise Exception('unexpected option {}'.format(ctx.args[i]))
+        if ctx.args[i][2] == '-':
+            raise Exception(
+                'option {} is not valid. No option should starts with ---'.
+                format(ctx.args[i]))
         prefix = ctx.args[i][2:4]
         arg = ctx.args[i][4:]
         if i == len(ctx.args) - 1 or ctx.args[i + 1][:2] == '--':
@@ -318,7 +322,7 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
         num_clients=num_clients,
         sample_scheme=client_sample_scheme,
         sample_rate=client_sample_rate,
-        model=model,
+        model_class=model,
         epochs=epochs,
         loss_fn=loss_fn,
         batch_size=batch_size,

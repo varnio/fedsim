@@ -1,5 +1,7 @@
 from functools import partial
 from inspect import signature
+from flask import current_app
+from pyrsistent import v
 import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.nn.utils.convert_parameters import _check_param_device
@@ -36,6 +38,7 @@ def default_closure(x,
                     max_grad_norm=1000,
                     link_fn=partial(torch.argmax, dim=1),
                     device='cpu',
+                    transform_grads=None,
                     **kwargs):
     y_true = y.tolist()
     x = x.to(device)
@@ -48,6 +51,8 @@ def default_closure(x,
         return loss
     # backpropagation
     loss.backward()
+    if transform_grads is not None:
+        transform_grads(model)
     # Clip gradients
     clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm)
     # optimize

@@ -4,7 +4,7 @@ r""" This file contains an implementation of the following paper:
     Publication date: September 13th, 2019
     Link: https://arxiv.org/abs/1909.06335
 """
-from fedsim.federation.algorithms import fedavg
+from . import fedavg
 from torch.optim import SGD
 
 
@@ -16,7 +16,7 @@ class FedAvgM(fedavg.FedAvg):
         num_clients,
         sample_scheme,
         sample_rate,
-        model,
+        model_class,
         epochs,
         loss_fn,
         batch_size,
@@ -43,7 +43,7 @@ class FedAvgM(fedavg.FedAvg):
             num_clients,
             sample_scheme,
             sample_rate,
-            model,
+            model_class,
             epochs,
             loss_fn,
             batch_size,

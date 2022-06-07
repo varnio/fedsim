@@ -11,17 +11,13 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
-from fedsim.federation.base_algorithm import BaseAlgorithm
-from fedsim.utils import (
-    search_in_submodules,
-    add_in_dict,
-    add_dict_to_dict,
-    apply_on_dict,
-)
-from fedsim.federation.evaluation import local_train_val, inference
+from fedsim.utils import search_in_submodules, apply_on_dict
+from ..fl_algorithm import FLAlgorithm
+from ..utils import default_closure
+from ..evaluation import local_train_val, inference
 
 
-class FedAvg(BaseAlgorithm):
+class FedAvg(FLAlgorithm):
 
     def __init__(
         self,
@@ -29,7 +25,7 @@ class FedAvg(BaseAlgorithm):
         num_clients,
         sample_scheme,
         sample_rate,
-        model,
+        model_class,
         epochs,
         loss_fn,
         batch_size,
@@ -52,7 +48,7 @@ class FedAvg(BaseAlgorithm):
             num_clients,
             sample_scheme,
             sample_rate,
-            model,
+            model_class,
             epochs,
             loss_fn,
             batch_size,
@@ -68,9 +64,9 @@ class FedAvg(BaseAlgorithm):
             device,
             log_freq,
         )
-        model_class = search_in_submodules('fedsim.models', model)
+        
         # make mode and optimizer
-        model = model_class().to(self.device)
+        model = self.get_model_class()().to(self.device)
         params = deepcopy(
             parameters_to_vector(model.parameters()).clone().detach())
         optimizer = SGD(params=[params], lr=slr)
@@ -79,8 +75,6 @@ class FedAvg(BaseAlgorithm):
         self.write_server('cloud_params', params)
         self.write_server('optimizer', optimizer)
 
-    def assign_default_params(self):
-        return None
 
     def send_to_client(self, client_id):
         # since fedavg broadcast the same model to all selected clients,
@@ -107,29 +101,49 @@ class FedAvg(BaseAlgorithm):
         weight_decay=0,
         device='cuda',
         ctx=None,
+        step_closure=None,
+        *args,
+        **kwargs,
     ):
-        data_split_name = 'train'
         # create train data loader
-        train_laoder = DataLoader(
-            datasets[data_split_name],
+        train_loader = DataLoader(
+            datasets['train'],
             batch_size=batch_size,
             shuffle=False,
         )
         model = ctx['model']
         optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
         # optimize the model locally
+        step_closure_ = default_closure if step_closure is None else step_closure
         opt_result = local_train_val(model,
-                                     train_laoder,
+                                     train_loader,
                                      epochs,
                                      0,
                                      loss_fn,
                                      optimizer,
                                      device,
+                                     step_closure_,
                                      metric_fn_dict={
-                                         '{}_accuracy'.format(data_split_name):
-                                         accuracy_score,
+                                         'train_accuracy': accuracy_score,
                                      })
         num_train_samples, num_steps, diverged, loss, metrics = opt_result
+        # local test
+        if 'test' in datasets:
+            test_loader = DataLoader(
+                datasets['test'],
+                batch_size=batch_size,
+                shuffle=False,
+            )
+            test_metrics, num_test_samples = inference(
+                model,
+                test_loader,
+                {'clients.test_accuracy': accuracy_score},
+                device=device,
+            )
+        else:
+            test_metrics = dict()
+            num_test_samples = 0
+
         # return optimized model parameters and number of train samples
         return dict(
             local_params=parameters_to_vector(model.parameters()),
@@ -138,41 +152,41 @@ class FedAvg(BaseAlgorithm):
             diverged=diverged,
             train_loss=loss,
             metrics=metrics,
+            num_test_samples=num_test_samples,
+            test_metrics=test_metrics,
         )
 
-    def agg(self, client_id, client_msg, aggregation_results, weight=1):
+    def agg(self, client_id, client_msg, aggregator, weight=1):
         params = client_msg['local_params'].clone().detach().data
-        n_samples = client_msg['num_samples']
-        n_steps = client_msg['num_steps']
         diverged = client_msg['diverged']
         loss = client_msg['train_loss']
         metrics = client_msg['metrics']
+        test_metrics = client_msg['test_metrics']
+        n_ts_samples = client_msg['num_test_samples']
 
         if diverged:
             print('client {} diverged'.format(client_id))
             print('exiting ...')
             sys.exit(1)
 
-        add_in_dict('local_params', params, aggregation_results, scale=weight)
-        add_in_dict('weight', weight, aggregation_results)
-        add_in_dict('num_samples', n_samples, aggregation_results)
-        add_in_dict('num_steps', n_steps, aggregation_results)
-        add_in_dict('train_loss', loss, aggregation_results, scale=n_steps)
-        add_dict_to_dict(metrics, aggregation_results, scale=n_steps)
+        aggregator.add('local_params', params, weight)
+        aggregator.add('clients.train_loss', loss, weight)
+        for key, metric in metrics.items():
+            aggregator.add('clients.{}'.format(key), metric, weight)
+        for key, metric in test_metrics.items():
+            aggregator.add('clients.{}'.format(key), metric, n_ts_samples)
 
         # purge client info
         del client_msg
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):
         weight = client_msg['num_samples']
-        self.agg(client_id, client_msg, aggregation_results, weight=weight)
+        if weight > 0:
+            self.agg(client_id, client_msg, aggregation_results, weight=weight)
 
-    def optimize(self, aggr_results):
-        # get average gradient
-        n_samples = aggr_results.pop('num_samples')
-        weight = aggr_results.pop('weight')
-        if n_samples > 0:
-            param_avg = aggr_results.pop('local_params') / weight
+    def optimize(self, aggregator):
+        if 'local_params' in aggregator:
+            param_avg = aggregator.pop('local_params')
             optimizer = self.read_server('optimizer')
             cloud_params = self.read_server('cloud_params')
             pseudo_grads = cloud_params.data - param_avg
@@ -180,16 +194,9 @@ class FedAvg(BaseAlgorithm):
             optimizer.zero_grad()
             cloud_params.grad = pseudo_grads
             optimizer.step()
-
-            # prepare for report
-            n_steps = aggr_results.pop('num_steps')
-            normalized_metrics = apply_on_dict(
-                aggr_results,
-                lambda _, value: value / n_steps,
-                return_as_dict=True)
             # purge aggregated results
             del param_avg
-        return normalized_metrics
+        return aggregator.pop_all()
 
     def deploy(self):
         return dict(avg=self.read_server('cloud_params'), )

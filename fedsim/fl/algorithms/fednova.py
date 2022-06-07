@@ -4,7 +4,7 @@ r""" This file contains an implementation of the following paper:
     Publication date: 15 Jul 2020
     Link: https://arxiv.org/abs/2007.07481
 """
-from fedsim.federation.algorithms import fedavg
+from . import fedavg
 
 
 class FedNova(fedavg.FedAvg):
@@ -15,7 +15,7 @@ class FedNova(fedavg.FedAvg):
         num_clients,
         sample_scheme,
         sample_rate,
-        model,
+        model_class,
         epochs,
         loss_fn,
         batch_size,
@@ -38,7 +38,7 @@ class FedNova(fedavg.FedAvg):
             num_clients,
             sample_scheme,
             sample_rate,
-            model,
+            model_class,
             epochs,
             loss_fn,
             batch_size,

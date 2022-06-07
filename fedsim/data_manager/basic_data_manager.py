@@ -4,10 +4,10 @@ import numpy as np
 from tqdm import tqdm
 import torchvision
 
-from fedsim.data_manager.base_data_manager import BaseDataManager
+from .data_manager import DataManager
 
 
-class BasicDataManager(BaseDataManager):
+class BasicDataManager(DataManager):
 
     def __init__(
         self,
