@@ -137,7 +137,7 @@ class FedAvg(FLAlgorithm):
             test_metrics, num_test_samples = inference(
                 model,
                 test_loader,
-                {'clients.test_accuracy': accuracy_score},
+                {'test_accuracy': accuracy_score},
                 device=device,
             )
         else:

@@ -3,8 +3,10 @@ from torchvision.datasets import MNIST, CIFAR10, CIFAR100
 import numpy as np
 from tqdm import tqdm
 import torchvision
+from torch.utils.data import random_split
 
 from .data_manager import DataManager
+from .utils import SubsetWrapper
 
 
 class BasicDataManager(DataManager):
@@ -17,6 +19,7 @@ class BasicDataManager(DataManager):
         rule='iid',
         sample_balance=0.,
         label_balance=1.,
+        local_test_portion=0.,
         seed=10,
         save_path=None,
         *args,
@@ -46,6 +49,7 @@ class BasicDataManager(DataManager):
             rule (str): rule of partitioning
             sample_balance (float): balance of number of samples among clients
             label_balance (float): balance of the labels on each clietns
+            local_test_portion (float): portion of local test set from trian
             seed (int): random seed of partitioning
             save_path (str, optional): path to save partitioned indices.
         """
@@ -54,6 +58,7 @@ class BasicDataManager(DataManager):
         self.rule = rule
         self.sample_balance = sample_balance
         self.label_balance = label_balance
+        self.local_test_portion = local_test_portion
 
         # super should be called at the end because abstract classes are  called in its __init__
         super(BasicDataManager, self).__init__(
@@ -63,15 +68,23 @@ class BasicDataManager(DataManager):
         )
 
     def make_datasets(self, root):
+        portion = self.local_test_portion
         if self.dataset_name == 'mnist':
             train_transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
             ])
-            local_datasets = dict(train=MNIST(root=root,
-                                              download=True,
-                                              train=True,
-                                              transform=train_transform))
             test_transform = train_transform
+            local_dset = MNIST(root, download=True, train=True, transform=None)
+            lengths = [
+                int(len(local_dset)*(1-portion)), int(len(local_dset)*portion)
+            ]
+            local_train, local_test = random_split(local_dset, lengths)
+            
+            local_datasets = dict(
+                train=SubsetWrapper(local_train, transform=train_transform),
+                test=SubsetWrapper(local_test, transform=test_transform)
+            )
+            
             global_datasets = dict(test=MNIST(root=root,
                                               download=True,
                                               train=False,
@@ -87,14 +100,23 @@ class BasicDataManager(DataManager):
                 torchvision.transforms.ColorJitter(brightness=(0.5, 1.5),
                                                    contrast=(0.5, 1.5)),
             ])
-            local_datasets = dict(train=dst_class(root=root,
-                                                  download=True,
-                                                  train=True,
-                                                  transform=train_transform))
             test_transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
                 torchvision.transforms.CenterCrop(24),
             ])
+            
+            local_dset = dst_class(
+                root=root,
+                download=True,
+                train=True,
+                transform=train_transform
+            )
+            lengths = [
+                int(len(local_dset)*(1-portion)), int(len(local_dset)*portion)
+            ]
+            local_train, local_test = random_split(local_dset, lengths)
+            local_datasets = dict(train=local_train, test=local_test)
+            
             global_datasets = dict(test=dst_class(root=root,
                                                   download=True,
                                                   train=False,
