@@ -246,4 +246,6 @@ class BasicDataManager(DataManager):
             identifiers.append('balanced')
         else:
             identifiers.append('unbalanced')
+        if self.local_test_portion > 0:
+            identifiers.append('ts_{}'.format(self.local_test_portion))
         return identifiers
