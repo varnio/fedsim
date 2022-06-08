@@ -28,4 +28,5 @@ class Subset(data.Subset):
 
     def __init__(self, dataset, indices) -> None:
         super().__init__(dataset, indices)
-        self.targets = dataset.targets[indices]
+        targets = np.array(dataset.targets)
+        self.targets = targets[indices]

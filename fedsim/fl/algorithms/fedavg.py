@@ -213,7 +213,8 @@ class FedAvg(FLAlgorithm):
                optimize_reports,
                deployment_points=None):
         model = self.read_server('model')
-
+        t = self.rounds
+        log_fn = metric_logger.add_scalar
         if deployment_points is not None:
             for point_name, point in deployment_points.items():
                 # copy cloud params to cloud model to send to the client
@@ -230,7 +231,5 @@ class FedAvg(FLAlgorithm):
                         },
                         device=device,
                     )
-                    t = self.rounds
-                    log_fn = metric_logger.add_scalar
                     apply_on_dict(metrics, log_fn, global_step=t)
         apply_on_dict(optimize_reports, log_fn, global_step=t)

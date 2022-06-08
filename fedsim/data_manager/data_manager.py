@@ -2,7 +2,7 @@ import os
 import pickle
 from typing import Iterable, Dict, Optional, Sequence
 from torch.utils.data import Dataset
-from torch.utils.data import Subset
+from .utils import Subset
 
 # import libraries with random generator to set seed
 import numpy as np
