@@ -1,7 +1,5 @@
 from functools import partial
 from inspect import signature
-from flask import current_app
-from pyrsistent import v
 import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.nn.utils.convert_parameters import _check_param_device

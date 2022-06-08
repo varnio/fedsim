@@ -5,16 +5,16 @@ r""" This file contains an implementation of the following paper:
     Link: https://arxiv.org/abs/1602.05629
 """
 import sys
+import math
 from copy import deepcopy
 from sklearn.metrics import accuracy_score
 from torch.optim import SGD
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
-from fedsim.utils import search_in_submodules, apply_on_dict
+from fedsim.utils import apply_on_dict
 from ..fl_algorithm import FLAlgorithm
-from ..utils import default_closure
-from ..evaluation import local_train_val, inference
+from ..evaluation import local_train_val, inference, default_closure
 
 
 class FedAvg(FLAlgorithm):
@@ -64,7 +64,7 @@ class FedAvg(FLAlgorithm):
             device,
             log_freq,
         )
-        
+
         # make mode and optimizer
         model = self.get_model_class()().to(self.device)
         params = deepcopy(
@@ -74,7 +74,6 @@ class FedAvg(FLAlgorithm):
         self.write_server('model', model)
         self.write_server('cloud_params', params)
         self.write_server('optimizer', optimizer)
-
 
     def send_to_client(self, client_id):
         # since fedavg broadcast the same model to all selected clients,
@@ -105,12 +104,18 @@ class FedAvg(FLAlgorithm):
         *args,
         **kwargs,
     ):
-        # create train data loader
-        train_loader = DataLoader(
+        # create a random sampler with replacement so that
+        # stochasticity is maximiazed and privacy is not compromized
+        sampler = RandomSampler(
             datasets['train'],
-            batch_size=batch_size,
-            shuffle=False,
-        )
+            replacement=True,
+            num_samples=math.ceil(len(datasets['train']) / batch_size) *
+            batch_size)
+        # # create train data loader
+        train_loader = DataLoader(datasets['train'],
+                                  batch_size=batch_size,
+                                  sampler=sampler)
+
         model = ctx['model']
         optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
         # optimize the model locally

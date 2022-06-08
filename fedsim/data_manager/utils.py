@@ -1,11 +1,14 @@
-from numpy import indices
-from torch.utils.data import Dataset
+import numpy as np
+from torch.utils import data
 
-class SubsetWrapper(Dataset):
+
+class SubsetWrapper(data.Dataset):
+
     def __init__(self, subset, transform=None):
         self.subset = subset
         self.transform = transform
-        self.targets = self.subset.dataset.targets[self.subset.indices]
+        targets = np.array(self.subset.dataset.targets)
+        self.targets = targets[self.subset.indices]
         # remove the transform function of the original dataset if transform
         # is provided avoiding double transform
         if transform is not None and self.subset.dataset.transform is not None:
@@ -16,6 +19,13 @@ class SubsetWrapper(Dataset):
         if self.transform:
             x = self.transform(x)
         return x, y
-        
+
     def __len__(self):
         return len(self.subset)
+
+
+class Subset(data.Subset):
+
+    def __init__(self, dataset, indices) -> None:
+        super().__init__(dataset, indices)
+        self.targets = dataset.targets[indices]

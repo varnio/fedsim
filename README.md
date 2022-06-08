@@ -296,6 +296,7 @@ fedsim fed-learn --model CustomModule ...
 
 
 # TODO
+- [ ] only make local test available when log-freq triggers
 - [ ] add implementation of scaffold
 - [ ] publish the code
 - [ ] add doc (sphinx)

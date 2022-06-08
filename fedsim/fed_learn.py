@@ -262,8 +262,7 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
                                               data_manager)
     if data_manager_class is None:
         pass
-    algorithm_class = search_in_submodules('fedsim.fl.algorithms',
-                                           algorithm)
+    algorithm_class = search_in_submodules('fedsim.fl.algorithms', algorithm)
 
     dtm_args = dict()
     alg_args = dict()
@@ -277,7 +276,11 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
 
     def add_arg(key, value, prefix):
         context = list(
-            filter(lambda x: x.prefix == prefix, context_pool.values()))[0]
+            filter(lambda x: x.prefix == prefix, context_pool.values()))
+        if len(context) == 0:
+            raise Exception('{} is an invalid argument'.format(key))
+        else:
+            context = context[0]
         if key in inspect.signature(context.cls).parameters.keys():
             context.arg_dict[key] = yaml.safe_load(value)
         else:

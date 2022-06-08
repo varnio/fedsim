@@ -51,12 +51,11 @@ class DataManager(object):
             raise Exception(
                 "call a make_datasets that returns a dict of datasets first!")
         name = self.get_partitioning_name()
-        if os.path.exists('{}/{}'.format(self.save_dir, name)):
+        if os.path.exists(os.path.join(self.save_dir, name + '.pkl')):
             with open(os.path.join(self.save_dir, name + '.pkl'),
                       'rb') as rfile:
                 self._local_parition_indices = pickle.load(rfile)
         else:
-
             self._local_parition_indices = self.partition_local_data(
                 self.local_data, )
             # save on disk for later usage

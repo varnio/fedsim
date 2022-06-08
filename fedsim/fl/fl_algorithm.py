@@ -58,9 +58,10 @@ class FLAlgorithm(object):
             raise Exception(
                 'invalid client sample size for {}% of {} clients'.format(
                     sample_rate, num_clients))
-                    
+
         if isinstance(model_class, str):
-            self.model_class = search_in_submodules('fedsim.models', model_class)
+            self.model_class = search_in_submodules('fedsim.models',
+                                                    model_class)
         elif isinstance(model_class, nn.Module):
             self.model_class = model_class
         else:
@@ -281,13 +282,14 @@ class FLAlgorithm(object):
         """
         raise NotImplementedError
 
-    def report(self,
-               dataloaders: Dict[str, Any],
-               metric_logger: Any,
-               device: str,
-               optimize_reports: Mapping[Hashable, Any],
-               deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None
-               ) -> None:
+    def report(
+        self,
+        dataloaders: Dict[str, Any],
+        metric_logger: Any,
+        device: str,
+        optimize_reports: Mapping[Hashable, Any],
+        deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None
+    ) -> None:
         """test on global data and report info
 
         Args:

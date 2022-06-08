@@ -76,15 +76,16 @@ class BasicDataManager(DataManager):
             test_transform = train_transform
             local_dset = MNIST(root, download=True, train=True, transform=None)
             lengths = [
-                int(len(local_dset)*(1-portion)), int(len(local_dset)*portion)
+                int(len(local_dset) * (1 - portion)),
+                int(len(local_dset) * portion)
             ]
             local_train, local_test = random_split(local_dset, lengths)
-            
-            local_datasets = dict(
-                train=SubsetWrapper(local_train, transform=train_transform),
-                test=SubsetWrapper(local_test, transform=test_transform)
-            )
-            
+
+            local_datasets = dict(train=SubsetWrapper(
+                local_train, transform=train_transform),
+                                  test=SubsetWrapper(local_test,
+                                                     transform=test_transform))
+
             global_datasets = dict(test=MNIST(root=root,
                                               download=True,
                                               train=False,
@@ -104,19 +105,21 @@ class BasicDataManager(DataManager):
                 torchvision.transforms.ToTensor(),
                 torchvision.transforms.CenterCrop(24),
             ])
-            
-            local_dset = dst_class(
-                root=root,
-                download=True,
-                train=True,
-                transform=train_transform
-            )
+
+            local_dset = dst_class(root=root,
+                                   download=True,
+                                   train=True,
+                                   transform=train_transform)
             lengths = [
-                int(len(local_dset)*(1-portion)), int(len(local_dset)*portion)
+                int(len(local_dset) * (1 - portion)),
+                int(len(local_dset) * portion)
             ]
             local_train, local_test = random_split(local_dset, lengths)
-            local_datasets = dict(train=local_train, test=local_test)
-            
+            local_datasets = dict(train=SubsetWrapper(
+                local_train, transform=train_transform),
+                                  test=SubsetWrapper(local_test,
+                                                     transform=test_transform))
+
             global_datasets = dict(test=dst_class(root=root,
                                                   download=True,
                                                   train=False,
@@ -131,7 +134,7 @@ class BasicDataManager(DataManager):
         for key, dataset in datasets.items():
             targets = np.array(dataset.targets)
             all_sample_count = len(targets)
-            num_classes = np.unique(targets)
+            num_classes = len(np.unique(targets))
             # the special case of exclusive rule:
             if self.rule == 'exclusive':
                 # TODO: implement this
@@ -180,7 +183,8 @@ class BasicDataManager(DataManager):
                 idx_list = [
                     np.where(targets == i)[0] for i in range(num_classes)
                 ]
-                cls_amount = np.array([len(idx_list[i]) for i in range(n)])
+                cls_amount = np.array(
+                    [len(idx_list[i]) for i in range(num_classes)])
 
                 print('partitionig')
                 pbar = tqdm(total=np.sum(client_quota))
