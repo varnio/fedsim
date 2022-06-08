@@ -1,3 +1,4 @@
+from http import client
 from tqdm import trange
 import random
 import math
@@ -106,6 +107,9 @@ class FLAlgorithm(object):
         self.oracle_dataset = self._data_manager.get_oracle_dataset()
         self.rounds = 0
 
+        # for internal use only
+        self._last_client_sampled: int = None
+
     def write_server(self, key, obj):
         self._server_memory[key] = obj
 
@@ -125,8 +129,15 @@ class FLAlgorithm(object):
 
     def _sample_clients(self):
         if self.sample_scheme == 'uniform':
-            return random.sample(range(self.num_clients), self.sample_count)
-        raise NotImplementedError
+            clients = random.sample(range(self.num_clients), self.sample_count)
+        elif self.sample_scheme == 'sequential':
+            last_sampled = -1 if self._last_client_sampled is None else self._last_client_sampled
+            clients = [ (i + 1) % self.num_clients for i in range(last_sampled, last_sampled + self.sample_count)]
+            self._last_client_sampled = clients[-1]
+        else:
+            raise NotImplementedError
+        return clients
+        
 
     def _send_to_client(self, client_id):
         return self.send_to_client(client_id=client_id)
