@@ -1,6 +1,6 @@
 import os
 import pickle
-from typing import Iterable, Dict, Optional, Sequence
+from typing import Iterable, Dict, Optional, Sequence, Tuple
 from torch.utils.data import Dataset
 from .utils import Subset
 
@@ -41,10 +41,14 @@ class DataManager(object):
 
         # prepare stuff
         self._make_datasets()
+        self._make_transforms()
         self._partition_local_data()
 
     def _make_datasets(self) -> None:
         self.local_data, self.global_data = self.make_datasets(self.root)
+
+    def _make_transforms(self) -> None:
+        self.train_transforms, self.test_transforms = self.make_transforms()
 
     def _partition_local_data(self) -> None:
         if self.local_data is None:
@@ -57,7 +61,7 @@ class DataManager(object):
                 self._local_parition_indices = pickle.load(rfile)
         else:
             self._local_parition_indices = self.partition_local_data(
-                self.local_data, )
+                self.local_data)
             # save on disk for later usage
 
             # create directories if not existing
@@ -69,29 +73,35 @@ class DataManager(object):
     # *************************************************************************
     # to call by user
     def get_local_dataset(self, id: int) -> Dict[str, Dataset]:
-        return {
-            key: Subset(value, self._local_parition_indices[key][id])
-            for key, value in self.local_data.items()
-        }
+        tr_idxs = self._local_parition_indices['train']
+        tr_dset = Subset(self.local_data, tr_idxs[id], transform=self.train_transforms)
+        if 'test' in self._local_parition_indices:
+            ts_idxs = self._local_parition_indices['test']
+            if len(tr_idxs) > 0:
+                ts_dset = Subset(self.local_data, ts_idxs[id], transform=self.test_transforms)
+                return dict(train=tr_dset, test=ts_dset)
+        return dict(train=tr_dset)
+        
 
     def get_group_dataset(self, ids: Iterable[int]) -> Dict[str, Dataset]:
-        return {
-            key:
-                Subset(
-                    value,
-                    [
-                        i for id in ids \
-                            for i in self._local_parition_indices[key][id]
-                    ]
-                )
-                for key, value in self.local_data.items()
-        }
-
+        tr_idxs = self._local_parition_indices['train']
+        group_tr_idxs = [i for id in ids for i in tr_idxs[id]]
+        tr_dset = Subset(self.local_data, group_tr_idxs, transform=self.train_transforms)
+        if 'test' in self._local_parition_indices:
+            ts_idxs = self._local_parition_indices['test']
+            if len(tr_idxs) > 0:
+                group_ts_idxs = [i for id in ids for i in ts_idxs[id]]
+                ts_dset = Subset(self.local_data, group_ts_idxs, transform=self.test_transforms)
+                return dict(train=tr_dset, test=ts_dset)
+        return dict(train=tr_dset)
+        
     def get_oracle_dataset(self) -> Dict[str, Dataset]:
-        return {key: value for key, value in self.local_data.items()}
+        return self.get_group_dataset(
+            ids=range(len(self._local_parition_indices['train']))
+    )
 
     def get_global_dataset(self) -> Dict[str, Dataset]:
-        return self.global_data
+        return dict(test=self.global_data)
 
     def get_partitioning_name(self) -> str:
         identifiers = self.get_identifiers()
@@ -105,8 +115,8 @@ class DataManager(object):
     def make_datasets(
         self,
         root: str,
-    ) -> Iterable[Dict[str, object]]:
-        """Abstract method to be implemented by child class.
+    ) -> Tuple[object, object]:
+        """ makes and returns local and global dataset objects.  
 
         Args:
             dataset_name (str): name of the dataset.
@@ -114,23 +124,46 @@ class DataManager(object):
             save_path (str): directory to store the data after partitioning.
 
         Raises:
-            NotImplementedError: if the dataset_name is not defined
+            NotImplementedError: this abstract method should be 
+                implemented by child classes
 
         Returns:
-            Iterable[Dict[str, object]]: dict of local datasets [split:dataset]
-                                         followed by global ones.
+            Tuple[object, object]: local and global dataset
+        """
+        raise NotImplementedError
+
+    def make_transforms(self) -> Tuple[object, object]:
+        """ makes and returns train and inference transforms. 
+
+        Raises:
+            NotImplementedError: this abstract method should be 
+                implemented by child classes
+
+        Returns:
+            Tuple[object, object]: train and inference transforms
         """
         raise NotImplementedError
 
     def partition_local_data(
         self,
-        datasets: Dict[str, object],
+        dataset: object,
     ) -> Dict[str, Iterable[Iterable[int]]]:
+        """partitions local data indices into client index Iterable. 
+
+        Args:
+            dataset (object): local dataset
+
+        Raises:
+            NotImplementedError: this abstract method should be 
+                implemented by child classes
+
+        Returns:
+            Dict[str, Iterable[Iterable[int]]]: {'train': tr_indices, 'test': ts_indices}
+        """
         raise NotImplementedError
 
     def get_identifiers(self) -> Sequence[str]:
-        """ Returns identifiers 
-            to be used for saving the partition info.
+        """ Returns identifiers to be used for saving the partition info.
 
         Raises:
             NotImplementedError: this abstract method should be 

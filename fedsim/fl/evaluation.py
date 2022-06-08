@@ -11,6 +11,7 @@ def inference(
         metric_fn_dict,
         link_fn=partial(torch.argmax, dim=1),
         device='cpu',
+        transform_y=None,
 ):
     """ to test the performance of a model on a test set.
 
@@ -26,6 +27,8 @@ def inference(
     model.eval()
     with torch.no_grad():
         for (X, y) in data_loader:
+            if transform_y is not None:
+                y = transform_y(y)
             y_true.extend(y.tolist())
             y = y.reshape(-1).long()
             y = y.to(device)

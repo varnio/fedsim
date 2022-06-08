@@ -2,31 +2,37 @@ import numpy as np
 from torch.utils import data
 
 
-class SubsetWrapper(data.Dataset):
 
-    def __init__(self, subset, transform=None):
-        self.subset = subset
-        self.transform = transform
-        targets = np.array(self.subset.dataset.targets)
-        self.targets = targets[self.subset.indices]
-        # remove the transform function of the original dataset if transform
-        # is provided avoiding double transform
-        if transform is not None and self.subset.dataset.transform is not None:
-            self.subset.dataset.transform = None
+class Subset(data.Dataset):
+    r"""
+    Subset of a dataset at specified indices.
 
-    def __getitem__(self, index):
-        x, y = self.subset[index]
-        if self.transform:
-            x = self.transform(x)
-        return x, y
+    Args:
+        dataset (Dataset): The whole Dataset
+        indices (sequence): Indices in the whole set selected for subset
+    """
 
-    def __len__(self):
-        return len(self.subset)
-
-
-class Subset(data.Subset):
-
-    def __init__(self, dataset, indices) -> None:
-        super().__init__(dataset, indices)
+    def __init__(self, dataset, indices, transform=None):
+        self.dataset = dataset
+        self.indices = indices
+        self.transform= transform
         targets = np.array(dataset.targets)
         self.targets = targets[indices]
+        # remove the transform function of the original dataset if transform
+        # is provided avoiding double transform
+        if transform is not None and self.dataset.transform is not None:
+            self.dataset.transform = None
+
+    def __getitem__(self, idx):
+        if isinstance(idx, list):
+            x, y = self.dataset[[self.indices[i] for i in idx]]
+            if self.transform is None:
+                return x, y
+            return self.transform(x), y
+        x, y  = self.dataset[self.indices[idx]]
+        if self.transform is None:
+                return x, y 
+        return self.transform(x), y
+
+    def __len__(self):
+        return len(self.indices)

@@ -39,7 +39,8 @@ def default_closure(x,
                     transform_grads=None,
                     transform_y=None,
                     **kwargs):
-    y = transform_y(y)
+    if transform_y is not None:
+        y = transform_y(y)
     y_true = y.tolist()
     x = x.to(device)
     y = y.reshape(-1).long()
@@ -98,11 +99,11 @@ def vector_to_parameters_like(vec, parameters_like):
 
 
 class ModelReconstructor(torch.nn.Module):
+
     def __init__(self, feature_extractor, classifier) -> None:
         super(ModelReconstructor, self).__init__()
         self.feature_extractor = feature_extractor
         self.classifier = classifier
-    
+
     def forward(self, input):
         return self.classifier(self.feature_extractor(input))
-        
