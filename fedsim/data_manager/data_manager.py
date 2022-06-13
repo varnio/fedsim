@@ -30,6 +30,9 @@ class DataManager(object):
         self.local_data: Optional[Dict[str, Dataset]] = None
         self.global_data: Optional[Dict[str, Dataset]] = None
 
+        self.train_transforms = None
+        self.test_transforms = None
+
         # {'<split_name>': [<client index>:[<sample_index>,],]}
         self._local_parition_indices: Optional[Dict[Iterable[
             Iterable[int]]]] = None
@@ -40,15 +43,17 @@ class DataManager(object):
             random.seed(seed)
 
         # prepare stuff
-        self._make_datasets()
         self._make_transforms()
+        self._make_datasets()
         self._partition_local_data()
-
-    def _make_datasets(self) -> None:
-        self.local_data, self.global_data = self.make_datasets(self.root)
 
     def _make_transforms(self) -> None:
         self.train_transforms, self.test_transforms = self.make_transforms()
+    
+    def _make_datasets(self) -> None:
+        if self.test_transforms is None:
+            raise Exception("call make_tranforms() before make_datasets()")
+        self.local_data, self.global_data = self.make_datasets(self.root, dict(train=self.train_transforms, test=self.test_transforms))
 
     def _partition_local_data(self) -> None:
         if self.local_data is None:
@@ -115,13 +120,16 @@ class DataManager(object):
     def make_datasets(
         self,
         root: str,
+        global_transforms: Dict[str, object]
     ) -> Tuple[object, object]:
-        """ makes and returns local and global dataset objects.  
+        """ makes and returns local and global dataset objects. The local
+            datasets do not need a transform as recompiled datasets from 
+            indices already use transforms as they are requested.
 
         Args:
             dataset_name (str): name of the dataset.
             root (str): directory to download and manipulate data.
-            save_path (str): directory to store the data after partitioning.
+            global_transforms (Dict[str, object]): transforms for global dset
 
         Raises:
             NotImplementedError: this abstract method should be 

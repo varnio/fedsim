@@ -43,7 +43,7 @@ from pprint import pformat
     type=str,
     default='uniform',
     show_default=True,
-    help='client sampling scheme.',
+    help='client sampling scheme (uniform or sequential for now).',
 )
 @click.option(
     '--client-sample-rate',
@@ -263,6 +263,9 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
     if data_manager_class is None:
         pass
     algorithm_class = search_in_submodules('fedsim.fl.algorithms', algorithm)
+    if algorithm_class is None:
+        algorithm_class = search_in_submodules('fedsim.fl.mtl_algorithms',
+                                               algorithm)
 
     dtm_args = dict()
     alg_args = dict()

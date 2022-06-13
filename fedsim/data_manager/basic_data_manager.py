@@ -65,7 +65,7 @@ class BasicDataManager(DataManager):
             save_path=save_path,
         )
 
-    def make_datasets(self, root):
+    def make_datasets(self, root, global_transforms=None):
         if self.dataset_name == 'mnist':
             local_dset = MNIST(root, download=True, train=True, transform=None)
             global_dset = MNIST(root,
@@ -83,7 +83,7 @@ class BasicDataManager(DataManager):
             global_dset = dst_class(root=root,
                                     download=True,
                                     train=False,
-                                    transform=None)
+                                    transform=global_transforms['test'])
         else:
             raise NotImplementedError
         return local_dset, global_dset
