@@ -52,7 +52,7 @@ setup(
     license='Apache License 2.0',
     entry_points={
         'console_scripts': [
-            'fedsim = fedsim.simulate:main',
+            'fedsim = scripts.simulate:main',
         ],
     },
 )

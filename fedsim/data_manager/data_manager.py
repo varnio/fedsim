@@ -54,6 +54,8 @@ class DataManager(object):
         if self.test_transforms is None:
             raise Exception("call make_tranforms() before make_datasets()")
         self.local_data, self.global_data = self.make_datasets(self.root, dict(train=self.train_transforms, test=self.test_transforms))
+        if self.global_data is not None:
+            self.global_data = Subset(self.global_data, indices=-1, transform=self.test_transforms)
 
     def _partition_local_data(self) -> None:
         if self.local_data is None:

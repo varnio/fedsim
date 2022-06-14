@@ -2,7 +2,7 @@ import click
 import os
 from typing import Optional
 from torch.utils.tensorboard import SummaryWriter
-from .utils import search_in_submodules, set_seed
+from fedsim.utils import search_in_submodules, set_seed
 import inspect
 import yaml
 from collections import namedtuple

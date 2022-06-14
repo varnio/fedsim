@@ -14,10 +14,13 @@ class Subset(data.Dataset):
 
     def __init__(self, dataset, indices, transform=None):
         self.dataset = dataset
-        self.indices = indices
+        if isinstance(indices,int) and indices == -1:
+            self.indices = range(len(dataset))
+        else:
+            self.indices = indices
         self.transform= transform
         targets = np.array(dataset.targets)
-        self.targets = targets[indices]
+        self.targets = targets[self.indices]
         # remove the transform function of the original dataset if transform
         # is provided avoiding double transform
         if transform is not None and self.dataset.transform is not None:
