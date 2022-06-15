@@ -8,6 +8,7 @@ FedSim
 ======
 
 .. include:: readme.rst
+.. include:: installation.rst
 .. include:: demo.rst
 
 
@@ -15,18 +16,8 @@ FedSim
    :maxdepth: 2
    :caption: Contents:
    
-   installation
-   usage
    notebooks/tutorial
-   changelog
    modules
-   
+   customization
+   changelog
 
-
-
-.. Indices and tables
-.. ==================
-
-.. * :ref:`genindex`
-.. * :ref:`modindex`
-.. * :ref:`search`

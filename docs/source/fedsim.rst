@@ -1,4 +1,4 @@
-fedsim package
+Documentation
 ==============
 
 Subpackages
