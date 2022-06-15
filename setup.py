@@ -32,7 +32,7 @@ setup(
     ),
     author='Farshid Varno',
     author_email='fr.varno@gmail.com',
-    url='https://github.com/fvarno/fedsim',
+    url='https://github.com/fedsim-dev/fedsim',
     packages=find_packages(),
     package_dir={'': '.'},
     py_modules=[splitext(basename(path))[0] for path in glob('fedsim/*.py')],
@@ -70,7 +70,7 @@ setup(
     project_urls={
         'Documentation': 'https://fedsim.readthedocs.io/',
         'Changelog': 'https://fedsim.readthedocs.io/en/latest/changelog.html',
-        'Issue Tracker': 'https://github.com/fvarno/fedsim/issues',
+        'Issue Tracker': 'https://github.com/fedsim-dev/fedsim/issues',
     },
     install_requires=[
         'click',

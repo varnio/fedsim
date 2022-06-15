@@ -59,8 +59,8 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 extlinks = {
-    'issue': ('https://github.com/fvarno/fedsim/issues/%s', '#'),
-    'pr': ('https://github.com/fvarno/fedsim/pull/%s', 'PR #'),
+    'issue': ('https://github.com/fedsim-dev/fedsim/issues/%s', '#'),
+    'pr': ('https://github.com/fedsim-dev/fedsim/pull/%s', 'PR #'),
 }
 
 html_theme = 'pydata_sphinx_theme'

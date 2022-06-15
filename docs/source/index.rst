@@ -19,5 +19,7 @@ FedSim
    notebooks/tutorial
    modules
    customization
+   contributing
+   authors
    changelog
 

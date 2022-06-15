@@ -197,6 +197,7 @@ class FLAlgorithm(object):
         if self.rounds % self.log_freq > 0:
             deploy_poiont = self.deploy()
             self._report(opt_reports, deploy_poiont)
+        return 0
 
     def train(self, rounds):
         return self._train(rounds=rounds)

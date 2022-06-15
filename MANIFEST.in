@@ -1,0 +1,18 @@
+graft docs
+graft fedsim
+graft ci
+graft tests
+
+include .coveragerc
+include .editorconfig
+include .readthedocs.yml
+include pytest.ini
+include tox.ini
+
+include AUTHORS.rst
+include CHANGELOG.rst
+include CONTRIBUTING.rst
+include LICENSE
+include README.rst
+
+global-exclude *.py[cod] __pycache__/* *.so *.dylib
