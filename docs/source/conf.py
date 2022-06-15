@@ -10,16 +10,20 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+from __future__ import unicode_literals
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
+master_doc = 'index'
 project = 'fedsim'
 copyright = '2022, Farshid Varno'
+year = '2022'
 author = 'Farshid Varno'
-
+copyright = '{0}, {1}'.format(year, author)
+version = release = '0.0.0'
 # The full version, including alpha/beta/rc tags
 release = '0.1'
 
@@ -32,8 +36,13 @@ extensions = [
     "sphinx.ext.duration",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.autosummary",
-    "sphinc.ext.autodoc",
-    "sphinc.ext.napolean",
+    "sphinx.ext.autodoc",
+    'sphinx.ext.napoleon',
+    'sphinx.ext.todo',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.coverage',
+    'sphinx.ext.doctest',
+    'sphinx.ext.extlinks',
     "nbsphinx",
 ]
 
@@ -50,9 +59,26 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
+extlinks = {
+    'issue': ('https://github.com/fvarno/fedsim/issues/%s', '#'),
+    'pr': ('https://github.com/fvarno/fedsim/pull/%s', 'PR #'),
+}
+
 html_theme = 'pydata_sphinx_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_use_smartypants = True
+html_last_updated_fmt = '%b %d, %Y'
+
+html_split_index = False
+html_sidebars = {
+    '**': ['searchbox.html', 'globaltoc.html', 'sourcelink.html'],
+}
+html_short_title = '%s-%s' % (project, version)
+
+napoleon_use_ivar = True
+napoleon_use_rtype = False
+napoleon_use_param = False

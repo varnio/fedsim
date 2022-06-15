@@ -1,5 +1,4 @@
 cd docs
-sphinx-apidoc -o . ..
-rm source/setup.rst
+sphinx-apidoc -o ./source ..
 make html
 
