@@ -48,7 +48,7 @@ setup(
         'Operating System :: POSIX',
         'Operating System :: Microsoft :: Windows',
         'Intended Audience :: Science/Research',
-        'Intended Audience :: Information Technology'
+        'Intended Audience :: Information Technology',
         'License :: OSI Approved :: Apache Software License',
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Mathematics',
