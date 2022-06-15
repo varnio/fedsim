@@ -31,6 +31,9 @@ release = '0.1'
 extensions = [
     "sphinx.ext.duration",
     "sphinx.ext.autosectionlabel",
+    "sphinx.ext.autosummary",
+    "sphinc.ext.autodoc",
+    "sphinc.ext.napolean",
     "nbsphinx",
 ]
 
