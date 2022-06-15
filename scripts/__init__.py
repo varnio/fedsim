@@ -1,4 +1,4 @@
-""" a simple Federated Learning simulator!
+""" cli for a simple Federated Learning simulator!
 """
 
 __version__ = "0.0.2"
