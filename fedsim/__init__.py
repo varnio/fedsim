@@ -1,3 +1,8 @@
+""" a simple Federated Learning simulator!
+"""
+
+__version__ = "0.0.1"
+
 import os
 import logging
 

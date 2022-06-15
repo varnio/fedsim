@@ -132,12 +132,14 @@ class FLAlgorithm(object):
             clients = random.sample(range(self.num_clients), self.sample_count)
         elif self.sample_scheme == 'sequential':
             last_sampled = -1 if self._last_client_sampled is None else self._last_client_sampled
-            clients = [ (i + 1) % self.num_clients for i in range(last_sampled, last_sampled + self.sample_count)]
+            clients = [
+                (i + 1) % self.num_clients
+                for i in range(last_sampled, last_sampled + self.sample_count)
+            ]
             self._last_client_sampled = clients[-1]
         else:
             raise NotImplementedError
         return clients
-        
 
     def _send_to_client(self, client_id):
         return self.send_to_client(client_id=client_id)

@@ -8,6 +8,34 @@ from .data_manager import DataManager
 
 
 class BasicDataManager(DataManager):
+    r"""A basic data manager for partitioning the data. Currecntly three 
+    rules of partitioning are supported:
+    
+    - iid: 
+        same label distribution among clients. sample balance determines 
+        quota of each client samples from a lognorm distribution. 
+    - dir: 
+        Dirichlete distribution with concentration parameter given by 
+        label_balance determines label balance of each client. 
+        sample balance determines quota of each client samples from a
+        lognorm distribution. 
+    - exclusive: 
+        samples corresponding to each label are randomly splitted to 
+        k clients where k = total_sample_size * label_balance. 
+        sample_balance determines the way this split happens (quota).
+        This rule also is know as "shards splitting".
+
+    Args:
+        root (str): root dir of the dataset to partition
+        dataset (str): name of the dataset
+        num_clients (int): number of partitions or clients
+        rule (str): rule of partitioning
+        sample_balance (float): balance of number of samples among clients
+        label_balance (float): balance of the labels on each clietns
+        local_test_portion (float): portion of local test set from trian
+        seed (int): random seed of partitioning
+        save_path (str, optional): path to save partitioned indices.
+    """
 
     def __init__(
         self,

@@ -25,6 +25,7 @@ class mlp_mnist(nn.Module):
         x = self.classifier(x)
         return x
 
+
 # class cnn_mnist(nn.Module):
 
 #     def __init__(self, num_classes=10, num_channels=1):
@@ -53,7 +54,6 @@ class mlp_mnist(nn.Module):
 #         x = self.feature_extractor(x)
 #         x = self.classifier(x)
 #         return x
-        
 
 
 class cnn_mnist(nn.Module):
@@ -82,8 +82,6 @@ class cnn_mnist(nn.Module):
         x = self.feature_extractor(x)
         x = self.classifier(x)
         return x
-
-        
 
 
 # class cnn_cifar10(nn.Module):
@@ -125,6 +123,7 @@ class cnn_mnist(nn.Module):
 #         x = self.classifier(x)
 #         return x
 
+
 class cnn_cifar10(nn.Module):
 
     def __init__(self, num_classes=10, num_channels=3, input_size=(24, 24)):
@@ -155,15 +154,12 @@ class cnn_cifar10(nn.Module):
         )
 
         self.classifier = nn.Linear(192, num_classes)
-        
 
     def forward(self, x):
         x = self.resize(x)
         x = self.feature_extractor(x)
         x = self.classifier(x)
         return x
-
-
 
 
 class cnn_cifar100(cnn_cifar10):

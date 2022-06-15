@@ -10,6 +10,16 @@ import random
 
 
 class DataManager(object):
+    r""" DataManager base class. 
+    Any other Data Manager is inherited from this class. There are 
+    four abstract class methods that child classes should implement:
+    get_identifiers, make_datasets, make_transforms, partition_local_data.
+
+    Args:
+        root (str): root dir of the dataset to partition
+        seed (int): random seed of partitioning
+        save_path (str, optional): path to save partitioned indices.
+    """
 
     def __init__(
         self,
@@ -49,13 +59,17 @@ class DataManager(object):
 
     def _make_transforms(self) -> None:
         self.train_transforms, self.test_transforms = self.make_transforms()
-    
+
     def _make_datasets(self) -> None:
         if self.test_transforms is None:
             raise Exception("call make_tranforms() before make_datasets()")
-        self.local_data, self.global_data = self.make_datasets(self.root, dict(train=self.train_transforms, test=self.test_transforms))
+        self.local_data, self.global_data = self.make_datasets(
+            self.root,
+            dict(train=self.train_transforms, test=self.test_transforms))
         if self.global_data is not None:
-            self.global_data = Subset(self.global_data, indices=-1, transform=self.test_transforms)
+            self.global_data = Subset(self.global_data,
+                                      indices=-1,
+                                      transform=self.test_transforms)
 
     def _partition_local_data(self) -> None:
         if self.local_data is None:
@@ -81,31 +95,37 @@ class DataManager(object):
     # to call by user
     def get_local_dataset(self, id: int) -> Dict[str, Dataset]:
         tr_idxs = self._local_parition_indices['train']
-        tr_dset = Subset(self.local_data, tr_idxs[id], transform=self.train_transforms)
+        tr_dset = Subset(self.local_data,
+                         tr_idxs[id],
+                         transform=self.train_transforms)
         if 'test' in self._local_parition_indices:
             ts_idxs = self._local_parition_indices['test']
             if len(tr_idxs) > 0:
-                ts_dset = Subset(self.local_data, ts_idxs[id], transform=self.test_transforms)
+                ts_dset = Subset(self.local_data,
+                                 ts_idxs[id],
+                                 transform=self.test_transforms)
                 return dict(train=tr_dset, test=ts_dset)
         return dict(train=tr_dset)
-        
 
     def get_group_dataset(self, ids: Iterable[int]) -> Dict[str, Dataset]:
         tr_idxs = self._local_parition_indices['train']
         group_tr_idxs = [i for id in ids for i in tr_idxs[id]]
-        tr_dset = Subset(self.local_data, group_tr_idxs, transform=self.train_transforms)
+        tr_dset = Subset(self.local_data,
+                         group_tr_idxs,
+                         transform=self.train_transforms)
         if 'test' in self._local_parition_indices:
             ts_idxs = self._local_parition_indices['test']
             if len(tr_idxs) > 0:
                 group_ts_idxs = [i for id in ids for i in ts_idxs[id]]
-                ts_dset = Subset(self.local_data, group_ts_idxs, transform=self.test_transforms)
+                ts_dset = Subset(self.local_data,
+                                 group_ts_idxs,
+                                 transform=self.test_transforms)
                 return dict(train=tr_dset, test=ts_dset)
         return dict(train=tr_dset)
-        
+
     def get_oracle_dataset(self) -> Dict[str, Dataset]:
         return self.get_group_dataset(
-            ids=range(len(self._local_parition_indices['train']))
-    )
+            ids=range(len(self._local_parition_indices['train'])))
 
     def get_global_dataset(self) -> Dict[str, Dataset]:
         return dict(test=self.global_data)
@@ -120,10 +140,8 @@ class DataManager(object):
     # *************************************************************************
     # to implement by child
     def make_datasets(
-        self,
-        root: str,
-        global_transforms: Dict[str, object]
-    ) -> Tuple[object, object]:
+            self, root: str,
+            global_transforms: Dict[str, object]) -> Tuple[object, object]:
         """ makes and returns local and global dataset objects. The local
             datasets do not need a transform as recompiled datasets from 
             indices already use transforms as they are requested.

@@ -100,7 +100,10 @@ def vector_to_parameters_like(vec, parameters_like):
 
 class ModelReconstructor(torch.nn.Module):
 
-    def __init__(self, feature_extractor, classifier, connection_fn=None) -> None:
+    def __init__(self,
+                 feature_extractor,
+                 classifier,
+                 connection_fn=None) -> None:
         super(ModelReconstructor, self).__init__()
         self.feature_extractor = feature_extractor
         self.classifier = classifier

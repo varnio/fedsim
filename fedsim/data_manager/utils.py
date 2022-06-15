@@ -2,23 +2,21 @@ import numpy as np
 from torch.utils import data
 
 
-
 class Subset(data.Dataset):
     r"""
     Subset of a dataset at specified indices.
-
     Args:
         dataset (Dataset): The whole Dataset
-        indices (sequence): Indices in the whole set selected for subset
+        indices (sequence): Indices in the whole set selected for subset.
     """
 
     def __init__(self, dataset, indices, transform=None):
         self.dataset = dataset
-        if isinstance(indices,int) and indices == -1:
+        if isinstance(indices, int) and indices == -1:
             self.indices = range(len(dataset))
         else:
             self.indices = indices
-        self.transform= transform
+        self.transform = transform
         targets = np.array(dataset.targets)
         self.targets = targets[self.indices]
         # remove the transform function of the original dataset if transform
@@ -32,9 +30,9 @@ class Subset(data.Dataset):
             if self.transform is None:
                 return x, y
             return self.transform(x), y
-        x, y  = self.dataset[self.indices[idx]]
+        x, y = self.dataset[self.indices[idx]]
         if self.transform is None:
-                return x, y 
+            return x, y
         return self.transform(x), y
 
     def __len__(self):
