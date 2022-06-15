@@ -1,7 +1,6 @@
 [build-system]
 requires = [
     "setuptools>=30.3.0",
-    "flit_core",
     "wheel",
     'click',
     'numpy',
@@ -10,7 +9,6 @@ requires = [
     'torch',
     'torchvision',
 ]
-build-backend = "flit_core.buildapi"
 
 [tool.black]
 line-length = 140
