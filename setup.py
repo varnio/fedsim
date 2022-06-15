@@ -84,6 +84,9 @@ setup(
         learning, deep learning, distributed learning',
     python_requires='>=3.6',
     extras_require={
+        "dev": [
+            "pytest>=3.7",
+        ]
         # eg:
         #   'rst': ['docutils>=0.11'],
         #   ':python_version=="2.6"': ['argparse'],
