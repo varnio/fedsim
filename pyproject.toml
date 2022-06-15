@@ -26,4 +26,5 @@ dynamic = ["version", "description"]
 doc = [
     "sphinx~=5.0.1",
     "pydata-sphinx-theme",
+    "nbsphinx",
 ]
