@@ -25,4 +25,5 @@ dynamic = ["version", "description"]
 [project.optional-dependencies]
 doc = [
     "sphinx~=5.0.1",
+    "pydata-sphinx-theme",
 ]
