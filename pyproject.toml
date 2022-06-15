@@ -1,0 +1,28 @@
+[build-system]
+requires = [
+    "setuptools>=30.3.0",
+    "wheel",
+    'click',
+    'numpy',
+    'sklearn',
+    'tqdm',
+    'torch',
+    'torchvision',
+]
+
+[tool.black]
+line-length = 140
+target-version = ['py38', 'py39']
+skip-string-normalization = true
+
+[project]
+name = "fedsim"
+authors = [{name="Farshid Varno", email = "fr.varno@gmail.com"}]
+dynamic = ["version", "description"]
+
+[project.optional-dependencies]
+doc = [
+    "sphinx~=5.0.1",
+    "pydata-sphinx-theme",
+    "nbsphinx",
+]
