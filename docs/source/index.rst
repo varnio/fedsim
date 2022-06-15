@@ -17,6 +17,7 @@ FedSim is a Generic Federated Learning Simulator. It aims to provide the researc
    usage
    notebooks/tutorial
    changelog
+   modules
    
 
 
