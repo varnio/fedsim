@@ -8,6 +8,8 @@ requires = [
     'tqdm',
     'torch',
     'torchvision',
+    'tensorboard',
+    'pyyaml',
 ]
 
 [tool.black]

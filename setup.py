@@ -14,6 +14,7 @@ from setuptools import find_packages
 from setuptools import setup
 
 
+
 def read(*names, **kwargs):
     with io.open(join(dirname(__file__), *names),
                  encoding=kwargs.get('encoding', 'utf8')) as fh:
@@ -22,7 +23,7 @@ def read(*names, **kwargs):
 
 setup(
     name='fedsim',
-    version='0.0.2',
+    version='0.0.3',
     license='Apache-2.0',
     description='Generic Federated Learning Simulator with PyTorch',
     long_description='{}\n{}'.format(
@@ -79,6 +80,8 @@ setup(
         'tqdm',
         'torch',
         'torchvision',
+        'tensorboard',
+        'pyyaml',
     ],
     keywords='pytorch, neural networks, template, federated, federated \
         learning, deep learning, distributed learning',
