@@ -4,7 +4,10 @@
    contain the root `toctree` directive.
 
 
-.. include:: readme.rst
+FedSim
+======
+
+FedSim is a Generic Federated Learning Simulator. It aims to provide the researchers with an easy to develope/maintain simulator for Federated Learning.
 
 .. toctree::
    :maxdepth: 2
@@ -12,7 +15,9 @@
 
    installation
    usage
+   notebooks/tutorial
    changelog
+   
 
 
 
