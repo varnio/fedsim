@@ -20,30 +20,31 @@ Here is a demo:
 
 .. code-block:: python
 
-   from fedsim.data_manager.basic_data_manager import BasicDataManager
-   from fedsim.fl.algorithm import FedAvg
-   from fedsim.model.mcmahan_nets import mlp_mnist
+    from fedsim.data_manager.basic_data_manager import BasicDataManager
+    from fedsim.fl.algorithms.fedavg import FedAvg
+    from fedsim.models.mcmahan_nets import cnn_cifar100
+    from torch.utils.tensorboard import SummaryWriter
 
-   n_clients = 500
-   dataset_name = 'mnist'
+    n_clients = 500
 
-   dm = BasicDataManager(root ='./data', dataset_name, n_client)
-   sw = SummaryWriter()
+    dm = BasicDataManager('./data', 'cifar100', n_clients)
+    sw = SummaryWriter()
 
-   alg = FedAvg(
-       data_manager=dm,
-       num_clients=n_clients,
-       sample_scheme='uniform',
-       sample_rate=0.01,
-       model_class=mlp_mnist,
-       epochs=5,
-       loss_fn='ce',
-       metric_logger=sw,
-       device='cuda',
+    alg = FedAvg(
+        data_manager=dm,
+        num_clients=n_clients,
+        sample_scheme='uniform',
+        sample_rate=0.01,
+        model_class=cnn_cifar100,
+        epochs=5,
+        loss_fn='ce',
+        batch_size=32,
+        metric_logger=sw,
+        device='cuda',
 
-   )
+    )
 
-   alg.train(rounds=100)
+    alg.train(rounds=5)
 
 Included cli tool
 -----------------

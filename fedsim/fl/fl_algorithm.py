@@ -19,6 +19,7 @@ class FLAlgorithm(object):
     def __init__(
         self,
         data_manager,
+        metric_logger,
         num_clients,
         sample_scheme,
         sample_rate,
@@ -34,7 +35,6 @@ class FLAlgorithm(object):
         clr_decay_type,
         min_clr,
         clr_step_size,
-        metric_logger,
         device,
         log_freq,
         *args,
@@ -63,7 +63,7 @@ class FLAlgorithm(object):
         if isinstance(model_class, str):
             self.model_class = search_in_submodules('fedsim.models',
                                                     model_class)
-        elif isinstance(model_class, nn.Module):
+        elif issubclass(model_class, nn.Module):
             self.model_class = model_class
         else:
             raise Exception("incompatiple model!")
