@@ -300,6 +300,7 @@ def fed_learn(ctx: click.core.Context, rounds: int, data_manager: str,
                 format(ctx.args[i]))
         prefix = ctx.args[i][2:4]
         arg = ctx.args[i][4:]
+        arg = arg.replace('-', '_')
         if i == len(ctx.args) - 1 or ctx.args[i + 1][:2] == '--':
             add_arg(arg, 'True', prefix)
             i += 1
