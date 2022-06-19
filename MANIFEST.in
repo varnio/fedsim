@@ -8,6 +8,7 @@ include .editorconfig
 include .readthedocs.yml
 include pytest.ini
 include tox.ini
+include codecov
 
 include AUTHORS.rst
 include CHANGELOG.rst
