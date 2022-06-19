@@ -13,19 +13,20 @@
 from __future__ import unicode_literals
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../..'))
+
+sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information -----------------------------------------------------
 
-master_doc = 'index'
-project = 'fedsim'
-copyright = '2022, Farshid Varno'
-year = '2022'
-author = 'Farshid Varno'
-copyright = '{0}, {1}'.format(year, author)
-version = release = '0.0.0'
+master_doc = "index"
+project = "fedsim"
+copyright = "2022, Farshid Varno"
+year = "2022"
+author = "Farshid Varno"
+copyright = "{0}, {1}".format(year, author)
+version = release = "0.0.0"
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = "0.1"
 
 # -- General configuration ---------------------------------------------------
 
@@ -36,18 +37,18 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.duration",
     "sphinx.ext.autosummary",
-    'sphinx.ext.coverage',
-    'sphinx.ext.doctest',
-    'sphinx.ext.ifconfig',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.todo',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.extlinks',
+    "sphinx.ext.coverage",
+    "sphinx.ext.doctest",
+    "sphinx.ext.ifconfig",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.todo",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.extlinks",
     "nbsphinx",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -60,24 +61,24 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 extlinks = {
-    'issue': ('https://github.com/fedsim-dev/fedsim/issues/%s', '#'),
-    'pr': ('https://github.com/fedsim-dev/fedsim/pull/%s', 'PR #'),
+    "issue": ("https://github.com/fedsim-dev/fedsim/issues/%s", "#"),
+    "pr": ("https://github.com/fedsim-dev/fedsim/pull/%s", "PR #"),
 }
 
-html_theme = 'pydata_sphinx_theme'
+html_theme = "pydata_sphinx_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 html_use_smartypants = True
-html_last_updated_fmt = '%b %d, %Y'
+html_last_updated_fmt = "%b %d, %Y"
 
 html_split_index = False
 html_sidebars = {
-    '**': ['searchbox.html', 'globaltoc.html', 'sourcelink.html'],
+    "**": ["searchbox.html", "globaltoc.html", "sourcelink.html"],
 }
-html_short_title = '%s-%s' % (project, version)
+html_short_title = "%s-%s" % (project, version)
 
 napoleon_use_ivar = True
 napoleon_use_rtype = False

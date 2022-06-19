@@ -4,7 +4,7 @@ from torch.utils import data
 
 class Subset(data.Dataset):
     r"""Subset of a dataset at specified indices.
-    
+
     Args:
         dataset (Dataset): The whole Dataset
         indices (sequence): Indices in the whole set selected for subset.

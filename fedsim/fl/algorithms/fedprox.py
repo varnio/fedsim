@@ -13,7 +13,6 @@ from . import fedavg
 
 
 class FedProx(fedavg.FedAvg):
-
     def __init__(
         self,
         data_manager,
@@ -26,14 +25,14 @@ class FedProx(fedavg.FedAvg):
         loss_fn,
         batch_size=32,
         test_batch_size=64,
-        local_weight_decay=0.,
-        slr=1.,
+        local_weight_decay=0.0,
+        slr=1.0,
         clr=0.1,
-        clr_decay=1.,
-        clr_decay_type='step',
+        clr_decay=1.0,
+        clr_decay_type="step",
         min_clr=1e-12,
         clr_step_size=1000,
-        device='cuda',
+        device="cuda",
         log_freq=10,
         mu=0.0001,
         *args,
@@ -72,12 +71,12 @@ class FedProx(fedavg.FedAvg):
         batch_size,
         lr,
         weight_decay=0,
-        device='cuda',
+        device="cuda",
         ctx=None,
         *args,
         **kwargs,
     ):
-        model = ctx['model']
+        model = ctx["model"]
         params_init = parameters_to_vector(model.parameters()).detach().clone()
         mu = self.mu
 
@@ -85,13 +84,15 @@ class FedProx(fedavg.FedAvg):
             params = parameters_to_vector(model.parameters())
             grad_additive = 0.5 * (params - params_init)
             grad_additive_list = vector_to_parameters_like(
-                mu * grad_additive, model.parameters())
+                mu * grad_additive, model.parameters()
+            )
 
             for p, g_a in zip(model.parameters(), grad_additive_list):
                 p.grad += g_a
 
-        step_closure_ = partial(default_closure,
-                                transform_grads=transform_grads_fn)
+        step_closure_ = partial(
+            default_closure, transform_grads=transform_grads_fn
+        )
         return super(FedProx, self).send_to_server(
             client_id,
             datasets,

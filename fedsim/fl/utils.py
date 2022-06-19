@@ -11,34 +11,36 @@ def get_metric_scores(metric_fn_dict, y_true, y_pred):
         return answer
     for name, fn in metric_fn_dict.items():
         args = dict()
-        if 'y_true' in signature(fn).parameters:
-            args['y_true'] = y_true
-        elif 'target' in signature(fn).parameters:
-            args['target'] = y_true
+        if "y_true" in signature(fn).parameters:
+            args["y_true"] = y_true
+        elif "target" in signature(fn).parameters:
+            args["target"] = y_true
         else:
             raise NotImplementedError
-        if 'y_pred' in signature(fn).parameters:
-            args['y_pred'] = y_pred
-        elif 'input' in signature(fn).parameters:
-            args['input'] = y_pred
+        if "y_pred" in signature(fn).parameters:
+            args["y_pred"] = y_pred
+        elif "input" in signature(fn).parameters:
+            args["input"] = y_pred
         else:
             raise NotImplementedError
         answer[name] = fn(**args)
     return answer
 
 
-def default_closure(x,
-                    y,
-                    model,
-                    loss_fn,
-                    optimizer,
-                    metric_fn_dict,
-                    max_grad_norm=1000,
-                    link_fn=partial(torch.argmax, dim=1),
-                    device='cpu',
-                    transform_grads=None,
-                    transform_y=None,
-                    **kwargs):
+def default_closure(
+    x,
+    y,
+    model,
+    loss_fn,
+    optimizer,
+    metric_fn_dict,
+    max_grad_norm=1000,
+    link_fn=partial(torch.argmax, dim=1),
+    device="cpu",
+    transform_grads=None,
+    transform_y=None,
+    **kwargs,
+):
     if transform_y is not None:
         y = transform_y(y)
     y_true = y.tolist()
@@ -65,18 +67,19 @@ def default_closure(x,
 
 
 def vector_to_parameters_like(vec, parameters_like):
-    r"""Convert one vector to new parameters like the ones provided 
+    r"""Convert one vector to new parameters like the ones provided
 
     Args:
         vec (Tensor): a single vector represents the parameters of a model.
         parameters (Iterable[Tensor]): an iterator of Tensors that are the
-            parameters of a model. This is only used to get the sizes. New 
+            parameters of a model. This is only used to get the sizes. New
             parametere are defined.
     """
     # Ensure vec of type Tensor
     if not isinstance(vec, torch.Tensor):
-        raise TypeError('expected torch.Tensor, but got: {}'.format(
-            torch.typename(vec)))
+        raise TypeError(
+            "expected torch.Tensor, but got: {}".format(torch.typename(vec))
+        )
     # Flag for the device where the parameter is located
     param_device = None
 
@@ -91,7 +94,9 @@ def vector_to_parameters_like(vec, parameters_like):
         num_param = param.numel()
         # Slice the vector, reshape it, and replace the old data of the
         # parameter
-        new_params.append(vec[pointer:pointer + num_param].view_as(param).data)
+        new_params.append(
+            vec[pointer : pointer + num_param].view_as(param).data
+        )
 
         # Increment the pointer
         pointer += num_param
@@ -99,11 +104,9 @@ def vector_to_parameters_like(vec, parameters_like):
 
 
 class ModelReconstructor(torch.nn.Module):
-
-    def __init__(self,
-                 feature_extractor,
-                 classifier,
-                 connection_fn=None) -> None:
+    def __init__(
+        self, feature_extractor, classifier, connection_fn=None
+    ) -> None:
         super(ModelReconstructor, self).__init__()
         self.feature_extractor = feature_extractor
         self.classifier = classifier
