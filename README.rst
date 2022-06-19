@@ -332,29 +332,3 @@ If you want to use a custom pytorch class model with the cli tool, then you can 
 
    fedsim fed-learn --model CustomModule ...
 
-Contributor's Guide
-===================
-
-Style
------
-
-
-* 
-  We use ``yapf`` for formatting the style of the code. Before your merge request:
-
-
-  * make sure ``yapf`` is installed.
-  * inyour terminal, locate at the root of the project
-  * launch the following command: ``yapf -ir -vv --no-local-style ./``
-
-* 
-  For now, type hinting is only used to avoid confusion at certain points.
-
-TODO
-====
-
-
-* [ ] only make local test available when log-freq triggers
-* [ ] add implementation of scaffold
-* [ ] publish the code
-* [ ] add doc (sphinx)
