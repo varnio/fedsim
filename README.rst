@@ -1,7 +1,16 @@
 FedSim
 ======
 
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
+
+.. image:: https://readthedocs.org/projects/fedsim/badge/?version=stable
+    :target: hhttps://fedsim.readthedocs.io/en/latest/?badge=stable
+
+
+
 FedSim is a Generic Federated Learning Simulator. It aims to provide the researchers with an easy to develope/maintain simulator for Federated Learning. See documentation at `here <https://fedsim.readthedocs.io/en/main/>`_!
+
 
 Installation
 ============
