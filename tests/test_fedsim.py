@@ -20,6 +20,6 @@ def test_main():
         loss_fn="ce",
         batch_size=32,
         metric_logger=sw,
-        device="cuda",
+        device="cpu",
     )
     assert alg.train(rounds=5) == 0

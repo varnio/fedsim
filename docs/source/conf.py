@@ -60,10 +60,10 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-extlinks = {
-    "issue": ("https://github.com/fedsim-dev/fedsim/issues/%s", "#"),
-    "pr": ("https://github.com/fedsim-dev/fedsim/pull/%s", "PR #"),
-}
+# extlinks = {
+#     "issue": ("https://github.com/fedsim-dev/fedsim/issues/%s", "#"),
+#     "pr": ("https://github.com/fedsim-dev/fedsim/pull/%s", "PR #"),
+# }
 
 html_theme = "pydata_sphinx_theme"
 
