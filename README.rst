@@ -115,8 +115,8 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
            """
            raise NotImplementedError
 
-Integration with included cli
------------------------------
+Integration with included cli (DataManager)
+-------------------------------------------
 
 To automatically include your custom data manager in the provided cli tool, you can place your class in a file under ``fedsim/data_manager``. Then, call it using option ``--data-manager``. To deliver arguments to the ``__init__`` method of your custom data manager, you can pass options in form of ``--d-<arg-name>`` where ``<arg-name>`` is the argument. Example
 
@@ -265,8 +265,8 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlg
            """
            raise NotImplementedError
 
-Integration with included cli
------------------------------
+Integration with included cli (FLAlgorithm)
+-------------------------------------------
 
 To automatically include your custom algorithm by the provided cli tool, you can place your class in a file under fedsim/fl/algorithms. Then, call it using option --algorithm. To deliver arguments to the **init** method of your custom algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
 
@@ -304,8 +304,6 @@ Included FL algorithms
      - paper
    * - fedavg
      - `Communication-Efficient Learning of Deep Networks from Decentralized Data <https://arxiv.org/abs/1602.05629>`_
-   * - fedavg
-     - `Federated Optimization in Heterogeneous Networks <https://arxiv.org/abs/1812.06127>`_
    * - fedavgm
      - `Measuring the Effects of Non-Identical Data Distribution for Federated Visual Classification <https://arxiv.org/abs/1909.06335>`_
    * - fednova
