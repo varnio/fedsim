@@ -22,4 +22,4 @@ def test_main():
         metric_logger=sw,
         device="cpu",
     )
-    assert alg.train(rounds=5) == 0
+    assert alg.train(rounds=1) == 0
