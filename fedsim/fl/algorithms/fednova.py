@@ -1,5 +1,6 @@
 r""" This file contains an implementation of the following paper:
-    Title: "Tackling the Objective Inconsistency Problem in Heterogeneous Federated Optimization"
+    Title: "Tackling the Objective Inconsistency Problem in Heterogeneous
+    ---- Federated Optimization"
     Authors: Jianyu Wang, Qinghua Liu, Hao Liang, Gauri Joshi, H. Vincent Poor
     Publication date: 15 Jul 2020
     Link: https://arxiv.org/abs/2007.07481

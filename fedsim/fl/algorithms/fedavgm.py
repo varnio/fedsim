@@ -1,11 +1,13 @@
 r""" This file contains an implementation of the following paper:
-    Title: "Measuring the Effects of Non-Identical Data Distribution for Federated Visual Classification"
+    Title: "Measuring the Effects of Non-Identical Data Distribution for
+    ---- Federated Visual Classification"
     Authors: Tzu-Ming Harry Hsu, Hang Qi, Matthew Brown
     Publication date: September 13th, 2019
     Link: https://arxiv.org/abs/1909.06335
 """
-from . import fedavg
 from torch.optim import SGD
+
+from . import fedavg
 
 
 class FedAvgM(fedavg.FedAvg):

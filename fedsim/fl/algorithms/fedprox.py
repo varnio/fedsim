@@ -1,14 +1,17 @@
 r""" This file contains an implementation of the following paper:
     Title: "Federated Optimization in Heterogeneous Networks"
-    Authors: Tian Li, Anit Kumar Sahu, Manzil Zaheer, Maziar Sanjabi, Ameet Talwalkar, Virginia Smith
-    Publication date: [Submitted on 14 Dec 2018 (v1), last revised 21 Apr 2020 (this version, v5)]
+    Authors: Tian Li, Anit Kumar Sahu, Manzil Zaheer, Maziar Sanjabi,
+    ---- Ameet Talwalkar, Virginia Smith
+    Publication date: [Submitted on 14 Dec 2018 (v1), last revised
+    ---- 21 Apr 2020 (this version, v5)]
     Link: https://arxiv.org/abs/1812.06127
 """
-from torch.nn.utils import parameters_to_vector
 from functools import partial
 
-from ..utils import default_closure, vector_to_parameters_like
+from torch.nn.utils import parameters_to_vector
 
+from ..utils import default_closure
+from ..utils import vector_to_parameters_like
 from . import fedavg
 
 

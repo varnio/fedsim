@@ -1,25 +1,24 @@
-from http import client
-from tqdm import trange
-import random
+import inspect
+import logging
 import math
+import random
+from pprint import pformat
+from typing import Any
+from typing import Dict
+from typing import Hashable
+from typing import Iterable
+from typing import Mapping
+from typing import Optional
+from typing import Union
+
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from typing import (
-    Any,
-    Dict,
-    Hashable,
-    Iterable,
-    Mapping,
-    Optional,
-    Union,
-)
-import logging
-import inspect
-from pprint import pformat
+from tqdm import trange
+
+from fedsim.utils import search_in_submodules
 
 from .aggregators import SerialAggregator
-from fedsim.utils import search_in_submodules
 
 
 class FLAlgorithm(object):
@@ -130,7 +129,7 @@ class FLAlgorithm(object):
     def read_client(self, client_id, key):
         if client_id >= self.num_clients:
             raise Exception(
-                "invalid client id {} >=".format(id, self.num_clients)
+                "invalid client id {} >= {}".format(id, self.num_clients)
             )
         if key in self._client_memory[client_id]:
             return self._client_memory[client_id][key]
@@ -267,9 +266,9 @@ class FLAlgorithm(object):
             loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
             batch_size (int): training batch_size
             lr (float): client learning rate
-            weight_decay (float, optional): weight decay for SGD. Defaults to 0.
+            weight_decay (float, optional): weight decay. Defaults to 0.
             device (Union[int, str], optional): Defaults to 'cuda'.
-            ctx (Optional[Dict[Hashable, Any]], optional): context reveived from server. Defaults to None.
+            ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
 
         Raises:
             NotImplementedError: abstract class to be implemented by child
@@ -333,8 +332,10 @@ class FLAlgorithm(object):
             dataloaders (Any): dict of data loaders to test the global model(s)
             metric_logger (Any): the logging object (e.g., SummaryWriter)
             device (str): 'cuda', 'cpu' or gpu number
-            optimize_reports (Mapping[Hashable, Any]): dict returned by optimzier
-            deployment_points (Mapping[Hashable, torch.Tensor], optional): output of deploy method
+            optimize_reports (Mapping[Hashable, Any]): dict returned by \
+                optimzier
+            deployment_points (Mapping[Hashable, torch.Tensor], optional): \
+                output of deploy method
 
         Raises:
             NotImplementedError: abstract class to be implemented by child

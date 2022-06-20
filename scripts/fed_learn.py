@@ -1,13 +1,16 @@
-import click
-import os
-from typing import Optional
-from torch.utils.tensorboard import SummaryWriter
-from fedsim.utils import search_in_submodules, set_seed
 import inspect
-import yaml
-from collections import namedtuple
 import logging
+import os
+from collections import namedtuple
 from pprint import pformat
+from typing import Optional
+
+import click
+import yaml
+from torch.utils.tensorboard import SummaryWriter
+
+from fedsim.utils import search_in_submodules
+from fedsim.utils import set_seed
 
 
 @click.command(
@@ -380,6 +383,6 @@ def fed_learn(
         **context_pool["alg_context"].arg_dict,
     )
 
-    alg_ret = algorithm_instance.train(rounds)
+    algorithm_instance.train(rounds)
     summary_writer.flush()
     # click.echo(ret)

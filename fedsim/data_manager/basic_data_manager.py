@@ -1,8 +1,10 @@
-from torchvision.datasets import MNIST, CIFAR10, CIFAR100
 import numpy as np
-from tqdm import tqdm
 import torchvision
 from sklearn.model_selection import train_test_split
+from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
+from torchvision.datasets import MNIST
+from tqdm import tqdm
 
 from .data_manager import DataManager
 
@@ -86,7 +88,8 @@ class BasicDataManager(DataManager):
         self.label_balance = label_balance
         self.local_test_portion = local_test_portion
 
-        # super should be called at the end because abstract classes are  called in its __init__
+        # super should be called at the end because abstract classes are
+        # called in its __init__
         super(BasicDataManager, self).__init__(
             root,
             seed,

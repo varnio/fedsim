@@ -1,20 +1,28 @@
 r""" This file contains an implementation of the following paper:
-    Title: "Communication-Efficient Learning of Deep Networks from Decentralized Data"
-    Authors: H. Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson, Blaise Agüera y Arcas
+    Title: "Communication-Efficient Learning of Deep Networks from
+    ---- Decentralized Data"
+    Authors: H. Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson,
+    ---- Blaise Agüera y Arcas
     Publication date: February 17th, 2016
     Link: https://arxiv.org/abs/1602.05629
 """
-import sys
 import math
+import sys
 from copy import deepcopy
+
 from sklearn.metrics import accuracy_score
+from torch.nn.utils import parameters_to_vector
+from torch.nn.utils import vector_to_parameters
 from torch.optim import SGD
-from torch.utils.data import DataLoader, RandomSampler
-from torch.nn.utils import parameters_to_vector, vector_to_parameters
+from torch.utils.data import DataLoader
+from torch.utils.data import RandomSampler
 
 from fedsim.utils import apply_on_dict
+
+from ..evaluation import default_closure
+from ..evaluation import inference
+from ..evaluation import local_train_val
 from ..fl_algorithm import FLAlgorithm
-from ..evaluation import local_train_val, inference, default_closure
 
 
 class FedAvg(FLAlgorithm):

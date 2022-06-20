@@ -1,5 +1,7 @@
 import os
+
 import click
+
 from .fed_learn import fed_learn
 
 # Enable click

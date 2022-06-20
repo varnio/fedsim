@@ -1,5 +1,6 @@
 from functools import partial
 from inspect import signature
+
 import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.nn.utils.convert_parameters import _check_param_device
@@ -95,7 +96,7 @@ def vector_to_parameters_like(vec, parameters_like):
         # Slice the vector, reshape it, and replace the old data of the
         # parameter
         new_params.append(
-            vec[pointer : pointer + num_param].view_as(param).data
+            vec[pointer: pointer + num_param].view_as(param).data
         )
 
         # Increment the pointer

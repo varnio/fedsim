@@ -1,8 +1,9 @@
 import importlib
+import inspect
+import random
+
 import numpy as np
 import torch
-import random
-import inspect
 
 
 def get_from_module(module_name, submodule_name, class_name):

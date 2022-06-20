@@ -4,8 +4,8 @@
 
 __version__ = "0.0.4"
 
-import os
 import logging
+import os
 
 # Set default logging handler to avoid "No handler found" warnings.
 logging.getLogger(__name__).addHandler(logging.NullHandler())

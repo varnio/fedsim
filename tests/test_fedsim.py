@@ -1,7 +1,8 @@
+from torch.utils.tensorboard import SummaryWriter
+
 from fedsim.data_manager.basic_data_manager import BasicDataManager
 from fedsim.fl.algorithms.fedavg import FedAvg
 from fedsim.models.mcmahan_nets import cnn_cifar100
-from torch.utils.tensorboard import SummaryWriter
 
 
 def test_main():

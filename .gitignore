@@ -132,3 +132,11 @@ dmypy.json
 runs/
 data/
 
+
+# IDE project files
+.project
+.pydevproject
+.idea
+.vscode
+*.iml
+*.komodoproject

@@ -1,16 +1,18 @@
 r""" This file contains an implementation of the following paper:
     Title: "Federated Learning Based on Dynamic Regularization"
-    Authors: Durmus Alp Emre Acar, Yue Zhao, Ramon Matas, Matthew Mattina, Paul Whatmough, Venkatesh Saligrama
+    Authors: Durmus Alp Emre Acar, Yue Zhao, Ramon Matas, Matthew Mattina,
+    ----- Paul Whatmough, Venkatesh Saligrama
     Publication date: [28 Sept 2020 (modified: 25 Mar 2021)]
     Link: https://openreview.net/forum?id=B7v4QMR6Z9w
 """
-from torch.nn.utils import parameters_to_vector
 from functools import partial
 
 import torch
+from torch.nn.utils import parameters_to_vector
 
+from ..utils import default_closure
+from ..utils import vector_to_parameters_like
 from . import fedavg
-from ..utils import vector_to_parameters_like, default_closure
 
 
 class FedDyn(fedavg.FedAvg):

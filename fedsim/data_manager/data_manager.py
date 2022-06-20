@@ -1,12 +1,17 @@
 import os
 import pickle
-from typing import Iterable, Dict, Optional, Sequence, Tuple
-from torch.utils.data import Dataset
-from .utils import Subset
+import random
+from typing import Dict
+from typing import Iterable
+from typing import Optional
+from typing import Sequence
+from typing import Tuple
 
 # import libraries with random generator to set seed
 import numpy as np
-import random
+from torch.utils.data import Dataset
+
+from .utils import Subset
 
 
 class DataManager(object):
@@ -206,7 +211,8 @@ class DataManager(object):
                 implemented by child classes
 
         Returns:
-            Dict[str, Iterable[Iterable[int]]]: {'train': tr_indices, 'test': ts_indices}
+            Dict[str, Iterable[Iterable[int]]]:
+                {'train': tr_indices, 'test': ts_indices}
         """
         raise NotImplementedError
 
