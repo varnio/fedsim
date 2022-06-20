@@ -1,19 +1,23 @@
-import torch
 from functools import partial
 
-from fedsim.utils import add_dict_to_dict, apply_on_dict
-from .utils import get_metric_scores, default_closure
+import torch
+
+from fedsim.utils import add_dict_to_dict
+from fedsim.utils import apply_on_dict
+
+from .utils import default_closure
+from .utils import get_metric_scores
 
 
 def inference(
-        model,
-        data_loader,
-        metric_fn_dict,
-        link_fn=partial(torch.argmax, dim=1),
-        device='cpu',
-        transform_y=None,
+    model,
+    data_loader,
+    metric_fn_dict,
+    link_fn=partial(torch.argmax, dim=1),
+    device="cpu",
+    transform_y=None,
 ):
-    """ to test the performance of a model on a test set.
+    """to test the performance of a model on a test set.
 
     :param model: model to get the predictions from
     :param loader: data loader
@@ -40,25 +44,28 @@ def inference(
             del outputs
     if model_is_training:
         model.train()
-    return get_metric_scores(metric_fn_dict, y_true, y_pred), num_samples
+    return (
+        get_metric_scores(metric_fn_dict, y_true, y_pred),
+        num_samples,
+    )
 
 
 def local_train_val(
-        model,
-        train_data_loader,
-        epochs,
-        steps,
-        loss_fn,
-        optimizer,
-        device,
-        step_closure=default_closure,
-        metric_fn_dict=None,
-        max_grad_norm=1000,
-        link_fn=partial(
-            torch.argmax,
-            dim=1,
-        ),
-        **step_ctx,
+    model,
+    train_data_loader,
+    epochs,
+    steps,
+    loss_fn,
+    optimizer,
+    device,
+    step_closure=default_closure,
+    metric_fn_dict=None,
+    max_grad_norm=1000,
+    link_fn=partial(
+        torch.argmax,
+        dim=1,
+    ),
+    **step_ctx,
 ):
 
     if steps > 0:
@@ -109,9 +116,15 @@ def local_train_val(
                 all_loss += loss.item()
 
         # add average metrics over epochs
-        normalized_metrics = apply_on_dict(metrics,
-                                           lambda _, x: x / num_steps,
-                                           return_as_dict=True)
+        normalized_metrics = apply_on_dict(
+            metrics, lambda _, x: x / num_steps, return_as_dict=True
+        )
         avg_loss = all_loss / num_steps
 
-    return num_train_samples, num_steps, diverged, avg_loss, normalized_metrics
+    return (
+        num_train_samples,
+        num_steps,
+        diverged,
+        avg_loss,
+        normalized_metrics,
+    )

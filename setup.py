@@ -10,9 +10,7 @@ from os.path import join
 from os.path import splitext
 
 from setuptools import find_packages
-
 from setuptools import setup
-
 
 
 def read(*names, **kwargs):
@@ -23,7 +21,7 @@ def read(*names, **kwargs):
 
 setup(
     name='fedsim',
-    version='0.0.3',
+    version='0.0.4',
     license='Apache-2.0',
     description='Generic Federated Learning Simulator with PyTorch',
     long_description='{}\n{}'.format(
@@ -40,7 +38,6 @@ setup(
     include_package_data=True,
     zip_safe=False,
     classifiers=[
-        # complete classifier list: http://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'Intended Audience :: Education',

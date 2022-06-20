@@ -1,21 +1,27 @@
-from http import client
-from tqdm import trange
-import random
+import inspect
+import logging
 import math
+import random
+from pprint import pformat
+from typing import Any
+from typing import Dict
+from typing import Hashable
+from typing import Iterable
+from typing import Mapping
+from typing import Optional
+from typing import Union
+
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from typing import Any, Dict, Hashable, Iterable, Mapping, Optional, Union
-import logging
-import inspect
-from pprint import pformat
+from tqdm import trange
+
+from fedsim.utils import search_in_submodules
 
 from .aggregators import SerialAggregator
-from fedsim.utils import search_in_submodules
 
 
 class FLAlgorithm(object):
-
     def __init__(
         self,
         data_manager,
@@ -49,7 +55,7 @@ class FLAlgorithm(object):
         added_args = self_args - grandpa_args
         added_args_dict = {key: getattr(self, key) for key in added_args}
         if len(added_args_dict) > 0:
-            logging.info('algorithm arguments: ' + pformat(added_args_dict))
+            logging.info("algorithm arguments: " + pformat(added_args_dict))
 
         self._data_manager = data_manager
         self.num_clients = num_clients
@@ -57,20 +63,23 @@ class FLAlgorithm(object):
         self.sample_count = int(sample_rate * num_clients)
         if not 1 <= self.sample_count <= num_clients:
             raise Exception(
-                'invalid client sample size for {}% of {} clients'.format(
-                    sample_rate, num_clients))
+                "invalid client sample size for {}% of {} clients".format(
+                    sample_rate, num_clients
+                )
+            )
 
         if isinstance(model_class, str):
-            self.model_class = search_in_submodules('fedsim.models',
-                                                    model_class)
+            self.model_class = search_in_submodules(
+                "fedsim.models", model_class
+            )
         elif issubclass(model_class, nn.Module):
             self.model_class = model_class
         else:
             raise Exception("incompatiple model!")
         self.epochs = epochs
-        if loss_fn == 'ce':
+        if loss_fn == "ce":
             self.loss_fn = nn.CrossEntropyLoss()
-        elif loss_fn == 'mse':
+        elif loss_fn == "mse":
             self.loss_fn = nn.MSELoss()
         else:
             raise NotImplementedError
@@ -90,8 +99,7 @@ class FLAlgorithm(object):
 
         self._server_memory: Dict[Hashable, object] = dict()
         self._client_memory: Dict[int, Dict[object]] = {
-            k: dict()
-            for k in range(num_clients)
+            k: dict() for k in range(num_clients)
         }
 
         self.global_dataloaders = {
@@ -100,8 +108,7 @@ class FLAlgorithm(object):
                 batch_size=self.test_batch_size,
                 pin_memory=True,
             )
-            for key, dataset in
-            self._data_manager.get_global_dataset().items()
+            for key, dataset in self._data_manager.get_global_dataset().items()
         }
 
         self.oracle_dataset = self._data_manager.get_oracle_dataset()
@@ -121,17 +128,22 @@ class FLAlgorithm(object):
 
     def read_client(self, client_id, key):
         if client_id >= self.num_clients:
-            raise Exception("invalid client id {} >=".format(
-                id, self.num_clients))
+            raise Exception(
+                "invalid client id {} >= {}".format(id, self.num_clients)
+            )
         if key in self._client_memory[client_id]:
             return self._client_memory[client_id][key]
         return None
 
     def _sample_clients(self):
-        if self.sample_scheme == 'uniform':
+        if self.sample_scheme == "uniform":
             clients = random.sample(range(self.num_clients), self.sample_count)
-        elif self.sample_scheme == 'sequential':
-            last_sampled = -1 if self._last_client_sampled is None else self._last_client_sampled
+        elif self.sample_scheme == "sequential":
+            last_sampled = (
+                -1
+                if self._last_client_sampled is None
+                else self._last_client_sampled
+            )
             clients = [
                 (i + 1) % self.num_clients
                 for i in range(last_sampled, last_sampled + self.sample_count)
@@ -145,15 +157,16 @@ class FLAlgorithm(object):
         return self.send_to_client(client_id=client_id)
 
     def _send_to_server(self, client_id):
-        if self.clr_decay_type == 'step':
-            decayed_clr = self.clr * \
-                (self.clr_decay ** (self.rounds // self.clr_step_size))
-        elif self.clr_decay_type == 'cosine':
+        if self.clr_decay_type == "step":
+            decayed_clr = self.clr * (
+                self.clr_decay ** (self.rounds // self.clr_step_size)
+            )
+        elif self.clr_decay_type == "cosine":
             T_i = self.clr_step_size
             T_cur = self.rounds % T_i
-            decayed_clr = self.min_clr + 0.5 * \
-                            (self.clr - self.min_clr) * \
-                                (1 + math.cos(math.pi * T_cur / T_i))
+            decayed_clr = self.min_clr + 0.5 * (self.clr - self.min_clr) * (
+                1 + math.cos(math.pi * T_cur / T_i)
+            )
 
         client_ctx = self.send_to_server(
             client_id,
@@ -164,13 +177,14 @@ class FLAlgorithm(object):
             decayed_clr,
             self.local_weight_decay,
             self.device,
-            ctx=self._send_to_client(client_id))
+            ctx=self._send_to_client(client_id),
+        )
         if not isinstance(client_ctx, dict):
-            raise Exception('client should only return a dict!')
-        return {**client_ctx, 'client_id': client_id}
+            raise Exception("client should only return a dict!")
+        return {**client_ctx, "client_id": client_id}
 
     def _receive_from_client(self, client_msg, aggregator):
-        client_id = client_msg.pop('client_id')
+        client_id = client_msg.pop("client_id")
         return self.receive_from_client(client_id, client_msg, aggregator)
 
     def _optimize(self, aggregator):
@@ -180,8 +194,13 @@ class FLAlgorithm(object):
         return reports
 
     def _report(self, optimize_reports=None, deployment_points=None):
-        self.report(self.global_dataloaders, self.metric_logger, self.device,
-                    optimize_reports, deployment_points)
+        self.report(
+            self.global_dataloaders,
+            self.metric_logger,
+            self.device,
+            optimize_reports,
+            deployment_points,
+        )
 
     def _train(self, rounds):
         for self.rounds in trange(rounds):
@@ -209,8 +228,8 @@ class FLAlgorithm(object):
     # methods are provided to help clarity for users
 
     def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
-        """ returns context to send to the client corresponding to client_id.
-            Do not send shared objects like server model if you made any 
+        """returns context to send to the client corresponding to client_id.
+            Do not send shared objects like server model if you made any
             before you deepcopy it.
 
         Args:
@@ -233,12 +252,12 @@ class FLAlgorithm(object):
         batch_size: int,
         lr: float,
         weight_decay: float = 0,
-        device: Union[int, str] = 'cuda',
+        device: Union[int, str] = "cuda",
         ctx: Optional[Dict[Hashable, Any]] = None,
         *args,
         **kwargs,
     ) -> Mapping[str, Any]:
-        """ client operation on the recieved information.
+        """client operation on the recieved information.
 
         Args:
             client_id (int): id of the client
@@ -247,9 +266,9 @@ class FLAlgorithm(object):
             loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
             batch_size (int): training batch_size
             lr (float): client learning rate
-            weight_decay (float, optional): weight decay for SGD. Defaults to 0.
+            weight_decay (float, optional): weight decay. Defaults to 0.
             device (Union[int, str], optional): Defaults to 'cuda'.
-            ctx (Optional[Dict[Hashable, Any]], optional): context reveived from server. Defaults to None.
+            ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
 
         Raises:
             NotImplementedError: abstract class to be implemented by child
@@ -259,10 +278,13 @@ class FLAlgorithm(object):
         """
         raise NotImplementedError
 
-    def receive_from_client(self, client_id: int, client_msg: Mapping[Hashable,
-                                                                      Any],
-                            aggregator: Any):
-        """receive and aggregate info from selected clients 
+    def receive_from_client(
+        self,
+        client_id: int,
+        client_msg: Mapping[Hashable, Any],
+        aggregator: Any,
+    ):
+        """receive and aggregate info from selected clients
 
         Args:
             client_id (int): id of the sender (client)
@@ -275,7 +297,7 @@ class FLAlgorithm(object):
         raise NotImplementedError
 
     def optimize(self, aggregator: Any) -> Mapping[Hashable, Any]:
-        """ optimize server mdoel(s) and return metrics to be reported
+        """optimize server mdoel(s) and return metrics to be reported
 
         Args:
             aggregator (Any): Aggregator instance
@@ -289,7 +311,7 @@ class FLAlgorithm(object):
         raise NotImplementedError
 
     def deploy(self) -> Optional[Mapping[Hashable, Any]]:
-        """ return Mapping of name -> parameters_set to test the model
+        """return Mapping of name -> parameters_set to test the model
 
         Raises:
             NotImplementedError: abstract class to be implemented by child
@@ -302,7 +324,7 @@ class FLAlgorithm(object):
         metric_logger: Any,
         device: str,
         optimize_reports: Mapping[Hashable, Any],
-        deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None
+        deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
     ) -> None:
         """test on global data and report info
 
@@ -310,8 +332,10 @@ class FLAlgorithm(object):
             dataloaders (Any): dict of data loaders to test the global model(s)
             metric_logger (Any): the logging object (e.g., SummaryWriter)
             device (str): 'cuda', 'cpu' or gpu number
-            optimize_reports (Mapping[Hashable, Any]): dict returned by optimzier
-            deployment_points (Mapping[Hashable, torch.Tensor], optional): output of deploy method
+            optimize_reports (Mapping[Hashable, Any]): dict returned by \
+                optimzier
+            deployment_points (Mapping[Hashable, torch.Tensor], optional): \
+                output of deploy method
 
         Raises:
             NotImplementedError: abstract class to be implemented by child

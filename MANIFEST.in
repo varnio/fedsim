@@ -1,13 +1,19 @@
 graft docs
 graft fedsim
+graft scripts
 graft ci
 graft tests
+
+prune docs/build
 
 include .coveragerc
 include .editorconfig
 include .readthedocs.yml
 include pytest.ini
 include tox.ini
+include .github/workflows/github-actions.yml
+include codecov
+include *.sh
 
 include AUTHORS.rst
 include CHANGELOG.rst

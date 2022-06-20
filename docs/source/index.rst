@@ -16,7 +16,6 @@ FedSim
    :maxdepth: 2
    :caption: Contents:
    
-   notebooks/tutorial
    modules
    customization
    contributing

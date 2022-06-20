@@ -1,7 +1,19 @@
 FedSim
 ======
 
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
+
+.. image:: https://readthedocs.org/projects/fedsim/badge/?version=stable
+    :target: https://fedsim.readthedocs.io/en/latest/?badge=stable
+
+.. image:: https://codecov.io/gh/fedsim-dev/fedsim/branch/main/graph/badge.svg?token=6RE85ZIEHJ
+    :target: https://codecov.io/gh/fedsim-dev/fedsim
+    
+
+
 FedSim is a Generic Federated Learning Simulator. It aims to provide the researchers with an easy to develope/maintain simulator for Federated Learning. See documentation at `here <https://fedsim.readthedocs.io/en/main/>`_!
+
 
 Installation
 ============
@@ -106,8 +118,8 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
            """
            raise NotImplementedError
 
-Integration with included cli
------------------------------
+Integration with included cli (DataManager)
+-------------------------------------------
 
 To automatically include your custom data manager in the provided cli tool, you can place your class in a file under ``fedsim/data_manager``. Then, call it using option ``--data-manager``. To deliver arguments to the ``__init__`` method of your custom data manager, you can pass options in form of ``--d-<arg-name>`` where ``<arg-name>`` is the argument. Example
 
@@ -256,8 +268,8 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlg
            """
            raise NotImplementedError
 
-Integration with included cli
------------------------------
+Integration with included cli (FLAlgorithm)
+-------------------------------------------
 
 To automatically include your custom algorithm by the provided cli tool, you can place your class in a file under fedsim/fl/algorithms. Then, call it using option --algorithm. To deliver arguments to the **init** method of your custom algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
 
@@ -295,8 +307,6 @@ Included FL algorithms
      - paper
    * - fedavg
      - `Communication-Efficient Learning of Deep Networks from Decentralized Data <https://arxiv.org/abs/1602.05629>`_
-   * - fedavg
-     - `Federated Optimization in Heterogeneous Networks <https://arxiv.org/abs/1812.06127>`_
    * - fedavgm
      - `Measuring the Effects of Non-Identical Data Distribution for Federated Visual Classification <https://arxiv.org/abs/1909.06335>`_
    * - fednova
@@ -332,29 +342,3 @@ If you want to use a custom pytorch class model with the cli tool, then you can 
 
    fedsim fed-learn --model CustomModule ...
 
-Contributor's Guide
-===================
-
-Style
------
-
-
-* 
-  We use ``yapf`` for formatting the style of the code. Before your merge request:
-
-
-  * make sure ``yapf`` is installed.
-  * inyour terminal, locate at the root of the project
-  * launch the following command: ``yapf -ir -vv --no-local-style ./``
-
-* 
-  For now, type hinting is only used to avoid confusion at certain points.
-
-TODO
-====
-
-
-* [ ] only make local test available when log-freq triggers
-* [ ] add implementation of scaffold
-* [ ] publish the code
-* [ ] add doc (sphinx)
