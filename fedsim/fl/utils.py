@@ -96,7 +96,7 @@ def vector_to_parameters_like(vec, parameters_like):
         # Slice the vector, reshape it, and replace the old data of the
         # parameter
         new_params.append(
-            vec[pointer: pointer + num_param].view_as(param).data
+            vec[pointer : pointer + num_param].view_as(param).data
         )
 
         # Increment the pointer
