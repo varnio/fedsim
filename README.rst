@@ -5,9 +5,9 @@ FedSim
     :target: https://github.com/psf/black
 
 .. image:: https://readthedocs.org/projects/fedsim/badge/?version=stable
-    :target: hhttps://fedsim.readthedocs.io/en/latest/?badge=stable
+    :target: https://fedsim.readthedocs.io/en/latest/?badge=stable
 
- .. image:: https://codecov.io/gh/fedsim-dev/fedsim/branch/main/graph/badge.svg?token=6RE85ZIEHJ
+.. image:: https://codecov.io/gh/fedsim-dev/fedsim/branch/main/graph/badge.svg?token=6RE85ZIEHJ
     :target: https://codecov.io/gh/fedsim-dev/fedsim
     
 
