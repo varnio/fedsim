@@ -287,15 +287,19 @@ def fed_learn(
     logging.info("arguments: " + pformat(ctx.params))
     # get the classes
     data_manager_class = search_in_submodules(
-        "fedsim.data_manager", data_manager
+        "fedsim.distributed.data_management", data_manager
     )
     if data_manager_class is None:
-        pass
-    algorithm_class = search_in_submodules("fedsim.fl.algorithms", algorithm)
+        raise Exception(f"{algorithm} is not a defined data manager")
+
+    algorithm_repository = ["centralized", "decentralized"]
+    for mod in algorithm_repository:
+        full_mod = "fedsim.distributed." + mod + ".training"
+        algorithm_class = search_in_submodules(full_mod, algorithm)
+        if algorithm_class is not None:
+            break
     if algorithm_class is None:
-        algorithm_class = search_in_submodules(
-            "fedsim.fl.mtl_algorithms", algorithm
-        )
+        raise Exception(f"{algorithm} is not a define FL algorithm")
 
     dtm_args = dict()
     alg_args = dict()

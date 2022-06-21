@@ -17,12 +17,12 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.utils.data import RandomSampler
 
+from fedsim.local.training import local_inference
+from fedsim.local.training import local_train
+from fedsim.local.training.step_closures import default_closure
 from fedsim.utils import apply_on_dict
 
-from ..evaluation import default_closure
-from ..evaluation import inference
-from ..evaluation import local_train_val
-from ..fl_algorithm import FLAlgorithm
+from ..centralized_fl_algorithm import FLAlgorithm
 
 
 class FedAvg(FLAlgorithm):
@@ -132,7 +132,7 @@ class FedAvg(FLAlgorithm):
         step_closure_ = (
             default_closure if step_closure is None else step_closure
         )
-        opt_result = local_train_val(
+        opt_result = local_train(
             model,
             train_loader,
             epochs,
@@ -252,7 +252,7 @@ class FedAvg(FLAlgorithm):
                 )
 
                 for key, loader in dataloaders.items():
-                    metrics, _ = inference(
+                    metrics, _ = local_inference(
                         model,
                         loader,
                         {

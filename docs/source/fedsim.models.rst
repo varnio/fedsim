@@ -12,6 +12,14 @@ fedsim.models.mcmahan\_nets module
    :undoc-members:
    :show-inheritance:
 
+fedsim.models.utils module
+--------------------------
+
+.. automodule:: fedsim.models.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

@@ -10,8 +10,9 @@ from functools import partial
 
 from torch.nn.utils import parameters_to_vector
 
-from ..utils import default_closure
-from ..utils import vector_to_parameters_like
+from fedsim.local.training.step_closures import default_closure
+from fedsim.utils import vector_to_parameters_like
+
 from . import fedavg
 
 

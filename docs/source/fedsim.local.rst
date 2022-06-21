@@ -1,5 +1,5 @@
-fedsim package
-==============
+fedsim.local package
+====================
 
 Subpackages
 -----------
@@ -7,16 +7,12 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   fedsim.datasets
-   fedsim.distributed
-   fedsim.local
-   fedsim.models
-   fedsim.utils
+   fedsim.local.training
 
 Module contents
 ---------------
 
-.. automodule:: fedsim
+.. automodule:: fedsim.local
    :members:
    :undoc-members:
    :show-inheritance:
