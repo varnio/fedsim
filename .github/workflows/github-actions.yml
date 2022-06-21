@@ -86,7 +86,7 @@ jobs:
         with:
           python-version: '3.9'
       - name: Install dependencies
-        run: pip install -e .[testenv]
+        run: pip install -e .[test]
       - name: Run tests and collect coverage
         run: pytest --cov app
       - name: Upload coverage to Codecov
