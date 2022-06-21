@@ -84,8 +84,10 @@ setup(
         learning, deep learning, distributed learning',
     python_requires='>=3.6',
     extras_require={
-        "dev": [
-            "pytest>=3.7",
+        "test": [
+            "pytest",
+            "pytest-cov",
+            "codecov",
         ]
         # eg:
         #   'rst': ['docutils>=0.11'],
