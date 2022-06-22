@@ -1,8 +1,28 @@
 FedSim
 ======
 
+.. image:: https://github.com/fedsim-dev/fedsim/actions/workflows/github-actions.yml/badge.svg
+    :alt: GitHub Actions Build Status
+    :target: https://github.com/fedsim-dev/fedsim/actions
+
+.. image:: https://img.shields.io/pypi/v/fedsim.svg
+    :alt: PyPI Package latest release
+    :target: https://pypi.org/project/fedsim
+
 .. image:: https://readthedocs.org/projects/fedsim/badge/?version=stable
     :target: https://fedsim.readthedocs.io/en/latest/?badge=stable
+
+.. image:: https://img.shields.io/pypi/wheel/fedsim.svg
+    :alt: PyPI Wheel
+    :target: https://pypi.org/project/fedsim
+
+.. image:: https://img.shields.io/pypi/pyversions/fedsim.svg
+    :alt: Supported versions
+    :target: https://pypi.org/project/fedsim
+
+.. image:: https://img.shields.io/pypi/implementation/fedsim.svg
+    :alt: Supported implementations
+    :target: https://pypi.org/project/fedsim
 
 .. image:: https://codecov.io/gh/fedsim-dev/fedsim/branch/main/graph/badge.svg?token=6RE85ZIEHJ
     :target: https://codecov.io/gh/fedsim-dev/fedsim
