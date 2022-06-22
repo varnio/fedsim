@@ -85,3 +85,5 @@ roc_auc_ovo_samples = partial(
 )
 # loss functions
 l1_loss = partial(_torch_loss, loss_name="l1_loss")
+
+cross_entropy = partial(_torch_loss, loss_name="cross_entropy")
