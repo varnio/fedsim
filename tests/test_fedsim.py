@@ -1,6 +1,6 @@
 from torch.utils.tensorboard import SummaryWriter
 
-from fedsim.distributed.centralized.training.fedavg import FedAvg
+from fedsim.distributed.centralized.training import FedAvg
 from fedsim.distributed.data_management import BasicDataManager
 from fedsim.models.mcmahan_nets import cnn_cifar100
 from fedsim.scores import accuracy
