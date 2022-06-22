@@ -397,6 +397,8 @@ def fed_learn(
         **context_pool["alg_context"].arg_dict,
     )
     algorithm_instance.hook_global_score_function("test", "accuracy", accuracy)
+    for key in data_manager_instant.get_local_splits_names():
+        algorithm_instance.hook_local_score_function(key, "accuracy", accuracy)
 
     algorithm_instance.train(rounds)
     summary_writer.flush()
