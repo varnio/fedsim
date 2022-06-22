@@ -30,7 +30,7 @@ FedSim
 .. image:: https://readthedocs.org/projects/fedsim/badge/?version=latest
     :target: https://fedsim.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
-    
+
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
 
@@ -53,11 +53,11 @@ As module
 Here is a demo:
 
 .. code-block:: python
-    
+
     from torch.utils.tensorboard import SummaryWriter
 
     from fedsim.distributed.centralized.training.fedavg import FedAvg
-    from fedsim.distributed.data_management.basic_data_manager import BasicDataManager
+    from fedsim.distributed.data_management import BasicDataManager
     from fedsim.models.mcmahan_nets import cnn_cifar100
 
 
@@ -129,15 +129,15 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
 
 
        def get_identifiers(self) -> Sequence[str]:
-           """ Returns identifiers 
+           """ Returns identifiers
                to be used for saving the partition info.
 
            Raises:
-               NotImplementedError: this abstract method should be 
+               NotImplementedError: this abstract method should be
                    implemented by child classes
 
            Returns:
-               Sequence[str]: a sequence of str identifing class instance 
+               Sequence[str]: a sequence of str identifing class instance
            """
            raise NotImplementedError
 
@@ -175,14 +175,14 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlg
    class CustomFLAlgorithm(FLAlgorithm):
        def __init__(
            self, data_manager, num_clients, sample_scheme, sample_rate, model_class, epochs, loss_fn,
-           batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type, 
+           batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type,
            min_clr, clr_step_size, metric_logger, device, log_freq, other_arg, ... , *args, **kwargs,
        ):
            self.other_arg = other_arg
 
            super(FedAvg, self).__init__(
                data_manager, num_clients, sample_scheme, sample_rate, model_class, epochs, loss_fn,
-               batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type, 
+               batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type,
                min_clr, clr_step_size, metric_logger, device, log_freq,
            )
            # make mode and optimizer
@@ -198,7 +198,7 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlg
 
        def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
            """ returns context to send to the client corresponding to client_id.
-               Do not send shared objects like server model if you made any 
+               Do not send shared objects like server model if you made any
                before you deepcopy it.
 
            Args:
@@ -212,7 +212,7 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlg
            """
            raise NotImplementedError
 
-       def send_to_server( 
+       def send_to_server(
            self, client_id: int, datasets: Dict[str, Iterable], epochs: int, loss_fn: nn.Module,
            batch_size: int, lr: float, weight_decay: float = 0, device: Union[int, str] = 'cuda',
            ctx: Optional[Dict[Hashable, Any]] = None, *args, **kwargs
@@ -239,7 +239,7 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlg
            raise NotImplementedError
 
        def receive_from_client(self, client_id: int, client_msg: Mapping[Hashable, Any], aggregator: Any):
-           """ receive and aggregate info from selected clients 
+           """ receive and aggregate info from selected clients
 
            Args:
                client_id (int): id of the sender (client)
@@ -364,4 +364,3 @@ If you want to use a custom pytorch class model with the cli tool, then you can 
 .. code-block:: bash
 
    fedsim fed-learn --model CustomModule ...
-
