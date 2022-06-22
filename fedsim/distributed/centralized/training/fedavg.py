@@ -19,7 +19,6 @@ from torch.utils.data import RandomSampler
 from fedsim.local.training import local_inference
 from fedsim.local.training import local_train
 from fedsim.local.training.step_closures import default_closure
-from fedsim.utils import apply_on_dict
 
 from ..centralized_fl_algorithm import FLAlgorithm
 
@@ -203,12 +202,7 @@ class FedAvg(FLAlgorithm):
     def receive_from_client(self, client_id, client_msg, aggregation_results):
         weight = client_msg["num_samples"]
         if weight > 0:
-            self.agg(
-                client_id,
-                client_msg,
-                aggregation_results,
-                weight=weight,
-            )
+            self.agg(client_id, client_msg, aggregation_results, weight=weight)
 
     def optimize(self, aggregator):
         if "local_params" in aggregator:
@@ -225,9 +219,7 @@ class FedAvg(FLAlgorithm):
         return aggregator.pop_all()
 
     def deploy(self):
-        return dict(
-            avg=self.read_server("cloud_params"),
-        )
+        return dict(avg=self.read_server("cloud_params"))
 
     def report(
         self,
@@ -238,8 +230,7 @@ class FedAvg(FLAlgorithm):
         deployment_points=None,
     ):
         model = self.read_server("model")
-        t = self.rounds
-        log_fn = metric_logger.add_scalar
+        metrics_from_deployment = dict()
         if deployment_points is not None:
             for point_name, point in deployment_points.items():
                 # copy cloud params to cloud model to send to the client
@@ -257,5 +248,5 @@ class FedAvg(FLAlgorithm):
                         },
                         device=device,
                     )
-                    apply_on_dict(metrics, log_fn, global_step=t)
-        apply_on_dict(optimize_reports, log_fn, global_step=t)
+                    metrics_from_deployment = {**metrics_from_deployment, **metrics}
+        return {**metrics_from_deployment, **optimize_reports}

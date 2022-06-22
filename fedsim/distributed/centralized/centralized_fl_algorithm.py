@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 from tqdm import trange
 
 from fedsim import scores
+from fedsim.utils import apply_on_dict
 from fedsim.utils import search_in_submodules
 
 from ...utils.aggregators import AppendixAggregator
@@ -199,13 +200,15 @@ class FLAlgorithm(object):
         return reports
 
     def _report(self, optimize_reports=None, deployment_points=None):
-        self.report(
+        report_metrics = self.report(
             self.global_dataloaders,
             self.metric_logger,
             self.device,
             optimize_reports,
             deployment_points,
         )
+        log_fn = self.metric_logger.add_scalar
+        apply_on_dict(report_metrics, log_fn, global_step=self.rounds)
 
     def _train(self, rounds):
         score_aggregator = AppendixAggregator()
@@ -348,8 +351,12 @@ class FLAlgorithm(object):
         device: str,
         optimize_reports: Mapping[Hashable, Any],
         deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
-    ) -> None:
-        """test on global data and report info
+    ) -> Dict[str, Union[int, float]]:
+        """test on global data and report info. If a flatten dict of
+        str:Union[int,float] is returned from this function the content is
+        automatically logged using the metric logger (e.g., tensorboard.SummaryWriter).
+        metric_logger is also passed as an input argument for extra
+        logging operations (non scalar).
 
         Args:
             dataloaders (Any): dict of data loaders to test the global model(s)
