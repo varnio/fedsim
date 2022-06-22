@@ -1,4 +1,4 @@
-0.0.0 (2022-06-14)
+0.0.4 (2022-06-14)
 ------------------
 
-* First release on PyPI.
+* Fourth release on PyPI.
