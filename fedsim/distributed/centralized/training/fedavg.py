@@ -10,7 +10,6 @@ import math
 import sys
 from copy import deepcopy
 
-from sklearn.metrics import accuracy_score
 from torch.nn.utils import parameters_to_vector
 from torch.nn.utils import vector_to_parameters
 from torch.optim import SGD
@@ -135,7 +134,8 @@ class FedAvg(FLAlgorithm):
             device,
             step_closure_,
             metric_fn_dict={
-                "train_accuracy": accuracy_score,
+                f"train_{key}": score
+                for key, score in self.get_local_score_functions("train").items()
             },
         )
         (
@@ -155,7 +155,10 @@ class FedAvg(FLAlgorithm):
             test_metrics, num_test_samples = local_inference(
                 model,
                 test_loader,
-                {"test_accuracy": accuracy_score},
+                metric_fn_dict={
+                    f"test_{key}": score
+                    for key, score in self.get_local_score_functions("test").items()
+                },
                 device=device,
             )
         else:

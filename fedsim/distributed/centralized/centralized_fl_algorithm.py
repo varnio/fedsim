@@ -122,7 +122,7 @@ class FLAlgorithm(object):
         self._last_client_sampled: int = None
 
         self._server_scores = {key: dict() for key in self.global_dataloaders}
-        self._local_scores = {
+        self._client_scores = {
             key: dict() for key in self._data_manager.get_local_splits_names()
         }
 
