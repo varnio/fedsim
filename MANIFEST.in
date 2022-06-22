@@ -6,6 +6,7 @@ graft tests
 
 prune docs/build
 
+include .bumpversion.cfg
 include .coveragerc
 include .editorconfig
 include .readthedocs.yml

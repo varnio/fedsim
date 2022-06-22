@@ -24,7 +24,7 @@ FedSim
     :alt: Supported implementations
     :target: https://pypi.org/project/fedsim
 
-.. image:: https://codecov.io/gh/fedsim-dev/fedsim/branch/main/graph/badge.svg?token=6RE85ZIEHJ
+.. image:: https://codecov.io/gh/fedsim-dev/fedsim/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/fedsim-dev/fedsim
 
 .. image:: https://readthedocs.org/projects/fedsim/badge/?version=latest
