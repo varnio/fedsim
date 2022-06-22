@@ -1,7 +1,8 @@
 from torch.utils.tensorboard import SummaryWriter
 
 from fedsim.distributed.centralized.training.fedavg import FedAvg
-from fedsim.distributed.data_management.basic_data_manager import BasicDataManager
+from fedsim.distributed.data_management.basic_data_manager import \
+    BasicDataManager
 from fedsim.models.mcmahan_nets import cnn_cifar100
 
 
