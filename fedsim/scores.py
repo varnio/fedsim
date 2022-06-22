@@ -25,11 +25,11 @@ def _torch_loss(y_true, y_pred, loss_name, normalize=True):
     ).item()
 
 
-accuracy = (sk_metrics.accuracy_score,)
-balanced_accuracy = (sk_metrics.balanced_accuracy_score,)
-top_k_accuracy = (sk_metrics.top_k_accuracy_score,)
-average_precision = (sk_metrics.average_precision_score,)
-neg_brier_score = (sk_metrics.brier_score_loss,)
+accuracy = sk_metrics.accuracy_score
+balanced_accuracy = sk_metrics.balanced_accuracy_score
+top_k_accuracy = sk_metrics.top_k_accuracy_score
+average_precision = sk_metrics.average_precision_score
+neg_brier_score = sk_metrics.brier_score_loss
 f1_micro = partial(sk_metrics.f1_score, average="micro")
 f1_macro = partial(sk_metrics.f1_score, average="macro")
 f1_weighted = partial(sk_metrics.f1_score, average="weighted")

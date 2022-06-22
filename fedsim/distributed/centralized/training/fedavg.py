@@ -74,9 +74,7 @@ class FedAvg(FLAlgorithm):
 
         # make mode and optimizer
         model = self.get_model_class()().to(self.device)
-        params = deepcopy(
-            parameters_to_vector(model.parameters()).clone().detach()
-        )
+        params = deepcopy(parameters_to_vector(model.parameters()).clone().detach())
         optimizer = SGD(params=[params], lr=slr)
         # write model and optimizer to server
         self.write_server("model", model)
@@ -92,9 +90,7 @@ class FedAvg(FLAlgorithm):
         model = self.read_server("model")
 
         # copy cloud params to cloud model to send to the client
-        vector_to_parameters(
-            cloud_params.detach().clone().data, model.parameters()
-        )
+        vector_to_parameters(cloud_params.detach().clone().data, model.parameters())
         # return a copy of the cloud model
         return dict(model=model)
 
@@ -118,8 +114,7 @@ class FedAvg(FLAlgorithm):
         sampler = RandomSampler(
             datasets["train"],
             replacement=True,
-            num_samples=math.ceil(len(datasets["train"]) / batch_size)
-            * batch_size,
+            num_samples=math.ceil(len(datasets["train"]) / batch_size) * batch_size,
         )
         # # create train data loader
         train_loader = DataLoader(
@@ -129,9 +124,7 @@ class FedAvg(FLAlgorithm):
         model = ctx["model"]
         optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
         # optimize the model locally
-        step_closure_ = (
-            default_closure if step_closure is None else step_closure
-        )
+        step_closure_ = default_closure if step_closure is None else step_closure
         opt_result = local_train(
             model,
             train_loader,
@@ -247,18 +240,17 @@ class FedAvg(FLAlgorithm):
         if deployment_points is not None:
             for point_name, point in deployment_points.items():
                 # copy cloud params to cloud model to send to the client
-                vector_to_parameters(
-                    point.detach().clone().data, model.parameters()
-                )
+                vector_to_parameters(point.detach().clone().data, model.parameters())
 
-                for key, loader in dataloaders.items():
+                for split_name, loader in dataloaders.items():
                     metrics, _ = local_inference(
                         model,
                         loader,
-                        {
-                            "{}.{}_accuracy".format(
-                                point_name, key
-                            ): accuracy_score
+                        metric_fn_dict={
+                            f"{point_name}.{split_name}_{key}": score
+                            for key, score in self.get_global_score_functions(
+                                split_name
+                            ).items()
                         },
                         device=device,
                     )

@@ -49,9 +49,7 @@ class DataManager(object):
         self.test_transforms = None
 
         # {'<split_name>': [<client index>:[<sample_index>,],]}
-        self._local_parition_indices: Optional[
-            Dict[Iterable[Iterable[int]]]
-        ] = None
+        self._local_parition_indices: Optional[Dict[Iterable[Iterable[int]]]] = None
 
         # set random seed for partitioning
         if seed is not None:
@@ -90,21 +88,15 @@ class DataManager(object):
             )
         name = self.get_partitioning_name()
         if os.path.exists(os.path.join(self.save_dir, name + ".pkl")):
-            with open(
-                os.path.join(self.save_dir, name + ".pkl"), "rb"
-            ) as rfile:
+            with open(os.path.join(self.save_dir, name + ".pkl"), "rb") as rfile:
                 self._local_parition_indices = pickle.load(rfile)
         else:
-            self._local_parition_indices = self.partition_local_data(
-                self.local_data
-            )
+            self._local_parition_indices = self.partition_local_data(self.local_data)
             # save on disk for later usage
 
             # create directories if not existing
             os.makedirs(os.path.join(self.save_dir), exist_ok=True)
-            with open(
-                os.path.join(self.save_dir, name + ".pkl"), "wb"
-            ) as wfile:
+            with open(os.path.join(self.save_dir, name + ".pkl"), "wb") as wfile:
                 pickle.dump(self._local_parition_indices, wfile)
 
     # *************************************************************************
@@ -161,6 +153,9 @@ class DataManager(object):
         if self.seed is not None:
             name += "_seed{}".format(self.seed)
         return name
+
+    def get_local_splits_names(self):
+        return list(self._local_parition_indices.keys())
 
     # *************************************************************************
     # to implement by child

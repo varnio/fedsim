@@ -18,6 +18,7 @@ from tqdm import trange
 
 from fedsim.utils import search_in_submodules
 
+from ...utils.aggregators import AppendixAggregator
 from ...utils.aggregators import SerialAggregator
 
 
@@ -120,6 +121,11 @@ class FLAlgorithm(object):
         # for internal use only
         self._last_client_sampled: int = None
 
+        self._server_scores = {key: dict() for key in self.global_dataloaders}
+        self._local_scores = {
+            key: dict() for key in self._data_manager.get_local_splits_names()
+        }
+
     def write_server(self, key, obj):
         self._server_memory[key] = obj
 
@@ -202,20 +208,24 @@ class FLAlgorithm(object):
         )
 
     def _train(self, rounds):
+        score_aggregator = AppendixAggregator()
         for self.rounds in trange(rounds):
-            aggregator = SerialAggregator()
+            round_aggregator = SerialAggregator()
             for client_id in self._sample_clients():
                 client_msg = self._send_to_server(client_id)
-                self._receive_from_client(client_msg, aggregator)
-            opt_reports = self._optimize(aggregator)
+                self._receive_from_client(client_msg, round_aggregator)
+            opt_reports = self._optimize(round_aggregator)
             if self.rounds % self.log_freq == 0:
                 deploy_poiont = self.deploy()
                 self._report(opt_reports, deploy_poiont)
+            # TODO: append scores to score aggergator
         # one last report
         if self.rounds % self.log_freq > 0:
             deploy_poiont = self.deploy()
             self._report(opt_reports, deploy_poiont)
-        return 0
+        return score_aggregator.items()
+
+    # API functions
 
     def train(self, rounds):
         return self._train(rounds=rounds)
@@ -223,8 +233,22 @@ class FLAlgorithm(object):
     def get_model_class(self):
         return self.model_class
 
-    # we do not do type hinting, however, the hints for avstract
+    def hook_local_score_function(self, split_name, score_name, score_fn):
+        self._client_scores[split_name][score_name] = score_fn
+
+    def hook_global_score_function(self, split_name, score_name, score_fn):
+        self._server_scores[split_name][score_name] = score_fn
+
+    def get_local_score_functions(self, split_name) -> Dict[str, Any]:
+        return self._client_scores[split_name]
+
+    def get_global_score_functions(self, split_name) -> Dict[str, Any]:
+        return self._server_scores[split_name]
+
+    # we do not do type hinting, however, the hints for abstract
     # methods are provided to help clarity for users
+
+    # abstract functions
 
     def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
         """returns context to send to the client corresponding to client_id.

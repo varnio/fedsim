@@ -2,7 +2,7 @@ from functools import partial
 
 import torch
 
-from fedsim.utils import get_metric_scores
+from fedsim.utils import collect_scores
 
 
 def local_inference(
@@ -41,6 +41,6 @@ def local_inference(
     if model_is_training:
         model.train()
     return (
-        get_metric_scores(metric_fn_dict, y_true, y_pred),
+        collect_scores(metric_fn_dict, y_true, y_pred),
         num_samples,
     )

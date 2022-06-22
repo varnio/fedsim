@@ -10,6 +10,7 @@ import click
 import yaml
 from torch.utils.tensorboard import SummaryWriter
 
+from fedsim.scores import accuracy
 from fedsim.utils import search_in_submodules
 from fedsim.utils import set_seed
 
@@ -395,6 +396,7 @@ def fed_learn(
         log_freq=log_freq,
         **context_pool["alg_context"].arg_dict,
     )
+    algorithm_instance.hook_global_score_function("test", "accuracy", accuracy)
 
     algorithm_instance.train(rounds)
     summary_writer.flush()
