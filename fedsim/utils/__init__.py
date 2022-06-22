@@ -9,3 +9,9 @@ from ._importing import search_in_submodules
 from ._metric_scores import get_metric_scores
 from ._seed import set_seed
 from .aggregators import SerialAggregator
+
+__all__ = [
+    'vector_to_parameters_like', 'add_dict_to_dict', 'add_in_dict',
+    'append_dict_to_dict', 'apply_on_dict', 'reduce_dict', 'get_from_module',
+    'search_in_submodules', 'get_metric_scores', 'set_seed', 'SerialAggregator',
+]

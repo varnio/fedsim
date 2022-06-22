@@ -31,6 +31,7 @@ As module
 Here is a demo:
 
 .. code-block:: python
+    
     from torch.utils.tensorboard import SummaryWriter
 
     from fedsim.distributed.centralized.training.fedavg import FedAvg
