@@ -17,8 +17,6 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../.."))
 
-import ipdb
-ipdb.set_trace()
 
 # -- Project information -----------------------------------------------------
 
@@ -57,7 +55,7 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["build", "**.ipynb_checkpoints"]
+exclude_patterns = ["build", "**.ipynb_checkpoints", "_*"]
 
 # -- Options for HTML output -------------------------------------------------
 

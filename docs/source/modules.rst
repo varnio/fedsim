@@ -5,4 +5,3 @@ fedsim
    :maxdepth: 4
 
    fedsim
-   scripts

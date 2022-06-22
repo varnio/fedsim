@@ -12,22 +12,6 @@ fedsim.utils.aggregators module
    :undoc-members:
    :show-inheritance:
 
-fedsim.utils.convert\_parameters module
----------------------------------------
-
-.. automodule:: fedsim.utils.convert_parameters
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-fedsim.utils.metric\_scores module
-----------------------------------
-
-.. automodule:: fedsim.utils.metric_scores
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 fedsim.utils.utils module
 -------------------------
 

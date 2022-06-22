@@ -159,7 +159,7 @@ class FedAvg(FLAlgorithm):
                 batch_size=batch_size,
                 shuffle=False,
             )
-            test_metrics, num_test_samples = inference(
+            test_metrics, num_test_samples = local_inference(
                 model,
                 test_loader,
                 {"test_accuracy": accuracy_score},
