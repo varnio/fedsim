@@ -67,12 +67,15 @@ class FLAlgorithm(object):
                     sample_rate, num_clients
                 )
             )
+        # support functools.partial as model_class
+        if hasattr(model_class, "func"):
+            model_class_ = getattr(model_class, "func")
+        else:
+            model_class_ = model_class
 
-        if isinstance(model_class, str):
-            self.model_class = search_in_submodules(
-                "fedsim.models", model_class
-            )
-        elif issubclass(model_class, nn.Module):
+        if isinstance(model_class_, str):
+            self.model_class = search_in_submodules("fedsim.models", model_class)
+        elif issubclass(model_class_, nn.Module):
             self.model_class = model_class
         else:
             raise Exception("incompatiple model!")
@@ -128,9 +131,7 @@ class FLAlgorithm(object):
 
     def read_client(self, client_id, key):
         if client_id >= self.num_clients:
-            raise Exception(
-                "invalid client id {} >= {}".format(id, self.num_clients)
-            )
+            raise Exception("invalid client id {} >= {}".format(id, self.num_clients))
         if key in self._client_memory[client_id]:
             return self._client_memory[client_id][key]
         return None
@@ -140,9 +141,7 @@ class FLAlgorithm(object):
             clients = random.sample(range(self.num_clients), self.sample_count)
         elif self.sample_scheme == "sequential":
             last_sampled = (
-                -1
-                if self._last_client_sampled is None
-                else self._last_client_sampled
+                -1 if self._last_client_sampled is None else self._last_client_sampled
             )
             clients = [
                 (i + 1) % self.num_clients
