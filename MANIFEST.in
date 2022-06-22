@@ -13,6 +13,7 @@ include .readthedocs.yml
 include pytest.ini
 include tox.ini
 include .github/workflows/github-actions.yml
+include .pre-commit-config.yaml
 include codecov
 include *.sh
 
