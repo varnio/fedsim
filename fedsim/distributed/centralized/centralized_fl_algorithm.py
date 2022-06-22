@@ -18,7 +18,7 @@ from tqdm import trange
 
 from fedsim.utils import search_in_submodules
 
-from .aggregators import SerialAggregator
+from ...utils.aggregators import SerialAggregator
 
 
 class FLAlgorithm(object):
