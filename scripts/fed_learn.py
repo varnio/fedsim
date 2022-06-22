@@ -10,7 +10,7 @@ import click
 import yaml
 from torch.utils.tensorboard import SummaryWriter
 
-from fedsim.scores import accuracy
+from fedsim import scores
 from fedsim.utils import search_in_submodules
 from fedsim.utils import set_seed
 
@@ -100,10 +100,10 @@ from fedsim.utils import set_seed
 )
 @click.option(
     "--loss-fn",
-    type=click.Choice(["ce", "mse"]),
-    default="ce",
+    type=str,
+    default="cross_entropy",
     show_default=True,
-    help="loss function to use (se stands for cross-entropy).",
+    help="loss function to use (defined under fedsim.scores).",
 )
 @click.option(
     "--batch-size",
@@ -370,6 +370,11 @@ def fed_learn(
 
     model_class = partial(model_class, **context_pool["mdl_context"].arg_dict)
 
+    loss_criterion = None
+    if hasattr(scores, loss_fn):
+        loss_criterion = getattr(scores, loss_fn)
+    else:
+        raise Exception(f"loss_fn {loss_fn} is not defined in fedsim.scores")
     # set the seed of random generators
     if seed is not None:
         set_seed(seed, device)
@@ -381,7 +386,7 @@ def fed_learn(
         sample_rate=client_sample_rate,
         model_class=model_class,
         epochs=epochs,
-        loss_fn=loss_fn,
+        loss_fn=loss_criterion,
         batch_size=batch_size,
         test_batch_size=test_batch_size,
         local_weight_decay=local_weight_decay,
@@ -396,9 +401,9 @@ def fed_learn(
         log_freq=log_freq,
         **context_pool["alg_context"].arg_dict,
     )
-    algorithm_instance.hook_global_score_function("test", "accuracy", accuracy)
+    algorithm_instance.hook_global_score_function("test", "accuracy", scores.accuracy)
     for key in data_manager_instant.get_local_splits_names():
-        algorithm_instance.hook_local_score_function(key, "accuracy", accuracy)
+        algorithm_instance.hook_local_score_function(key, "accuracy", scores.accuracy)
 
     algorithm_instance.train(rounds)
     summary_writer.flush()

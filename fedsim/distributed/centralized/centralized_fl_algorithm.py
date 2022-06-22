@@ -16,6 +16,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import trange
 
+from fedsim import scores
 from fedsim.utils import search_in_submodules
 
 from ...utils.aggregators import AppendixAggregator
@@ -81,12 +82,11 @@ class FLAlgorithm(object):
         else:
             raise Exception("incompatiple model!")
         self.epochs = epochs
-        if loss_fn == "ce":
-            self.loss_fn = nn.CrossEntropyLoss()
-        elif loss_fn == "mse":
-            self.loss_fn = nn.MSELoss()
+
+        if isinstance(loss_fn, str) and hasattr(scores, loss_fn):
+            self.loss_fn = getattr(scores, loss_fn)
         else:
-            raise NotImplementedError
+            self.loss_fn = loss_fn
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
         self.local_weight_decay = local_weight_decay
