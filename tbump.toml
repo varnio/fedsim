@@ -10,19 +10,19 @@ tag_template = "v{new_version}"
 
 [[file]]
 src = "setup.py"
-search = "version='{current_version}'"
+search = 'version="{current_version}"'
 
 [[file]]
 src = "docs/source/conf.py"
-search = "version = release = '{current_version}'"
+search = 'version = release = "{current_version}"'
 
 [[file]]
 src = "fedsim/__init__.py"
-search = "__version__ = '{current_version}'"
+search = '__version__ = "{current_version}"'
 
 [[file]]
 src = "scripts/__init__.py"
-search = "__version__ = '{current_version}'"
+search = '__version__ = "{current_version}"'
 
 
 [[before_commit]]
