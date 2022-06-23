@@ -1,4 +1,7 @@
 from collections import deque
+from typing import Dict
+
+from fedsim.utils import apply_on_dict
 
 
 class SerialAggregator(object):
@@ -38,6 +41,9 @@ class SerialAggregator(object):
         _, w = self._members[key]
         return w
 
+    def keys(self):
+        return self._members.keys()
+
     def pop(self, key):
         if key not in self._members:
             raise Exception(f"{key} is not in the aggregator")
@@ -58,25 +64,27 @@ class SerialAggregator(object):
 
 
 class AppendixAggregator(object):
-    def __init__(self, max_deque_lenght=-1) -> None:
+    def __init__(self, max_deque_lenght=None) -> None:
         self._members = dict()
         self.max_deque_lenght = max_deque_lenght
 
-    def _get_pair(self, value, weight):
-        if weight is None:
-            return value, None
-        else:
-            return value * weight, weight
-
-    def append(self, key, value, weight=1):
-        list_v, list_w = self._members.get(
+    def append(self, key, value, weight=1, step=0):
+        list_v, list_w, list_s = self._members.get(
             key,
-            (deque(maxlen=self.max_deque_lenght), deque(maxlen=self.max_deque_lenght)),
+            (
+                deque(maxlen=self.max_deque_lenght),  # for values
+                deque(maxlen=self.max_deque_lenght),  # for keys
+                deque(maxlen=self.max_deque_lenght),  # for steps
+            ),
         )
         list_v.append(value)
         list_w.append(weight)
+        list_s.append(step)
         if key not in self._members:
-            self._members[key] = (list_v, list_w)
+            self._members[key] = (list_v, list_w, list_s)
+
+    def append_all(self, entry_dict: Dict[str, float], weight=1, step=0):
+        apply_on_dict(entry_dict, self.append, weight=weight, step=step)
 
     def get(self, key: str, k: int = None):
         r"""fetches the weighted result
@@ -90,7 +98,7 @@ class AppendixAggregator(object):
         """
         if key not in self._members:
             raise Exception(f"{key} is not in the aggregator")
-        list_v, list_w = self._members[key]
+        list_v, list_w, _ = self._members[key]
         if k is None:
             k = len(list_v)
         start_idx = min(k, len(list_v))
@@ -101,19 +109,33 @@ class AppendixAggregator(object):
     def get_values(self, key):
         if key not in self._members:
             raise Exception(f"{key} is not in the aggregator")
-        v, _ = self._members[key]
+        v, _, _ = self._members[key]
         return v
 
     def get_weights(self, key):
         if key not in self._members:
             raise Exception(f"{key} is not in the aggregator")
-        _, w = self._members[key]
+        _, w, _ = self._members[key]
         return w
+
+    def get_steps(self, key):
+        if key not in self._members:
+            raise Exception(f"{key} is not in the aggregator")
+        _, _, s = self._members[key]
+        return s
+
+    def keys(self):
+        return self._members.keys()
+
+    def get_list(self, key):
+        if key not in self._members:
+            raise Exception(f"{key} is not in the aggregator")
+        return self._members[key]
 
     def pop(self, key):
         if key not in self._members:
             raise Exception("{} is not in the aggregator".format(key))
-        list_v, list_w = self._members.pop(key)
+        list_v, list_w, _ = self._members.pop(key)
         return sum(v * w for v, w in zip(list_v, list_w)) / sum(list_w)
 
     def items(self):

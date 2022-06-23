@@ -209,6 +209,7 @@ class FLAlgorithm(object):
         )
         log_fn = self.metric_logger.add_scalar
         apply_on_dict(report_metrics, log_fn, global_step=self.rounds)
+        return report_metrics
 
     def _train(self, rounds):
         score_aggregator = AppendixAggregator()
@@ -220,17 +221,28 @@ class FLAlgorithm(object):
             opt_reports = self._optimize(round_aggregator)
             if self.rounds % self.log_freq == 0:
                 deploy_poiont = self.deploy()
-                self._report(opt_reports, deploy_poiont)
-            # TODO: append scores to score aggergator
+                score_dict = self._report(opt_reports, deploy_poiont)
+                score_aggregator.append_all(score_dict, step=self.rounds)
+
         # one last report
         if self.rounds % self.log_freq > 0:
             deploy_poiont = self.deploy()
-            self._report(opt_reports, deploy_poiont)
-        return score_aggregator.items()
+            score_dict = self._report(opt_reports, deploy_poiont)
+            score_aggregator.append_all(score_dict, step=self.rounds)
+        return score_aggregator.pop_all()
 
     # API functions
 
-    def train(self, rounds):
+    def train(self, rounds: int) -> Optional[Dict[str, Union[int, float]]]:
+        r"""loop over the learning pipeline of distributed algorithm for given
+        number of rounds.
+
+        Args:
+            rounds (int): number of rounds to train.
+
+        Returns:
+            Optional[Dict[str, Union[int, float]]]: collected score metrics.
+        """
         return self._train(rounds=rounds)
 
     def get_model_class(self):
