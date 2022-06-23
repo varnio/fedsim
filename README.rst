@@ -27,10 +27,6 @@ FedSim
 .. image:: https://codecov.io/gh/fedsim-dev/fedsim/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/fedsim-dev/fedsim
 
-.. image:: https://readthedocs.org/projects/fedsim/badge/?version=latest
-    :target: https://fedsim.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
-
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
 
