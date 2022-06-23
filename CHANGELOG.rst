@@ -1,4 +1,11 @@
-0.1.0 (2022-06-14)
+0.1.1 (2022-06-22)
+
+* added fedsim.scores which wraps torch loss functions and sklearn scores
+* moved reporting mechanism of distributed algorithm for supporting auto monitor
+* added AppendixAggregator which is used to hold metric scores and report final results
+* apply a patch for wrong pypi supported python versions
+
+0.1.0 (2022-06-21)
 ------------------
 
 * First major pre-release.

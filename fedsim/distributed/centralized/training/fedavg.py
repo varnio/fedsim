@@ -10,7 +10,6 @@ import math
 import sys
 from copy import deepcopy
 
-from sklearn.metrics import accuracy_score
 from torch.nn.utils import parameters_to_vector
 from torch.nn.utils import vector_to_parameters
 from torch.optim import SGD
@@ -20,7 +19,6 @@ from torch.utils.data import RandomSampler
 from fedsim.local.training import local_inference
 from fedsim.local.training import local_train
 from fedsim.local.training.step_closures import default_closure
-from fedsim.utils import apply_on_dict
 
 from ..centralized_fl_algorithm import FLAlgorithm
 
@@ -74,9 +72,7 @@ class FedAvg(FLAlgorithm):
 
         # make mode and optimizer
         model = self.get_model_class()().to(self.device)
-        params = deepcopy(
-            parameters_to_vector(model.parameters()).clone().detach()
-        )
+        params = deepcopy(parameters_to_vector(model.parameters()).clone().detach())
         optimizer = SGD(params=[params], lr=slr)
         # write model and optimizer to server
         self.write_server("model", model)
@@ -92,9 +88,7 @@ class FedAvg(FLAlgorithm):
         model = self.read_server("model")
 
         # copy cloud params to cloud model to send to the client
-        vector_to_parameters(
-            cloud_params.detach().clone().data, model.parameters()
-        )
+        vector_to_parameters(cloud_params.detach().clone().data, model.parameters())
         # return a copy of the cloud model
         return dict(model=model)
 
@@ -118,8 +112,7 @@ class FedAvg(FLAlgorithm):
         sampler = RandomSampler(
             datasets["train"],
             replacement=True,
-            num_samples=math.ceil(len(datasets["train"]) / batch_size)
-            * batch_size,
+            num_samples=math.ceil(len(datasets["train"]) / batch_size) * batch_size,
         )
         # # create train data loader
         train_loader = DataLoader(
@@ -129,9 +122,7 @@ class FedAvg(FLAlgorithm):
         model = ctx["model"]
         optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
         # optimize the model locally
-        step_closure_ = (
-            default_closure if step_closure is None else step_closure
-        )
+        step_closure_ = default_closure if step_closure is None else step_closure
         opt_result = local_train(
             model,
             train_loader,
@@ -142,7 +133,8 @@ class FedAvg(FLAlgorithm):
             device,
             step_closure_,
             metric_fn_dict={
-                "train_accuracy": accuracy_score,
+                f"train_{key}": score
+                for key, score in self.get_local_score_functions("train").items()
             },
         )
         (
@@ -162,7 +154,10 @@ class FedAvg(FLAlgorithm):
             test_metrics, num_test_samples = local_inference(
                 model,
                 test_loader,
-                {"test_accuracy": accuracy_score},
+                metric_fn_dict={
+                    f"test_{key}": score
+                    for key, score in self.get_local_score_functions("test").items()
+                },
                 device=device,
             )
         else:
@@ -207,12 +202,7 @@ class FedAvg(FLAlgorithm):
     def receive_from_client(self, client_id, client_msg, aggregation_results):
         weight = client_msg["num_samples"]
         if weight > 0:
-            self.agg(
-                client_id,
-                client_msg,
-                aggregation_results,
-                weight=weight,
-            )
+            self.agg(client_id, client_msg, aggregation_results, weight=weight)
 
     def optimize(self, aggregator):
         if "local_params" in aggregator:
@@ -229,9 +219,7 @@ class FedAvg(FLAlgorithm):
         return aggregator.pop_all()
 
     def deploy(self):
-        return dict(
-            avg=self.read_server("cloud_params"),
-        )
+        return dict(avg=self.read_server("cloud_params"))
 
     def report(
         self,
@@ -242,25 +230,23 @@ class FedAvg(FLAlgorithm):
         deployment_points=None,
     ):
         model = self.read_server("model")
-        t = self.rounds
-        log_fn = metric_logger.add_scalar
+        metrics_from_deployment = dict()
         if deployment_points is not None:
             for point_name, point in deployment_points.items():
                 # copy cloud params to cloud model to send to the client
-                vector_to_parameters(
-                    point.detach().clone().data, model.parameters()
-                )
+                vector_to_parameters(point.detach().clone().data, model.parameters())
 
-                for key, loader in dataloaders.items():
+                for split_name, loader in dataloaders.items():
                     metrics, _ = local_inference(
                         model,
                         loader,
-                        {
-                            "{}.{}_accuracy".format(
-                                point_name, key
-                            ): accuracy_score
+                        metric_fn_dict={
+                            f"{point_name}.{split_name}_{key}": score
+                            for key, score in self.get_global_score_functions(
+                                split_name
+                            ).items()
                         },
                         device=device,
                     )
-                    apply_on_dict(metrics, log_fn, global_step=t)
-        apply_on_dict(optimize_reports, log_fn, global_step=t)
+                    metrics_from_deployment = {**metrics_from_deployment, **metrics}
+        return {**metrics_from_deployment, **optimize_reports}

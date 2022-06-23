@@ -22,7 +22,7 @@ def read(*names, **kwargs):
 
 setup(
     name="fedsim",
-    version="0.1.0",
+    version="0.1.1",
     license="Apache-2.0",
     description="Generic Federated Learning Simulator with PyTorch",
     long_description="{}\n{}".format(
@@ -60,9 +60,6 @@ setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Topic :: Utilities",
@@ -84,7 +81,7 @@ setup(
     ],
     keywords="pytorch, neural networks, template, federated, federated \
         learning, deep learning, distributed learning",
-    python_requires=">=3.6",
+    python_requires=">=3.9",
     extras_require={
         "test": [
             "pytest",

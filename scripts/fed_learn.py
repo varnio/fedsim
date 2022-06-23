@@ -2,6 +2,7 @@ import inspect
 import logging
 import os
 from collections import namedtuple
+from functools import partial
 from pprint import pformat
 from typing import Optional
 
@@ -9,6 +10,7 @@ import click
 import yaml
 from torch.utils.tensorboard import SummaryWriter
 
+from fedsim import scores
 from fedsim.utils import search_in_submodules
 from fedsim.utils import set_seed
 
@@ -98,10 +100,10 @@ from fedsim.utils import set_seed
 )
 @click.option(
     "--loss-fn",
-    type=click.Choice(["ce", "mse"]),
-    default="ce",
+    type=str,
+    default="cross_entropy",
     show_default=True,
-    help="loss function to use (se stands for cross-entropy).",
+    help="loss function to use (defined under fedsim.scores).",
 )
 @click.option(
     "--batch-size",
@@ -242,8 +244,9 @@ def fed_learn(
     verbosity: int,
 ) -> None:
     """simulates federated learning!
-        - Additional arg for Algorithm is specified using prefix `--a-`
-        - Additional arg for DataManager is specified using prefix `--d-`
+        - Additional arg for algorithm is specified using prefix `--a-`
+        - Additional arg for data manager is specified using prefix `--d-`
+        - Additional arg for model is specified using prefix `--m-`
 
     Args:
         ctx (click.core.Context): for extra parameters passed to click
@@ -285,13 +288,14 @@ def fed_learn(
         level=verbosity * 10,
     )
     logging.info("arguments: " + pformat(ctx.params))
-    # get the classes
+
+    # find data manager
     data_manager_class = search_in_submodules(
         "fedsim.distributed.data_management", data_manager
     )
     if data_manager_class is None:
-        raise Exception(f"{algorithm} is not a defined data manager")
-
+        raise Exception(f"{data_manager} is not a defined data manager")
+    # find algoritrhm
     algorithm_repository = ["centralized", "decentralized"]
     for mod in algorithm_repository:
         full_mod = "fedsim.distributed." + mod + ".training"
@@ -300,21 +304,25 @@ def fed_learn(
             break
     if algorithm_class is None:
         raise Exception(f"{algorithm} is not a define FL algorithm")
+    # find model
+    model_class = search_in_submodules("fedsim.models", model)
+    if model_class is None:
+        raise Exception(f"{model} is not a defined model")
 
     dtm_args = dict()
     alg_args = dict()
+    mdl_args = dict()
 
     ClassContext = namedtuple("ClassContext", ["cls", "prefix", "arg_dict"])
 
     context_pool = dict(
         alg_context=ClassContext(algorithm_class, "a-", alg_args),
         dtm_context=ClassContext(data_manager_class, "d-", dtm_args),
+        mdl_context=ClassContext(model_class, "m-", mdl_args),
     )
 
     def add_arg(key, value, prefix):
-        context = list(
-            filter(lambda x: x.prefix == prefix, context_pool.values())
-        )
+        context = list(filter(lambda x: x.prefix == prefix, context_pool.values()))
         if len(context) == 0:
             raise Exception("{} is an invalid argument".format(key))
         else:
@@ -360,6 +368,13 @@ def fed_learn(
         }
     )
 
+    model_class = partial(model_class, **context_pool["mdl_context"].arg_dict)
+
+    loss_criterion = None
+    if hasattr(scores, loss_fn):
+        loss_criterion = getattr(scores, loss_fn)
+    else:
+        raise Exception(f"loss_fn {loss_fn} is not defined in fedsim.scores")
     # set the seed of random generators
     if seed is not None:
         set_seed(seed, device)
@@ -369,9 +384,9 @@ def fed_learn(
         num_clients=num_clients,
         sample_scheme=client_sample_scheme,
         sample_rate=client_sample_rate,
-        model_class=model,
+        model_class=model_class,
         epochs=epochs,
-        loss_fn=loss_fn,
+        loss_fn=loss_criterion,
         batch_size=batch_size,
         test_batch_size=test_batch_size,
         local_weight_decay=local_weight_decay,
@@ -386,6 +401,9 @@ def fed_learn(
         log_freq=log_freq,
         **context_pool["alg_context"].arg_dict,
     )
+    algorithm_instance.hook_global_score_function("test", "accuracy", scores.accuracy)
+    for key in data_manager_instant.get_local_splits_names():
+        algorithm_instance.hook_local_score_function(key, "accuracy", scores.accuracy)
 
     algorithm_instance.train(rounds)
     summary_writer.flush()

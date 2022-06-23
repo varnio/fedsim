@@ -3,7 +3,7 @@ from functools import partial
 import torch
 from torch.nn.utils import clip_grad_norm_
 
-from fedsim.utils import get_metric_scores
+from fedsim.utils import collect_scores
 
 
 def default_closure(
@@ -41,5 +41,5 @@ def default_closure(
     optimizer.step()
     optimizer.zero_grad()
     y_pred = link_fn(outputs).tolist()
-    metrics = get_metric_scores(metric_fn_dict, y_true, y_pred)
+    metrics = collect_scores(metric_fn_dict, y_true, y_pred)
     return loss, metrics

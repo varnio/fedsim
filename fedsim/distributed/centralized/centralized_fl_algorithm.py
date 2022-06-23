@@ -16,8 +16,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import trange
 
+from fedsim import scores
+from fedsim.utils import apply_on_dict
 from fedsim.utils import search_in_submodules
 
+from ...utils.aggregators import AppendixAggregator
 from ...utils.aggregators import SerialAggregator
 
 
@@ -67,22 +70,24 @@ class FLAlgorithm(object):
                     sample_rate, num_clients
                 )
             )
+        # support functools.partial as model_class
+        if hasattr(model_class, "func"):
+            model_class_ = getattr(model_class, "func")
+        else:
+            model_class_ = model_class
 
-        if isinstance(model_class, str):
-            self.model_class = search_in_submodules(
-                "fedsim.models", model_class
-            )
-        elif issubclass(model_class, nn.Module):
+        if isinstance(model_class_, str):
+            self.model_class = search_in_submodules("fedsim.models", model_class)
+        elif issubclass(model_class_, nn.Module):
             self.model_class = model_class
         else:
             raise Exception("incompatiple model!")
         self.epochs = epochs
-        if loss_fn == "ce":
-            self.loss_fn = nn.CrossEntropyLoss()
-        elif loss_fn == "mse":
-            self.loss_fn = nn.MSELoss()
+
+        if isinstance(loss_fn, str) and hasattr(scores, loss_fn):
+            self.loss_fn = getattr(scores, loss_fn)
         else:
-            raise NotImplementedError
+            self.loss_fn = loss_fn
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
         self.local_weight_decay = local_weight_decay
@@ -117,6 +122,11 @@ class FLAlgorithm(object):
         # for internal use only
         self._last_client_sampled: int = None
 
+        self._server_scores = {key: dict() for key in self.global_dataloaders}
+        self._client_scores = {
+            key: dict() for key in self._data_manager.get_local_splits_names()
+        }
+
     def write_server(self, key, obj):
         self._server_memory[key] = obj
 
@@ -128,9 +138,7 @@ class FLAlgorithm(object):
 
     def read_client(self, client_id, key):
         if client_id >= self.num_clients:
-            raise Exception(
-                "invalid client id {} >= {}".format(id, self.num_clients)
-            )
+            raise Exception("invalid client id {} >= {}".format(id, self.num_clients))
         if key in self._client_memory[client_id]:
             return self._client_memory[client_id][key]
         return None
@@ -140,9 +148,7 @@ class FLAlgorithm(object):
             clients = random.sample(range(self.num_clients), self.sample_count)
         elif self.sample_scheme == "sequential":
             last_sampled = (
-                -1
-                if self._last_client_sampled is None
-                else self._last_client_sampled
+                -1 if self._last_client_sampled is None else self._last_client_sampled
             )
             clients = [
                 (i + 1) % self.num_clients
@@ -194,38 +200,75 @@ class FLAlgorithm(object):
         return reports
 
     def _report(self, optimize_reports=None, deployment_points=None):
-        self.report(
+        report_metrics = self.report(
             self.global_dataloaders,
             self.metric_logger,
             self.device,
             optimize_reports,
             deployment_points,
         )
+        log_fn = self.metric_logger.add_scalar
+        apply_on_dict(report_metrics, log_fn, global_step=self.rounds)
+        return report_metrics
 
-    def _train(self, rounds):
+    def _train(self, rounds, num_score_report_point=None):
+        score_aggregator = AppendixAggregator(max_deque_lenght=num_score_report_point)
         for self.rounds in trange(rounds):
-            aggregator = SerialAggregator()
+            round_aggregator = SerialAggregator()
             for client_id in self._sample_clients():
                 client_msg = self._send_to_server(client_id)
-                self._receive_from_client(client_msg, aggregator)
-            opt_reports = self._optimize(aggregator)
+                self._receive_from_client(client_msg, round_aggregator)
+            opt_reports = self._optimize(round_aggregator)
             if self.rounds % self.log_freq == 0:
                 deploy_poiont = self.deploy()
-                self._report(opt_reports, deploy_poiont)
+                score_dict = self._report(opt_reports, deploy_poiont)
+                score_aggregator.append_all(score_dict, step=self.rounds)
+
         # one last report
         if self.rounds % self.log_freq > 0:
             deploy_poiont = self.deploy()
-            self._report(opt_reports, deploy_poiont)
-        return 0
+            score_dict = self._report(opt_reports, deploy_poiont)
+            score_aggregator.append_all(score_dict, step=self.rounds)
+        return score_aggregator.pop_all()
 
-    def train(self, rounds):
-        return self._train(rounds=rounds)
+    # API functions
+
+    def train(
+        self,
+        rounds: int,
+        num_score_report_point: Optional[int] = None,
+    ) -> Optional[Dict[str, Optional[float]]]:
+        r"""loop over the learning pipeline of distributed algorithm for given
+        number of rounds.
+
+        Args:
+            rounds (int): number of rounds to train.
+            num_score_report_point (int): limits num of points to return reports.
+
+        Returns:
+            Optional[Dict[str, Union[float]]]: collected score metrics.
+        """
+        return self._train(rounds=rounds, num_score_report_point=num_score_report_point)
 
     def get_model_class(self):
         return self.model_class
 
-    # we do not do type hinting, however, the hints for avstract
+    def hook_local_score_function(self, split_name, score_name, score_fn):
+        self._client_scores[split_name][score_name] = score_fn
+
+    def hook_global_score_function(self, split_name, score_name, score_fn):
+        self._server_scores[split_name][score_name] = score_fn
+
+    def get_local_score_functions(self, split_name) -> Dict[str, Any]:
+        return self._client_scores[split_name]
+
+    def get_global_score_functions(self, split_name) -> Dict[str, Any]:
+        return self._server_scores[split_name]
+
+    # we do not do type hinting, however, the hints for abstract
     # methods are provided to help clarity for users
+
+    # abstract functions
 
     def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
         """returns context to send to the client corresponding to client_id.
@@ -325,8 +368,12 @@ class FLAlgorithm(object):
         device: str,
         optimize_reports: Mapping[Hashable, Any],
         deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
-    ) -> None:
-        """test on global data and report info
+    ) -> Dict[str, Union[int, float]]:
+        """test on global data and report info. If a flatten dict of
+        str:Union[int,float] is returned from this function the content is
+        automatically logged using the metric logger (e.g., tensorboard.SummaryWriter).
+        metric_logger is also passed as an input argument for extra
+        logging operations (non scalar).
 
         Args:
             dataloaders (Any): dict of data loaders to test the global model(s)
