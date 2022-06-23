@@ -1,3 +1,5 @@
+import math
+
 from torch.utils.tensorboard import SummaryWriter
 
 from fedsim.distributed.centralized.training import FedAvg
@@ -30,4 +32,8 @@ def test_main():
     for key in dm.get_local_splits_names():
         alg.hook_local_score_function(key, "accuracy", accuracy)
 
-    assert alg.train(rounds=1) is not None
+    for key, value in alg.train(rounds=1).items():
+        if "accuracy" in key:
+            assert value > 0
+        elif "loss" in key:
+            assert 0 < value < math.log(100)
