@@ -4,6 +4,7 @@ from fedsim.distributed.centralized.training import FedAvg
 from fedsim.distributed.data_management import BasicDataManager
 from fedsim.models.mcmahan_nets import cnn_cifar100
 from fedsim.scores import accuracy
+from fedsim.scores import cross_entropy
 
 
 def test_main():
@@ -19,7 +20,7 @@ def test_main():
         sample_rate=0.01,
         model_class=cnn_cifar100,
         epochs=1,
-        loss_fn="ce",
+        loss_fn=cross_entropy,
         batch_size=32,
         metric_logger=sw,
         device="cpu",
