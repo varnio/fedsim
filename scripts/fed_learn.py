@@ -206,6 +206,13 @@ from fedsim.utils import set_seed
     help="gap between two reports in rounds.",
 )
 @click.option(
+    "--train-report-point",
+    type=int,
+    default=10,
+    show_default=True,
+    help="number of last score reports points to store and get average performance.",
+)
+@click.option(
     "--verbosity",
     "-v",
     type=int,
@@ -241,6 +248,7 @@ def fed_learn(
     device: str,
     log_dir: str,
     log_freq: int,
+    train_report_point: int,
     verbosity: int,
 ) -> None:
     """simulates federated learning!
@@ -274,6 +282,7 @@ def fed_learn(
         device (str): device to load model and data on
         log_dir (str): the directory to store logs
         log_freq (int): gap between two reports in rounds.
+        train_report_point (int): number of last score reports points to average.
         verbosity (int): verbosity of the outputs
     """
     summary_writer = SummaryWriter(log_dir)
@@ -405,6 +414,8 @@ def fed_learn(
     for key in data_manager_instant.get_local_splits_names():
         algorithm_instance.hook_local_score_function(key, "accuracy", scores.accuracy)
 
-    algorithm_instance.train(rounds)
+    logging.info(
+        f"average of the last {train_report_point}\
+            reports: {algorithm_instance.train(rounds, train_report_point)}"
+    )
     summary_writer.flush()
-    # click.echo(ret)
