@@ -81,7 +81,7 @@ setup(
     ],
     keywords="pytorch, neural networks, template, federated, federated \
         learning, deep learning, distributed learning",
-    python_requires=">=3.6",
+    python_requires=">=3.9",
     extras_require={
         "test": [
             "pytest",
