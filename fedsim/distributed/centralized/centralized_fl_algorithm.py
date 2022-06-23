@@ -211,8 +211,8 @@ class FLAlgorithm(object):
         apply_on_dict(report_metrics, log_fn, global_step=self.rounds)
         return report_metrics
 
-    def _train(self, rounds):
-        score_aggregator = AppendixAggregator()
+    def _train(self, rounds, num_score_report_point=None):
+        score_aggregator = AppendixAggregator(max_deque_lenght=num_score_report_point)
         for self.rounds in trange(rounds):
             round_aggregator = SerialAggregator()
             for client_id in self._sample_clients():
@@ -233,17 +233,22 @@ class FLAlgorithm(object):
 
     # API functions
 
-    def train(self, rounds: int) -> Optional[Dict[str, Union[int, float]]]:
+    def train(
+        self,
+        rounds: int,
+        num_score_report_point: Optional[int] = None,
+    ) -> Optional[Dict[str, Optional[float]]]:
         r"""loop over the learning pipeline of distributed algorithm for given
         number of rounds.
 
         Args:
             rounds (int): number of rounds to train.
+            num_score_report_point (int): limits num of points to return reports.
 
         Returns:
-            Optional[Dict[str, Union[int, float]]]: collected score metrics.
+            Optional[Dict[str, Union[float]]]: collected score metrics.
         """
-        return self._train(rounds=rounds)
+        return self._train(rounds=rounds, num_score_report_point=num_score_report_point)
 
     def get_model_class(self):
         return self.model_class
