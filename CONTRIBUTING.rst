@@ -24,7 +24,7 @@ articles, and such.
 Feature requests and feedback
 =============================
 
-The best way to send feedback is to file an issue at https://github.com/varniov/fedsim/issues.
+The best way to send feedback is to file an issue at https://github.com/varnio/fedsim/issues.
 
 If you are proposing a feature:
 
