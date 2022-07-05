@@ -1,4 +1,11 @@
+0.1.2 (2022-07-05)
+------------------
+
+* changed ownership of repo from fedsim-dev to varnio
+
+
 0.1.1 (2022-06-22)
+------------------
 
 * added fedsim.scores which wraps torch loss functions and sklearn scores
 * moved reporting mechanism of distributed algorithm for supporting auto monitor

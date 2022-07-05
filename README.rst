@@ -1,9 +1,9 @@
 FedSim
 ======
 
-.. image:: https://github.com/fedsim-dev/fedsim/actions/workflows/github-actions.yml/badge.svg
+.. image:: https://github.com/varnio/fedsim/actions/workflows/github-actions.yml/badge.svg
     :alt: GitHub Actions Build Status
-    :target: https://github.com/fedsim-dev/fedsim/actions
+    :target: https://github.com/varnio/fedsim/actions
 
 .. image:: https://img.shields.io/pypi/v/fedsim.svg
     :alt: PyPI Package latest release
@@ -24,12 +24,8 @@ FedSim
     :alt: Supported implementations
     :target: https://pypi.org/project/fedsim
 
-.. image:: https://codecov.io/gh/fedsim-dev/fedsim/branch/main/graph/badge.svg
-    :target: https://codecov.io/gh/fedsim-dev/fedsim
-
-.. image:: https://readthedocs.org/projects/fedsim/badge/?version=latest
-    :target: https://fedsim.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+.. image:: https://codecov.io/gh/varnio/fedsim/branch/main/graph/badge.svg
+    :target: https://codecov.io/gh/varnio/fedsim
 
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
@@ -331,20 +327,37 @@ Included FL algorithms
 .. list-table::
    :header-rows: 1
 
-   * - alias
-     - paper
-   * - fedavg
-     - `Communication-Efficient Learning of Deep Networks from Decentralized Data <https://arxiv.org/abs/1602.05629>`_
-   * - fedavgm
-     - `Measuring the Effects of Non-Identical Data Distribution for Federated Visual Classification <https://arxiv.org/abs/1909.06335>`_
-   * - fednova
-     - `Tackling the Objective Inconsistency Problem in Heterogeneous Federated Optimization <https://arxiv.org/abs/2007.07481>`_
-   * - fedprox
-     - `Federated Optimization in Heterogeneous Networks <https://arxiv.org/abs/1812.06127>`_
-   * - feddyn
-     - `Federated Learning Based on Dynamic Regularization <https://openreview.net/forum?id=B7v4QMR6Z9w>`_
-   * - adabest
-     - `Minimizing Client Drift in Federated Learning via Adaptive Bias Estimation <https://arxiv.org/abs/2204.13170>`_
+   * - Alias
+     - Paper
+   * - FedAvg
+     - .. image:: https://img.shields.io/badge/arXiv-1602.05629-b31b1b.svg?style=flat-square
+        :target: https://arxiv.org/abs/1602.05629
+        :alt: arXiv
+
+   * - FedAvgM
+     - .. image:: https://img.shields.io/badge/arXiv-1909.06335-b31b1b.svg?style=flat-square
+        :target: https://arxiv.org/abs/1909.06335
+        :alt: arXiv
+
+   * - FedNova
+     - .. image:: https://img.shields.io/badge/arXiv-2007.07481-b31b1b.svg?style=flat-square
+        :target: https://arxiv.org/abs/2007.07481
+        :alt: arXiv
+
+   * - FedProx
+     - .. image:: https://img.shields.io/badge/arXiv-1812.06127-b31b1b.svg?style=flat-square
+        :target: https://arxiv.org/abs/1812.06127
+        :alt: arXiv
+
+   * - FedDyn
+     - .. image:: https://img.shields.io/badge/arXiv-2111.04263-b31b1b.svg?style=flat-square
+        :target: https://arxiv.org/abs/2111.04263
+        :alt: arXiv
+
+   * - AdaBest
+     - .. image:: https://img.shields.io/badge/arXiv-2204.13170-b31b1b.svg?style=flat-square
+        :target: https://arxiv.org/abs/2204.13170
+        :alt: arXiv
 
 
 Model Architectures
