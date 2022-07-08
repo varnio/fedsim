@@ -65,8 +65,8 @@ setup(
         "Topic :: Utilities",
     ],
     project_urls={
-        "Documentation": "https://fedsim.readthedocs.io/",
-        "Changelog": "https://fedsim.readthedocs.io/en/latest/changelog.html",
+        "Documentation": "https://fedsim.varnio.com/",
+        "Changelog": "https://fedsim.varnio.com/en/latest/changelog.html",
         "Issue Tracker": "https://github.com/varnio/fedsim/issues",
     },
     install_requires=[
