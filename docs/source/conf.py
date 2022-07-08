@@ -26,7 +26,7 @@ copyright = "2022, Farshid Varno"
 year = "2022"
 author = "Farshid Varno"
 copyright = "{0}, {1}".format(year, author)
-version = release = "0.1.2"
+version = release = "0.1.3"
 # The full version, including alpha/beta/rc tags
 
 # -- General configuration ---------------------------------------------------
