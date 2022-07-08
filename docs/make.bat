@@ -24,7 +24,7 @@ if errorlevel 9009 (
 )
 
 if "%1" == "" goto help
-
+@REM run python process_rst.py here
 %SPHINXBUILD% -M %1 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
 goto end
 

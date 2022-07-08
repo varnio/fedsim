@@ -17,7 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../.."))
 sys.path.append(os.path.abspath("."))
-sys.path.append(os.path.abspath('../sphinxext'))
+sys.path.append(os.path.abspath("../sphinxext"))
 
 # -- Project information -----------------------------------------------------
 master_doc = "index"
@@ -26,7 +26,7 @@ copyright = "2022, Farshid Varno"
 year = "2022"
 author = "Farshid Varno"
 copyright = "{0}, {1}".format(year, author)
-version = release = "0.1.2"
+version = release = "0.1.3"
 # The full version, including alpha/beta/rc tags
 
 # -- General configuration ---------------------------------------------------
@@ -37,7 +37,7 @@ version = release = "0.1.2"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.duration",
-    'sphinx.ext.intersphinx',
+    "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",
@@ -47,8 +47,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.extlinks",
     "nbsphinx",
-    'sphinxext.redirect_from',
-    'sphinx_panels',
+    "sphinx_panels",
 ]
 
 add_module_names = False
@@ -57,13 +56,13 @@ add_module_names = False
 templates_path = ["_templates"]
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # This is the default encoding, but it doesn't hurt to be explicit
 source_encoding = "utf-8"
 
 # The toplevel toctree document (renamed to root_doc in Sphinx 4.0)
-root_doc = master_doc = 'index'
+root_doc = master_doc = "index"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -93,12 +92,12 @@ html_static_path = ["_static"]
 html_use_smartypants = True
 
 # this makes this the canonical link for all the pages on the site...
-html_baseurl = 'https://fedsim.varnio.com/en/latest/'
+html_baseurl = "https://fedsim.varnio.com/en/latest/"
 
 html_last_updated_fmt = "%b %d, %Y"
 
 # Content template for the index page.
-html_index = 'index.html'
+html_index = "index.html"
 
 html_split_index = False
 
@@ -111,16 +110,14 @@ panels_add_bootstrap_css = False
 html_use_modindex = True
 html_copy_source = False
 html_domain_indices = False
-html_file_suffix = '.html'
+html_file_suffix = ".html"
 
 
 html_sidebars = {
     "index": ["search-field"],
-    "contribute": [
-        "notes/contributing"], 
+    "contribute": ["notes/contributing"],
     # "demo/no-sidebar": [],  # Test what page looks like with no sidebar items
 }
-
 
 
 html_theme_options = {
@@ -158,22 +155,8 @@ html_theme_options = {
         "text": "FedSim",
         "image_dark": "logo-light.png",
     },
-    # "use_edit_page_button": True,
     "show_toc_level": 1,
-    # "announcement": "Here's a test <a href='https://google.com'>announcement</a>!",
-    # "announcement": "https://raw.githubusercontent.com/pydata/pydata-sphinx-theme/main/docs/_templates/custom-template.html",
-    # "show_nav_level": 2,
-    # "search_bar_position": "navbar",  # TODO: Deprecated - remove in future version
-    # "navbar_align": "left",  # [left, content, right] For testing that the navbar items align properly
     "navbar_start": ["navbar-logo"],
-    # "navbar_center": ["navbar-nav", "navbar-version"],  # Just for testing, we should use defaults in our docs
-    # "navbar_end": ["theme-switcher", "navbar-icon-links"],  # Just for testing, we should use defaults in our docs
-    # "left_sidebar_end": ["custom-template.html", "sidebar-ethical-ads.html"],
-    # "footer_items": ["copyright", "sphinx-version", ""]
-    # "switcher": {
-    #     "json_url": json_url,
-    #     "version_match": version_match,
-    # },
 }
 
 
@@ -182,7 +165,7 @@ html_theme_options = {
 panels_add_bootstrap_css = False
 
 # Copies only relevant code, not the '>>>' prompt
-copybutton_prompt_text = r'>>> |\.\.\. '
+copybutton_prompt_text = r">>> |\.\.\. "
 copybutton_prompt_is_regexp = True
 
 # If true, add an index to the HTML documents.
@@ -197,16 +180,16 @@ html_domain_index = False
 
 # If true, an OpenSearch description file will be output, and all pages will
 # contain a <link> tag referring to it.
-html_use_opensearch = 'False'
+html_use_opensearch = "False"
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'FedSimdoc'
+htmlhelp_basename = "FedSimdoc"
 
 # Use typographic quote characters.
 smartquotes = False
 
 # Path to favicon
-html_favicon = '_static/logo.png'
+html_favicon = "_static/logo.png"
 
 
 html_short_title = "%s-%s" % (project, version)

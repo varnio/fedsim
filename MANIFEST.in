@@ -23,6 +23,6 @@ include CONTRIBUTING.rst
 include LICENSE
 include README.rst
 
-CODE_OF_CONDUCT.md
+include CODE_OF_CONDUCT.md
 
 global-exclude *.py[cod] __pycache__/* *.so *.dylib CNAME

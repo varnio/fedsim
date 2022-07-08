@@ -1,8 +1,7 @@
 # to remove keytra keywords in geneerated pydoc files
-# solution from https://stackoverflow.com/a/67549866/9784436 
+# solution from https://stackoverflow.com/a/67549866/9784436
 
 from pathlib import Path
-
 
 src_dir = Path("source/reference")
 for file in src_dir.iterdir():

@@ -1,7 +1,7 @@
 """ a simple Federated Learning simulator!
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 import logging
 import os
@@ -16,13 +16,4 @@ __all__ = [
     if module != "__init__.py" and module[-3:] == ".py"
 ]
 
-from fedsim import distributed as distributed
-from fedsim import local as local
-from fedsim import models as models
-from fedsim import datasets as datasets
-
-
-__all__ += ['distributed', 'local', 'models', 'datasets']
-
-
-
+__all__ += ["distributed", "local", "models", "datasets"]
