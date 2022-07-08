@@ -1,4 +1,4 @@
-FedSim 
+FedSim
 ======
 
 .. image:: https://github.com/varnio/fedsim/actions/workflows/github-actions.yml/badge.svg
@@ -30,7 +30,12 @@ FedSim
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
 
-FedSim is a Generic Federated Learning Simulator. It aims to provide the researchers with an easy to develope/maintain simulator for Federated Learning. 
+.. image:: https://badges.gitter.im/varnio/community.svg
+    :alt: Gitter
+    :target: https://gitter.im/varnio/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
+
+
+FedSim is a Generic Federated Learning Simulator. It aims to provide the researchers with an easy to develope/maintain simulator for Federated Learning.
 See documentation at `here <https://fedsim.varnio.com/en/latest/>`_!
 
 
