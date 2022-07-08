@@ -1,7 +1,5 @@
 #!/bin/sh
 cd docs
-sphinx-apidoc -o ./source ..
-rm ./source/setup.rst
-rm ./source/scripts.rst
+sphinx-apidoc -fMeT ../fedsim -o ./source/reference
 make clean
 make html
