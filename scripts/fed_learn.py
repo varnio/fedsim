@@ -8,6 +8,7 @@ from typing import Optional
 
 import click
 import yaml
+import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from fedsim import scores
@@ -187,7 +188,7 @@ from fedsim.utils import set_seed
 @click.option(
     "--device",
     type=str,
-    default="cuda",
+    default=None,
     show_default=True,
     help="device to load model and data one",
 )
@@ -245,7 +246,7 @@ def fed_learn(
     clr_step_size: int,
     pseed: int,
     seed: Optional[float],
-    device: str,
+    device: Optional[str],
     log_dir: str,
     log_freq: int,
     train_report_point: int,
@@ -384,6 +385,14 @@ def fed_learn(
         loss_criterion = getattr(scores, loss_fn)
     else:
         raise Exception(f"loss_fn {loss_fn} is not defined in fedsim.scores")
+
+    # set the device if it is not already set
+    if device is None:
+        if torch.cuda.is_available():
+            device = 'cuda'
+        else:
+            device = 'cpu'
+
     # set the seed of random generators
     if seed is not None:
         set_seed(seed, device)
