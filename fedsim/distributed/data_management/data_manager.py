@@ -23,7 +23,7 @@ class DataManager(object):
     Args:
         root (str): root dir of the dataset to partition
         seed (int): random seed of partitioning
-        save_path (str, optional): path to save partitioned indices.
+        save_dir (str, optional): path to save partitioned indices.
     """
 
     def __init__(

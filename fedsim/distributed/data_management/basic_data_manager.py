@@ -36,7 +36,7 @@ class BasicDataManager(DataManager):
         label_balance (float): balance of the labels on each clietns
         local_test_portion (float): portion of local test set from trian
         seed (int): random seed of partitioning
-        save_path (str, optional): path to save partitioned indices.
+        save_dir (str, optional): dir to save partitioned indices.
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class BasicDataManager(DataManager):
         label_balance=1.0,
         local_test_portion=0.0,
         seed=10,
-        save_path=None,
+        save_dir=None,
         *args,
         **kwargs,
     ):

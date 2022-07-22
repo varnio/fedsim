@@ -18,7 +18,7 @@ A Simple Custom DataManager
            self.other_arg = other_arg
            # note that super should be called at the end of init \
            # because the abstract classes are called in its __init__
-           super(BasicDataManager, self).__init__(root, seed, save_path=save_path)
+           super(BasicDataManager, self).__init__(root, seed, save_dir=save_dir)
 
        def make_datasets(self, root: str) -> Iterable[Dict[str, object]]:
            """Abstract method to be implemented by child class.
