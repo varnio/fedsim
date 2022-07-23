@@ -24,7 +24,7 @@ from ...utils.aggregators import AppendixAggregator
 from ...utils.aggregators import SerialAggregator
 
 
-class FLAlgorithm(object):
+class CentralFLAlgorithm(object):
     def __init__(
         self,
         data_manager,
