@@ -1,3 +1,11 @@
+0.1.3 (2022-07-08)
+------------------
+
+* the documentation is redesigned and mostly automated.
+* documentation now is available at https://fesim.varnio.com
+* added code of coduct from github tempalate
+
+
 0.1.2 (2022-07-05)
 ------------------
 
