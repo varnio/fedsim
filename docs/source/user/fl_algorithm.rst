@@ -1,7 +1,7 @@
 .. _custom_flalg:
 
 Custom CentralFLAlgorithm
-==================
+=========================
 
 Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.CentralFLAlgorithm`` (or its children) and implement its abstract methods.
 
