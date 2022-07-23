@@ -1,3 +1,12 @@
+0.1.4 (2022-07-23)
+------------------
+
+* changed FLAlgorithm to CentralFLAlgorithm for more clearity
+* set default device to cuda if available otherwise to cpu in fed-learn cli
+* fix wrong superclass names in demo
+* fix the confusion with `save_dir` and `save_path` in DataManager classes
+
+
 0.1.3 (2022-07-08)
 ------------------
 
