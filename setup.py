@@ -22,7 +22,7 @@ def read(*names, **kwargs):
 
 setup(
     name="fedsim",
-    version="0.1.3",
+    version="0.1.4",
     license="Apache-2.0",
     description="Generic Federated Learning Simulator with PyTorch",
     long_description="{}\n{}".format(
