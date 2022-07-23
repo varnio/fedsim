@@ -111,7 +111,7 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
            self.other_arg = other_arg
            # note that super should be called at the end of init \
            # because the abstract classes are called in its __init__
-           super(CustomDataManager, self).__init__(root, seed, save_path=save_path)
+           super(CustomDataManager, self).__init__(root, seed, save_dir=save_dir)
 
        def make_datasets(self, root: str) -> Iterable[Dict[str, object]]:
            """Abstract method to be implemented by child class.
@@ -119,7 +119,7 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
            Args:
                dataset_name (str): name of the dataset.
                root (str): directory to download and manipulate data.
-               save_path (str): directory to store the data after partitioning.
+               save_dir (str): directory to store the data after partitioning.
 
            Raises:
                NotImplementedError: if the dataset_name is not defined
