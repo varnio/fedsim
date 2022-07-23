@@ -20,10 +20,10 @@ from fedsim.local.training import local_inference
 from fedsim.local.training import local_train
 from fedsim.local.training.step_closures import default_closure
 
-from ..centralized_fl_algorithm import FLAlgorithm
+from ..centralized_fl_algorithm import CentralFLAlgorithm
 
 
-class FedAvg(FLAlgorithm):
+class FedAvg(CentralFLAlgorithm):
     def __init__(
         self,
         data_manager,

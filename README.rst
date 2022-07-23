@@ -169,17 +169,17 @@ Provided with the simulator is a basic DataManager called ``BasicDataManager`` w
 
 It supports the popular partitioning schemes (iid, Dirichlet distribution, unbalanced, etc.).
 
-FLAlgorithm
-===========
+CentralFLAlgorithm
+==================
 
-Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlgorithm`` (or its children) and implement its abstract methods. For example:
+Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.CentralFLAlgorithm`` (or its children) and implement its abstract methods. For example:
 
 .. code-block:: python
 
    from typing import Optional, Hashable, Mapping, Dict, Any
-   from fedsim.distributed.centralized.training.centralized_fl_algorithm import FLAlgorithm
+   from fedsim.distributed.centralized.training.centralized_fl_algorithm import CentralFLAlgorithm
 
-   class CustomFLAlgorithm(FLAlgorithm):
+   class CustomFLAlgorithm(CentralFLAlgorithm):
        def __init__(
            self, data_manager, num_clients, sample_scheme, sample_rate, model_class, epochs, loss_fn,
            batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type,
@@ -298,8 +298,8 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlg
            """
            raise NotImplementedError
 
-Integration with included cli (FLAlgorithm)
--------------------------------------------
+Integration with included cli (CentralFLAlgorithm)
+--------------------------------------------------
 
 To automatically include your custom algorithm by the provided cli tool, you can place your class in a file under fedsim/fl/algorithms. Then, call it using option --algorithm. To deliver arguments to the **init** method of your custom algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
 
@@ -307,23 +307,23 @@ To automatically include your custom algorithm by the provided cli tool, you can
 
    fedsim fed-learn --algorithm CustomFLAlgorithm --a-other_arg <other_arg_value> ...
 
-other attributes and methods provide by FLAlgorithm
----------------------------------------------------
+other attributes and methods provide by CentralFLAlgorithm
+----------------------------------------------------------
 
 .. list-table::
    :header-rows: 1
 
    * - method
      - functionality
-   * - ``FLAlgorithm.get_model_class()``
+   * - ``CentralFLAlgorithm.get_model_class()``
      - returns the class object of the model architecture
-   * - ``FLAlgorithm.write_server(key, obj)``
+   * - ``CentralFLAlgorithm.write_server(key, obj)``
      - stores obj in server memory, accessible with key
-   * - ``FLAlgorithm.write_client(client_id, key, obj)``
+   * - ``CentralFLAlgorithm.write_client(client_id, key, obj)``
      - stores obj in client_id's memory, accessible with key
-   * - ``FLAlgorithm.read_server(key)``
+   * - ``CentralFLAlgorithm.read_server(key)``
      - returns obj associated with key in server memory
-   * - ``FLAlgorithm.read_client(client_id, key)``
+   * - ``CentralFLAlgorithm.read_client(client_id, key)``
      - returns obj associated with key in client_id's memory
 
 
