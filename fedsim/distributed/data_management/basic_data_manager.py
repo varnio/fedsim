@@ -79,7 +79,7 @@ class BasicDataManager(DataManager):
             label_balance (float): balance of the labels on each clietns
             local_test_portion (float): portion of local test set from trian
             seed (int): random seed of partitioning
-            save_path (str, optional): path to save partitioned indices.
+            save_dir (str, optional): path to save partitioned indices.
         """
         self.dataset_name = dataset
         self.num_partitions = num_partitions
@@ -93,22 +93,18 @@ class BasicDataManager(DataManager):
         super(BasicDataManager, self).__init__(
             root,
             seed,
-            save_path=save_path,
+            save_dir=save_dir,
         )
 
     def make_datasets(self, root, global_transforms=None):
         if self.dataset_name == "mnist":
             local_dset = MNIST(root, download=True, train=True, transform=None)
-            global_dset = MNIST(
-                root, download=True, train=True, transform=None
-            )
+            global_dset = MNIST(root, download=True, train=True, transform=None)
 
         elif self.dataset_name == "cifar10" or self.dataset_name == "cifar100":
             dst_class = CIFAR10 if self.dataset_name == "cifar10" else CIFAR100
 
-            local_dset = dst_class(
-                root=root, download=True, train=True, transform=None
-            )
+            local_dset = dst_class(root=root, download=True, train=True, transform=None)
             global_dset = dst_class(
                 root=root,
                 download=True,
@@ -174,9 +170,7 @@ class BasicDataManager(DataManager):
                 size=n,
             )
             quota_sum = np.sum(client_quota)
-            client_quota = (
-                client_quota / quota_sum * all_sample_count
-            ).astype(int)
+            client_quota = (client_quota / quota_sum * all_sample_count).astype(int)
             diff = quota_sum - all_sample_count
 
             # Add/Sub the excess number starting from first client
@@ -188,9 +182,7 @@ class BasicDataManager(DataManager):
         else:
             client_quota = np.ones(n, dtype=int) * sample_per_client
 
-        indices = [
-            np.zeros(client_quota[client], dtype=int) for client in range(n)
-        ]
+        indices = [np.zeros(client_quota[client], dtype=int) for client in range(n)]
         # *********************************************************
         if self.rule == "dir":
             # Dirichlet partitioning rule
@@ -199,9 +191,7 @@ class BasicDataManager(DataManager):
             )
             prior_cumsum = np.cumsum(cls_priors, axis=1)
             idx_list = [np.where(targets == i)[0] for i in range(num_classes)]
-            cls_amount = np.array(
-                [len(idx_list[i]) for i in range(num_classes)]
-            )
+            cls_amount = np.array([len(idx_list[i]) for i in range(num_classes)])
 
             print("partitionig")
             pbar = tqdm(total=np.sum(client_quota))
@@ -233,9 +223,9 @@ class BasicDataManager(DataManager):
                     if cls_amount[cls_label] <= 0:
                         continue
                     cls_amount[cls_label] -= 1
-                    indices[curr_clnt][client_quota[curr_clnt]] = idx_list[
-                        cls_label
-                    ][cls_amount[cls_label]]
+                    indices[curr_clnt][client_quota[curr_clnt]] = idx_list[cls_label][
+                        cls_amount[cls_label]
+                    ]
 
                     break
                 pbar.update(1)

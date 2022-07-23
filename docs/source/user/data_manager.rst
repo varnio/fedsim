@@ -26,7 +26,7 @@ A Simple Custom DataManager
            Args:
                dataset_name (str): name of the dataset.
                root (str): directory to download and manipulate data.
-               save_path (str): directory to store the data after partitioning.
+               save_dir (str): directory to store the data after partitioning.
 
            Raises:
                NotImplementedError: if the dataset_name is not defined
@@ -43,15 +43,15 @@ A Simple Custom DataManager
 
 
        def get_identifiers(self) -> Sequence[str]:
-           """ Returns identifiers 
+           """ Returns identifiers
                to be used for saving the partition info.
 
            Raises:
-               NotImplementedError: this abstract method should be 
+               NotImplementedError: this abstract method should be
                    implemented by child classes
 
            Returns:
-               Sequence[str]: a sequence of str identifing class instance 
+               Sequence[str]: a sequence of str identifing class instance
            """
            raise NotImplementedError
 

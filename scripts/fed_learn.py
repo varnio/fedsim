@@ -7,8 +7,8 @@ from pprint import pformat
 from typing import Optional
 
 import click
-import yaml
 import torch
+import yaml
 from torch.utils.tensorboard import SummaryWriter
 
 from fedsim import scores
@@ -369,7 +369,7 @@ def fed_learn(
         root=dataset_root,
         num_clients=num_clients,
         seed=pseed,
-        save_path=partitioning_root,
+        save_dir=partitioning_root,
     )
     data_manager_instant = data_manager_class(
         **{
@@ -389,9 +389,9 @@ def fed_learn(
     # set the device if it is not already set
     if device is None:
         if torch.cuda.is_available():
-            device = 'cuda'
+            device = "cuda"
         else:
-            device = 'cpu'
+            device = "cpu"
 
     # set the seed of random generators
     if seed is not None:
