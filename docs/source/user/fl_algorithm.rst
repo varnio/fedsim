@@ -1,30 +1,30 @@
 .. _custom_flalg:
 
-Custom FLAlgorithm
-==================
+Custom CentralFLAlgorithm
+=========================
 
-Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.FLAlgorithm`` (or its children) and implement its abstract methods.
+Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.CentralFLAlgorithm`` (or its children) and implement its abstract methods.
 
 
-A Simple Custom FLAlgorithm
----------------------------
+A Simple Custom CentralFLAlgorithm
+----------------------------------
 
 .. code-block:: python
 
    from typing import Optional, Hashable, Mapping, Dict, Any
-   from fedsim.fl.fl_algorithm import FLAlgorithm
+   from fedsim.fl.fl_algorithm import CentralFLAlgorithm
 
-   class CustomFLAlgorithm(FLAlgorithm):
+   class CustomFLAlgorithm(CentralFLAlgorithm):
        def __init__(
            self, data_manager, num_clients, sample_scheme, sample_rate, model_class, epochs, loss_fn,
-           batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type, 
+           batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type,
            min_clr, clr_step_size, metric_logger, device, log_freq, other_arg, ... , *args, **kwargs,
        ):
            self.other_arg = other_arg
 
            super(FedAvg, self).__init__(
                data_manager, num_clients, sample_scheme, sample_rate, model_class, epochs, loss_fn,
-               batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type, 
+               batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type,
                min_clr, clr_step_size, metric_logger, device, log_freq,
            )
            # make mode and optimizer
@@ -40,7 +40,7 @@ A Simple Custom FLAlgorithm
 
        def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
            """ returns context to send to the client corresponding to client_id.
-               Do not send shared objects like server model if you made any 
+               Do not send shared objects like server model if you made any
                before you deepcopy it.
 
            Args:
@@ -54,7 +54,7 @@ A Simple Custom FLAlgorithm
            """
            raise NotImplementedError
 
-       def send_to_server( 
+       def send_to_server(
            self, client_id: int, datasets: Dict[str, Iterable], epochs: int, loss_fn: nn.Module,
            batch_size: int, lr: float, weight_decay: float = 0, device: Union[int, str] = 'cuda',
            ctx: Optional[Dict[Hashable, Any]] = None, *args, **kwargs
@@ -81,7 +81,7 @@ A Simple Custom FLAlgorithm
            raise NotImplementedError
 
        def receive_from_client(self, client_id: int, client_msg: Mapping[Hashable, Any], aggregator: Any):
-           """ receive and aggregate info from selected clients 
+           """ receive and aggregate info from selected clients
 
            Args:
                client_id (int): id of the sender (client)
