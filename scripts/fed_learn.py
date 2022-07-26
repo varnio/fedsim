@@ -287,7 +287,7 @@ def fed_learn(
         verbosity (int): verbosity of the outputs
     """
 
-    tb_logger = TensorboardLogger(log_dir)
+    tb_logger = TensorboardLogger(path=log_dir)
     log_dir = tb_logger.get_dir()
     print("log available at %s", os.path.join(log_dir, "log.log"))
     print(

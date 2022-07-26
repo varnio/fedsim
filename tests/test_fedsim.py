@@ -13,7 +13,7 @@ def test_main():
     n_clients = 1000
 
     dm = BasicDataManager("./data", "cifar100", n_clients)
-    sw = TensorboardLogger()
+    sw = TensorboardLogger(path=None)
 
     alg = FedAvg(
         data_manager=dm,
