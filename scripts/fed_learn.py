@@ -9,7 +9,7 @@ from typing import Optional
 import click
 import torch
 import yaml
-from torch.utils.tensorboard import SummaryWriter
+from logall import TensorboardLogger
 
 from fedsim import scores
 from fedsim.utils import search_in_submodules
@@ -197,7 +197,7 @@ from fedsim.utils import set_seed
     type=click.Path(resolve_path=True),
     default=None,
     show_default=True,
-    help="directory to store the tensorboard logs.",
+    help="directory to store the logs.",
 )
 @click.option(
     "--log-freq",
@@ -286,8 +286,9 @@ def fed_learn(
         train_report_point (int): number of last score reports points to average.
         verbosity (int): verbosity of the outputs
     """
-    summary_writer = SummaryWriter(log_dir)
-    log_dir = summary_writer.get_logdir()
+
+    tb_logger = TensorboardLogger(log_dir)
+    log_dir = tb_logger.get_dir()
     print("log available at %s", os.path.join(log_dir, "log.log"))
     print(
         "run the following for monitoring:\n\t tensorboard --logdir=%s",
@@ -414,7 +415,7 @@ def fed_learn(
         clr_decay_type=clr_decay_type,
         min_clr=min_clr,
         clr_step_size=clr_step_size,
-        metric_logger=summary_writer,
+        metric_logger=tb_logger,
         device=device,
         log_freq=log_freq,
         **context_pool["alg_context"].arg_dict,
@@ -427,4 +428,4 @@ def fed_learn(
         f"average of the last {train_report_point}\
             reports: {algorithm_instance.train(rounds, train_report_point)}"
     )
-    summary_writer.flush()
+    tb_logger.flush()

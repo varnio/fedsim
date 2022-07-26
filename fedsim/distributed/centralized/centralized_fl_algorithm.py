@@ -207,8 +207,8 @@ class CentralFLAlgorithm(object):
             optimize_reports,
             deployment_points,
         )
-        log_fn = self.metric_logger.add_scalar
-        apply_on_dict(report_metrics, log_fn, global_step=self.rounds)
+        log_fn = self.metric_logger.log_scalar
+        apply_on_dict(report_metrics, log_fn, step=self.rounds)
         return report_metrics
 
     def _train(self, rounds, num_score_report_point=None):
