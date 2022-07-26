@@ -78,6 +78,7 @@ setup(
         "torchvision",
         "tensorboard",
         "pyyaml",
+        "logall",
     ],
     keywords="pytorch, neural networks, template, federated, federated \
         learning, deep learning, distributed learning",

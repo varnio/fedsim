@@ -56,7 +56,7 @@ Here is a demo:
 
 .. code-block:: python
 
-    from torch.utils.tensorboard import SummaryWriter
+    from logall import TensorboardLogger
     from fedsim.distributed.centralized.training import FedAvg
     from fedsim.distributed.data_management import BasicDataManager
     from fedsim.models.mcmahan_nets import cnn_cifar100
@@ -67,7 +67,7 @@ Here is a demo:
     n_clients = 1000
 
     dm = BasicDataManager("./data", "cifar100", n_clients)
-    sw = SummaryWriter()
+    sw = TensorboardLogger(path=None)
 
     alg = FedAvg(
         data_manager=dm,

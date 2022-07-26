@@ -1,6 +1,6 @@
 import math
 
-from torch.utils.tensorboard import SummaryWriter
+from logall import TensorboardLogger
 
 from fedsim.distributed.centralized.training import FedAvg
 from fedsim.distributed.data_management import BasicDataManager
@@ -13,7 +13,7 @@ def test_main():
     n_clients = 1000
 
     dm = BasicDataManager("./data", "cifar100", n_clients)
-    sw = SummaryWriter()
+    sw = TensorboardLogger(path=None)
 
     alg = FedAvg(
         data_manager=dm,
