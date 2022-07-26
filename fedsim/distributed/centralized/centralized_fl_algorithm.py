@@ -371,13 +371,13 @@ class CentralFLAlgorithm(object):
     ) -> Dict[str, Union[int, float]]:
         """test on global data and report info. If a flatten dict of
         str:Union[int,float] is returned from this function the content is
-        automatically logged using the metric logger (e.g., tensorboard.SummaryWriter).
+        automatically logged using the metric logger (e.g., logall.TensorboardLogger).
         metric_logger is also passed as an input argument for extra
         logging operations (non scalar).
 
         Args:
             dataloaders (Any): dict of data loaders to test the global model(s)
-            metric_logger (Any): the logging object (e.g., SummaryWriter)
+            metric_logger (Any): the logging object (e.g., logall.TensorboardLogger)
             device (str): 'cuda', 'cpu' or gpu number
             optimize_reports (Mapping[Hashable, Any]): dict returned by \
                 optimzier
