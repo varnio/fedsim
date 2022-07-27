@@ -1,15 +1,14 @@
 import importlib
 import inspect
 
-
-def get_from_module(module_name, submodule_name, class_name):
-    module = importlib.import_module(module_name)
-    if submodule_name in module.__all__:
-        sub_module = importlib.import_module(
-            "{}.{}".format(module_name, submodule_name)
-        )
-        return getattr(sub_module, class_name)
-    raise NotImplementedError
+# def get_from_module(module_name, submodule_name, class_name):
+#     module = importlib.import_module(module_name)
+#     if submodule_name in module.__all__:
+#         sub_module = importlib.import_module(
+#             "{}.{}".format(module_name, submodule_name)
+#         )
+#         return getattr(sub_module, class_name)
+#     raise NotImplementedError
 
 
 def search_in_submodules(module_name, object_name):
@@ -24,4 +23,11 @@ def search_in_submodules(module_name, object_name):
         ):
             if name == object_name:
                 return obj
+    return None
+
+
+def get_from_module(module_name, entry_name):
+    module = importlib.import_module(module_name)
+    if entry_name in module.__all__:
+        return getattr(module, entry_name)
     return None

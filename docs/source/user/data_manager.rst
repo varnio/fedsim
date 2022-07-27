@@ -59,7 +59,9 @@ A Simple Custom DataManager
 Integration with included cli
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To automatically include your custom data manager in the provided cli tool, you can place your class in a file under ``fedsim/data_manager``. Then, call it using option ``--data-manager``. To deliver arguments to the ``__init__`` method of your custom data manager, you can pass options in form of ``--d-<arg-name>`` where ``<arg-name>`` is the argument. Example
+To automatically include your custom data-manager by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--data-manager` option (without .py) followed by column and name of the data-manager.
+For example, if you have data-manager `DataManager` stored in `foo/bar/my_custom_dm.py`, you can pass `--data-manager foo/bar/my_custom_dm:DataManager`.
+To deliver arguments to the **init** method of your data-manager, you can pass options in form of `--d-<arg-name>` where `<arg-name>` is the argument. Example
 
 .. code-block:: bash
 
