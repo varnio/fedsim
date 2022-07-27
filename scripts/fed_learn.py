@@ -12,8 +12,11 @@ import yaml
 from logall import TensorboardLogger
 
 from fedsim import scores
+from fedsim.utils import get_from_module
 from fedsim.utils import search_in_submodules
 from fedsim.utils import set_seed
+
+from .utils import parse_class_from_file
 
 
 @click.command(
@@ -33,6 +36,7 @@ from fedsim.utils import set_seed
 )
 @click.option(
     "--data-manager",
+    "-d",
     type=str,
     show_default=True,
     default="BasicDataManager",
@@ -260,7 +264,7 @@ def fed_learn(
     Args:
         ctx (click.core.Context): for extra parameters passed to click
         rounds (int): number of training rounds
-        data_manager (str): name of data manager found under data_manager dir
+        data_manager (str): name of data manager
         num_clients (int): number of clients
         client_sample_scheme (str): client sampling scheme (default: uniform)
         client_sample_rate (float): client sampling rate
@@ -285,6 +289,43 @@ def fed_learn(
         log_freq (int): gap between two reports in rounds.
         train_report_point (int): number of last score reports points to average.
         verbosity (int): verbosity of the outputs
+
+        .. note::
+            To automatically include your custom data-manager by the provided cli tool,
+            you can place your class in a python and pass its path to `-a` or
+            `--data-manager` option (without .py) followed by column and name of the
+            data-manager.
+            For example, if you have data-manager `DataManager` stored in
+            `foo/bar/my_custom_dm.py`, you can pass
+            `--data-manager foo/bar/my_custom_dm:DataManager`.
+            To deliver arguments to the **init** method of your data-manager, you can
+            pass options in form of `--d-<arg-name>` where `<arg-name>` is the
+            argument. Example
+
+            .. code-block:: bash
+
+                fedsim fed-learn --data-manager CustomDataManager
+                    --d-other_arg <other_arg_value> ...
+
+        .. note::
+            To automatically include your custom algorithm by the provided cli tool,
+            you can place your class in a python and pass its path to `-a` or
+            `--algorithm` option (without .py) followed by column and name of the
+            algorithm.
+            For example, if you have algorithm `CustomFLAlgorithm` stored in
+            `foo/bar/my_custom_alg.py`, you can pass
+            `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
+            To deliver arguments to the **init** method of your algorithm, you can pass
+            options in form of `--a-<arg-name>` where `<arg-name>` is the argument.
+            Example
+
+            .. code-block:: bash
+
+                fedsim fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm
+                    --a-other_arg <other_arg_value> ...
+
+
+
     """
 
     tb_logger = TensorboardLogger(path=log_dir)
@@ -299,24 +340,33 @@ def fed_learn(
         level=verbosity * 10,
     )
     logging.info("arguments: " + pformat(ctx.params))
-
     # find data manager
-    data_manager_class = search_in_submodules(
-        "fedsim.distributed.data_management", data_manager
-    )
+    if ":" in data_manager:
+        data_manager_class = parse_class_from_file(data_manager)
+    else:
+        data_manager_class = get_from_module(
+            "fedsim.distributed.data_management", data_manager
+        )
+
     if data_manager_class is None:
         raise Exception(f"{data_manager} is not a defined data manager")
     # find algoritrhm
-    algorithm_repository = ["centralized", "decentralized"]
-    for mod in algorithm_repository:
-        full_mod = "fedsim.distributed." + mod + ".training"
-        algorithm_class = search_in_submodules(full_mod, algorithm)
-        if algorithm_class is not None:
-            break
+    if ":" in algorithm:
+        algorithm_class = parse_class_from_file(algorithm)
+    else:
+        algorithm_repository = ["centralized", "decentralized"]
+        for mod in algorithm_repository:
+            full_mod = "fedsim.distributed." + mod + ".training"
+            algorithm_class = get_from_module(full_mod, algorithm)
+            if algorithm_class is not None:
+                break
     if algorithm_class is None:
         raise Exception(f"{algorithm} is not a define FL algorithm")
     # find model
-    model_class = search_in_submodules("fedsim.models", model)
+    if ":" in model:
+        model_class = parse_class_from_file(model)
+    else:
+        model_class = search_in_submodules("fedsim.models", model)
     if model_class is None:
         raise Exception(f"{model} is not a defined model")
 

@@ -137,8 +137,10 @@ A Simple Custom CentralFLAlgorithm
 Integration with included cli
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To automatically include your custom algorithm by the provided cli tool, you can place your class in a file under fedsim/fl/algorithms. Then, call it using option --algorithm. To deliver arguments to the **init** method of your custom algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
+To automatically include your custom algorithm by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--algorithm` option (without .py) followed by column and name of the algorithm.
+For example, if you have algorithm `CustomFLAlgorithm` stored in a `foo/bar/my_custom_alg.py`, you can pass `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
+To deliver arguments to the **init** method of your algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
 
 .. code-block:: bash
 
-   fedsim fed-learn --algorithm CustomFLAlgorithm --a-other_arg <other_arg_value> ...
+   fedsim fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm --a-other_arg <other_arg_value> ...

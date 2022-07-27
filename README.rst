@@ -151,7 +151,9 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
 Integration with included cli (DataManager)
 -------------------------------------------
 
-To automatically include your custom data manager in the provided cli tool, you can place your class in a file under ``fedsim/data_manager``. Then, call it using option ``--data-manager``. To deliver arguments to the ``__init__`` method of your custom data manager, you can pass options in form of ``--d-<arg-name>`` where ``<arg-name>`` is the argument. Example
+To automatically include your custom data-manager by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--data-manager` option (without .py) followed by column and name of the data-manager.
+For example, if you have data-manager `DataManager` stored in `foo/bar/my_custom_dm.py`, you can pass `--data-manager foo/bar/my_custom_dm:DataManager`.
+To deliver arguments to the **init** method of your data-manager, you can pass options in form of `--d-<arg-name>` where `<arg-name>` is the argument. Example
 
 .. code-block:: bash
 
@@ -301,11 +303,13 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.Centr
 Integration with included cli (CentralFLAlgorithm)
 --------------------------------------------------
 
-To automatically include your custom algorithm by the provided cli tool, you can place your class in a file under fedsim/fl/algorithms. Then, call it using option --algorithm. To deliver arguments to the **init** method of your custom algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
+To automatically include your custom algorithm by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--algorithm` option (without .py) followed by column and name of the algorithm.
+For example, if you have algorithm `CustomFLAlgorithm` stored in a `foo/bar/my_custom_alg.py`, you can pass `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
+To deliver arguments to the **init** method of your algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
 
 .. code-block:: bash
 
-   fedsim fed-learn --algorithm CustomFLAlgorithm --a-other_arg <other_arg_value> ...
+   fedsim fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm --a-other_arg <other_arg_value> ...
 
 other attributes and methods provide by CentralFLAlgorithm
 ----------------------------------------------------------
