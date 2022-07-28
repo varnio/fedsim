@@ -18,7 +18,7 @@ from torch.utils.data import RandomSampler
 
 from fedsim.local.training import local_inference
 from fedsim.local.training import local_train
-from fedsim.local.training.step_closures import default_closure
+from fedsim.local.training.step_closures import default_step_closure
 
 from ..centralized_fl_algorithm import CentralFLAlgorithm
 
@@ -152,7 +152,7 @@ class FedAvg(CentralFLAlgorithm):
         model = ctx["model"]
         optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
         # optimize the model locally
-        step_closure_ = default_closure if step_closure is None else step_closure
+        step_closure_ = default_step_closure if step_closure is None else step_closure
         opt_result = local_train(
             model,
             train_loader,

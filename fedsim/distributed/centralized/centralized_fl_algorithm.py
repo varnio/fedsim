@@ -18,7 +18,7 @@ from tqdm import trange
 
 from fedsim import scores
 from fedsim.utils import apply_on_dict
-from fedsim.utils import search_in_submodules
+from fedsim.utils import get_from_module
 
 from ...utils.aggregators import AppendixAggregator
 from ...utils.aggregators import SerialAggregator
@@ -101,7 +101,7 @@ class CentralFLAlgorithm(object):
             model_class_ = model_class
 
         if isinstance(model_class_, str):
-            self.model_class = search_in_submodules("fedsim.models", model_class)
+            self.model_class = get_from_module("fedsim.models", model_class)
         elif issubclass(model_class_, nn.Module):
             self.model_class = model_class
         else:

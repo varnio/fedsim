@@ -1,22 +1,46 @@
-r""" This file contains an implementation of the following paper:
-    Title: "Federated Learning Based on Dynamic Regularization"
-    Authors: Durmus Alp Emre Acar, Yue Zhao, Ramon Matas, Matthew Mattina,
-    ----- Paul Whatmough, Venkatesh Saligrama
-    Publication date: [28 Sept 2020 (modified: 25 Mar 2021)]
-    Link: https://openreview.net/forum?id=B7v4QMR6Z9w
-"""
 from functools import partial
 
 import torch
 from torch.nn.utils import parameters_to_vector
 
-from fedsim.local.training.step_closures import default_closure
+from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import vector_to_parameters_like
 
 from . import fedavg
 
 
 class FedDyn(fedavg.FedAvg):
+    r"""Implements FedDyn algorithm for centralized FL.
+
+    For further details regarding the algorithm we refer to `Federated Learning Based
+    on Dynamic Regularization`_.
+
+    Args:
+        data_manager (Callable): data manager
+        metric_logger (Callable): a logger object
+        num_clients (int): number of clients
+        sample_scheme (str): mode of sampling clients
+        sample_rate (float): rate of sampling clients
+        model_class (Callable): class for constructing the model
+        epochs (int): number of local epochs
+        loss_fn (Callable): loss function defining local objective
+        batch_size (int): local trianing batch size
+        test_batch_size (int): inference time batch size
+        local_weight_decay (float): weight decay for local optimization
+        slr (float): server learning rate
+        clr (float): client learning rate
+        clr_decay (float): round to round decay for clr (multiplicative)
+        clr_decay_type (str): type of decay for clr (step or cosine)
+        min_clr (float): minimum client learning rate
+        clr_step_size (int): frequency of applying clr_decay
+        device (str): cpu, cuda, or gpu number
+        log_freq (int): frequency of logging
+        mu (float): FedDyn's :math:`\mu` parameter for local regularization
+
+    .. _Federated Learning Based on Dynamic Regularization:
+        https://openreview.net/forum?id=B7v4QMR6Z9w
+    """
+
     def __init__(
         self,
         data_manager,
@@ -93,9 +117,7 @@ class FedDyn(fedavg.FedAvg):
         params_init = parameters_to_vector(model.parameters()).detach().clone()
         h = self.read_client(client_id, "h")
         mu_adaptive = (
-            self.mu
-            / len(datasets["train"])
-            * self.read_server("average_sample")
+            self.mu / len(datasets["train"]) * self.read_server("average_sample")
         )
 
         def transform_grads_fn(model):
@@ -109,7 +131,7 @@ class FedDyn(fedavg.FedAvg):
                 p.grad += g_a
 
         step_closure_ = partial(
-            default_closure, transform_grads=transform_grads_fn
+            default_step_closure, transform_grads=transform_grads_fn
         )
         opt_res = super(FedDyn, self).send_to_server(
             client_id,
@@ -128,8 +150,7 @@ class FedDyn(fedavg.FedAvg):
 
         # update local h
         pseudo_grads = (
-            params_init
-            - parameters_to_vector(model.parameters()).detach().clone().data
+            params_init - parameters_to_vector(model.parameters()).detach().clone().data
         )
         new_h = h + pseudo_grads
         self.write_client(client_id, "h", new_h)
