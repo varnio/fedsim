@@ -1,14 +1,11 @@
-fedsim.distributed.decentralized package
-========================================
+
+
 
 .. automodule:: fedsim.distributed.decentralized
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
+    .. toctree::
+        :maxdepth: 1
 
-
-.. toctree::
-   :maxdepth: 1
-
-   fedsim.distributed.decentralized.training
+        fedsim.distributed.decentralized.compression
+        fedsim.distributed.decentralized.privacy
+        fedsim.distributed.decentralized.training

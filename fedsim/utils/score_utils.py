@@ -1,3 +1,9 @@
+r"""
+Score Utils
+-----------
+"""
+
+
 def collect_scores(metric_fn_dict, y_true, y_pred, reduction="mean"):
     answer = {}
     if metric_fn_dict is None:

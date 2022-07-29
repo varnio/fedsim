@@ -1,19 +1,19 @@
-""" a simple Federated Learning simulator!
+"""
+
+FedSim
+------
+
+ a simple Federated Learning simulator!
+
 """
 
 __version__ = "0.1.4"
 
-import logging
-import os
+from . import datasets
+from . import distributed
+from . import local
+from . import models
+from . import scores
+from . import utils
 
-# Set default logging handler to avoid "No handler found" warnings.
-logging.getLogger(__name__).addHandler(logging.NullHandler())
-
-# get all classes
-__all__ = [
-    module[:-3]
-    for module in os.listdir(os.path.dirname(__file__))
-    if module != "__init__.py" and module[-3:] == ".py"
-]
-
-__all__ += ["distributed", "local", "models", "datasets"]
+__all__ = ["datasets", "distributed", "models", "local", "scores", "utils"]

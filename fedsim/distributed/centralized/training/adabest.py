@@ -1,9 +1,13 @@
+r"""
+AdaBest
+-------
+"""
 from functools import partial
 
 import torch
 from torch.nn.utils import parameters_to_vector
 
-from fedsim.local.training.step_closures import default_closure
+from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import SerialAggregator
 from fedsim.utils import vector_to_parameters_like
 
@@ -135,7 +139,9 @@ class AdaBest(fedavg.FedAvg):
             for p, g_a in zip(model.parameters(), grad_additive_list):
                 p.grad += g_a
 
-        step_closure_ = partial(default_closure, transform_grads=transform_grads_fn)
+        step_closure_ = partial(
+            default_step_closure, transform_grads=transform_grads_fn
+        )
         opt_res = super(AdaBest, self).send_to_server(
             client_id,
             datasets,

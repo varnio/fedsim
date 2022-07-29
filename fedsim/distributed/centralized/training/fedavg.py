@@ -1,10 +1,6 @@
-r""" This file contains an implementation of the following paper:
-    Title: "Communication-Efficient Learning of Deep Networks from
-    ---- Decentralized Data"
-    Authors: H. Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson,
-    ---- Blaise Agüera y Arcas
-    Publication date: February 17th, 2016
-    Link: https://arxiv.org/abs/1602.05629
+r"""
+FedAvg
+------
 """
 import math
 import sys
@@ -18,7 +14,7 @@ from torch.utils.data import RandomSampler
 
 from fedsim.local.training import local_inference
 from fedsim.local.training import local_train
-from fedsim.local.training.step_closures import default_closure
+from fedsim.local.training.step_closures import default_step_closure
 
 from ..centralized_fl_algorithm import CentralFLAlgorithm
 
@@ -152,7 +148,7 @@ class FedAvg(CentralFLAlgorithm):
         model = ctx["model"]
         optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
         # optimize the model locally
-        step_closure_ = default_closure if step_closure is None else step_closure
+        step_closure_ = default_step_closure if step_closure is None else step_closure
         opt_result = local_train(
             model,
             train_loader,

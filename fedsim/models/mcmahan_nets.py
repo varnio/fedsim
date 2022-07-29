@@ -1,3 +1,15 @@
+r"""
+
+McMahan Models
+--------------
+
+Models used in `Communication-Efficient Learning of Deep Networks from
+Decentralized Data`_.
+
+.. _Communication-Efficient Learning of Deep Networks from Decentralized
+    Data: https://arxiv.org/abs/1602.05629
+"""
+
 # adopted from the following repository:
 # https://github.com/c-gabri/Federated-Learning-PyTorch/blob/master/src/models.py
 from torch import nn

@@ -1,3 +1,10 @@
+"""
+Local Inference
+---------------
+
+Inference for local client
+"""
+
 from functools import partial
 
 import torch

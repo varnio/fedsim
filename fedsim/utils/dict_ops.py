@@ -1,3 +1,9 @@
+r"""
+Dict Ops
+--------
+"""
+
+
 def append_dict_to_dict(new_dict, currecnt_dict=None):
     ans = verify_dict(currecnt_dict)
     for key, item in new_dict.items():

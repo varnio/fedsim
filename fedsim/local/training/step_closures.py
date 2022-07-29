@@ -1,3 +1,7 @@
+"""
+Step Closures
+-------------
+"""
 from functools import partial
 
 import torch
@@ -6,7 +10,7 @@ from torch.nn.utils import clip_grad_norm_
 from fedsim.utils import collect_scores
 
 
-def default_closure(
+def default_step_closure(
     x,
     y,
     model,

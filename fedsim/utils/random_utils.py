@@ -1,3 +1,7 @@
+r"""
+Random Utils
+------------
+"""
 import random
 
 import numpy as np
