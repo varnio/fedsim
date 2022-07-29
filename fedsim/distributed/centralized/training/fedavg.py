@@ -24,6 +24,36 @@ from ..centralized_fl_algorithm import CentralFLAlgorithm
 
 
 class FedAvg(CentralFLAlgorithm):
+    r"""Implements FedAvg algorithm for centralized FL.
+
+    For further details regarding the algorithm we refer to `Communication-Efficient
+    Learning of Deep Networks from Decentralized Data`_.
+
+    Args:
+        data_manager (Callable): data manager
+        metric_logger (Callable): a logger object
+        num_clients (int): number of clients
+        sample_scheme (str): mode of sampling clients
+        sample_rate (float): rate of sampling clients
+        model_class (Callable): class for constructing the model
+        epochs (int): number of local epochs
+        loss_fn (Callable): loss function defining local objective
+        batch_size (int): local trianing batch size
+        test_batch_size (int): inference time batch size
+        local_weight_decay (float): weight decay for local optimization
+        slr (float): server learning rate
+        clr (float): client learning rate
+        clr_decay (float): round to round decay for clr (multiplicative)
+        clr_decay_type (str): type of decay for clr (step or cosine)
+        min_clr (float): minimum client learning rate
+        clr_step_size (int): frequency of applying clr_decay
+        device (str): cpu, cuda, or gpu number
+        log_freq (int): frequency of logging
+
+    .. _Communication-Efficient Learning of Deep Networks from Decentralized
+        Data: https://arxiv.org/abs/1602.05629
+    """
+
     def __init__(
         self,
         data_manager,
