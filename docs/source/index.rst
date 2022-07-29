@@ -6,14 +6,13 @@ FedSim |release| documentation
 ##################################
 
 .. toctree::
-  :maxdepth: 4
   :hidden:
 
   User Guide <user/index>
   API reference <reference/index>
   Developement <dev/index>
 
-  
+
 FedSim is a Generic Federated Learning Simulator. It aims to provide the researchers with an easy to develope/maintain simulator for Federated Learning.
 
 
@@ -29,7 +28,7 @@ FedSim is a Generic Federated Learning Simulator. It aims to provide the researc
   Getting Started
     ^^^^^^^^^^^^^^^
 
-    Install FedSim and simulate your first Federated Learning Simulation in 2 lines. 
+    Install FedSim and simulate your first Federated Learning Simulation in 2 lines.
     +++
 
     .. link-button:: user/get_it_now
@@ -75,11 +74,10 @@ FedSim is a Generic Federated Learning Simulator. It aims to provide the researc
   Contributor's Guide
   ^^^^^^^^^^^^^^^^^^^
 
-    FedSim is an open source project. We are open to community contributions and are thankful of all the efforts made. Check here for how to develepe/contribute. 
+    FedSim is an open source project. We are open to community contributions and are thankful of all the efforts made. Check here for how to develepe/contribute.
     +++
 
     .. link-button:: dev
         :type: ref
         :text: To the contributor's guide
         :classes: btn-block btn-secondary stretched-link
-

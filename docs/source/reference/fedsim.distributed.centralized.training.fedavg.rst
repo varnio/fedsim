@@ -1,5 +1,5 @@
 fedsim.distributed.centralized.training.fedavg
-====================================================
+==============================================
 
 .. automodule:: fedsim.distributed.centralized.training.fedavg
    :members:

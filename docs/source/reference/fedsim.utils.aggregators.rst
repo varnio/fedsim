@@ -1,5 +1,5 @@
 fedsim.utils.aggregators
-==============================
+========================
 
 .. automodule:: fedsim.utils.aggregators
    :members:

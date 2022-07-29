@@ -56,8 +56,8 @@ A Simple Custom DataManager
            raise NotImplementedError
 
 
-Integration with included cli
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Integration with fedsim-cli
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To automatically include your custom data-manager by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--data-manager` option (without .py) followed by column and name of the data-manager.
 For example, if you have data-manager `DataManager` stored in `foo/bar/my_custom_dm.py`, you can pass `--data-manager foo/bar/my_custom_dm:DataManager`.
@@ -65,4 +65,4 @@ To deliver arguments to the **init** method of your data-manager, you can pass o
 
 .. code-block:: bash
 
-   fedsim fed-learn --data-manager CustomDataManager --d-other_arg <other_arg_value> ...
+   fedsim-cli fed-learn --data-manager CustomDataManager --d-other_arg <other_arg_value> ...

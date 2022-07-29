@@ -1,5 +1,5 @@
 fedsim.scores
-===================
+=============
 
 .. automodule:: fedsim.scores
    :members:

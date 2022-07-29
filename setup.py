@@ -95,7 +95,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "fedsim = scripts.simulate:main",
+            "fedsim-cli = scripts.fedsim_cli:main",
         ],
     },
 )

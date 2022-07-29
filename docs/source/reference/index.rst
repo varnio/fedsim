@@ -1,4 +1,4 @@
-.. module:: numpy
+.. module:: ref
 
 .. _reference:
 
@@ -17,4 +17,4 @@ For learning how to use NumPy, see the :ref:`complete documentation <fedsim_docs
 .. toctree::
    :maxdepth: 2
 
-   fedsim
+   modules

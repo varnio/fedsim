@@ -5,7 +5,7 @@ import torch
 from fedsim.utils import add_dict_to_dict
 from fedsim.utils import apply_on_dict
 
-from .step_closures import default_closure
+from .step_closures import default_step_closure
 
 
 def local_train(
@@ -16,7 +16,7 @@ def local_train(
     loss_fn,
     optimizer,
     device,
-    step_closure=default_closure,
+    step_closure=default_step_closure,
     metric_fn_dict=None,
     max_grad_norm=1000,
     link_fn=partial(

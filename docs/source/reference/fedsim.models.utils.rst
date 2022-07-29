@@ -1,5 +1,5 @@
 fedsim.models.utils
-=========================
+===================
 
 .. automodule:: fedsim.models.utils
    :members:

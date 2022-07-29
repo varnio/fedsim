@@ -13,7 +13,6 @@ from logall import TensorboardLogger
 
 from fedsim import scores
 from fedsim.utils import get_from_module
-from fedsim.utils import search_in_submodules
 from fedsim.utils import set_seed
 
 from .utils import parse_class_from_file
@@ -304,7 +303,7 @@ def fed_learn(
 
             .. code-block:: bash
 
-                fedsim fed-learn --data-manager CustomDataManager
+                fedsim-cli fed-learn --data-manager CustomDataManager
                     --d-other_arg <other_arg_value> ...
 
         .. note::
@@ -321,7 +320,8 @@ def fed_learn(
 
             .. code-block:: bash
 
-                fedsim fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm
+                fedsim-cli fed-learn
+                    --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm
                     --a-other_arg <other_arg_value> ...
 
 
@@ -366,7 +366,7 @@ def fed_learn(
     if ":" in model:
         model_class = parse_class_from_file(model)
     else:
-        model_class = search_in_submodules("fedsim.models", model)
+        model_class = get_from_module("fedsim.models", model)
     if model_class is None:
         raise Exception(f"{model} is not a defined model")
 

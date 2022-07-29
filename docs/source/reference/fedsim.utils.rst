@@ -1,15 +1,15 @@
-fedsim.utils package
-====================
+
+
 
 .. automodule:: fedsim.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
+
+    .. toctree::
+        :maxdepth: 1
 
 
-
-.. toctree::
-   :maxdepth: 1
-
-   fedsim.utils.aggregators
-   fedsim.utils.utils
+        fedsim.utils.aggregators
+        fedsim.utils.convert_parameters
+        fedsim.utils.dict_ops
+        fedsim.utils.import_utils
+        fedsim.utils.random_utils
+        fedsim.utils.score_utils

@@ -134,8 +134,8 @@ A Simple Custom CentralFLAlgorithm
            raise NotImplementedError
 
 
-Integration with included cli
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Integration with fedsim-cli
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To automatically include your custom algorithm by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--algorithm` option (without .py) followed by column and name of the algorithm.
 For example, if you have algorithm `CustomFLAlgorithm` stored in a `foo/bar/my_custom_alg.py`, you can pass `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
@@ -143,4 +143,4 @@ To deliver arguments to the **init** method of your algorithm, you can pass opti
 
 .. code-block:: bash
 
-   fedsim fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm --a-other_arg <other_arg_value> ...
+   fedsim-cli fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm --a-other_arg <other_arg_value> ...
