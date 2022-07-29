@@ -1,5 +1,7 @@
 """
-.. :noindex
+Model Utils
+-----------
+
 """
 
 import torch

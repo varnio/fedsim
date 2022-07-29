@@ -1,3 +1,7 @@
+r"""
+FedDyn
+-------
+"""
 from functools import partial
 
 import torch

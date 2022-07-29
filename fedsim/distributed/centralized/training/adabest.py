@@ -1,3 +1,7 @@
+r"""
+AdaBest
+-------
+"""
 from functools import partial
 
 import torch

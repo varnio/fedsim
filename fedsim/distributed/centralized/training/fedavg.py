@@ -1,10 +1,6 @@
-r""" This file contains an implementation of the following paper:
-    Title: "Communication-Efficient Learning of Deep Networks from
-    ---- Decentralized Data"
-    Authors: H. Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson,
-    ---- Blaise Agüera y Arcas
-    Publication date: February 17th, 2016
-    Link: https://arxiv.org/abs/1602.05629
+r"""
+FedAvg
+------
 """
 import math
 import sys

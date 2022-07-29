@@ -1,3 +1,8 @@
+r"""
+FedAvgM
+-------
+"""
+
 from torch.optim import SGD
 
 from . import fedavg

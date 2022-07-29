@@ -1,3 +1,7 @@
+r"""
+Centralized Federated Learnming Algorithm
+-----------------------------------------
+"""
 import inspect
 import logging
 import math

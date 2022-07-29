@@ -1,3 +1,7 @@
+r"""
+Parameters Conversion
+---------------------
+"""
 import torch
 from torch.nn.utils.convert_parameters import _check_param_device
 

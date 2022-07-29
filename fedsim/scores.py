@@ -1,3 +1,7 @@
+r"""
+Fedsim Scores
+-------------
+"""
 from sklearn import metrics as sk_metrics
 from torch.nn import functional as F
 

@@ -1,7 +1,7 @@
 r"""
 
-McMahanNets
------------
+McMahan Models
+--------------
 
 Models used in `Communication-Efficient Learning of Deep Networks from
 Decentralized Data`_.

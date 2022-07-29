@@ -1,3 +1,7 @@
+r"""
+FedNova
+-------
+"""
 from . import fedavg
 
 

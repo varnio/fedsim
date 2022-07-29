@@ -1,3 +1,10 @@
+"""
+Local Training
+---------------
+
+Training for local client
+"""
+
 from functools import partial
 
 import torch
