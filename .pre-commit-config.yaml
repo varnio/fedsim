@@ -22,4 +22,4 @@ repos:
     rev: 3.9.2
     hooks:
       - id: flake8
-        args: ['--ignore=E203']
+        args: ['--ignore=W504,E226,E704,E123,W503,E121,E24,E126,E203']
