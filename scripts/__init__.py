@@ -1,8 +1,8 @@
 """
-FedSim Scripts
---------------
+FedSim cli
+----------
 
-.. :noindex cli for a simple Federated Learning simulator!
+.. cli for a simple Federated Learning simulation!
 
 """
 

@@ -18,3 +18,4 @@ For learning how to use NumPy, see the :ref:`complete documentation <fedsim_docs
    :maxdepth: 2
 
    fedsim
+   ../clidoc/index

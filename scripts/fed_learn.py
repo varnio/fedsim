@@ -1,3 +1,8 @@
+r"""
+fed-learn cli Option
+--------------------
+"""
+
 import inspect
 import logging
 import os
@@ -256,73 +261,45 @@ def fed_learn(
     verbosity: int,
 ) -> None:
     """simulates federated learning!
+    .. note::
         - Additional arg for algorithm is specified using prefix `--a-`
         - Additional arg for data manager is specified using prefix `--d-`
         - Additional arg for model is specified using prefix `--m-`
 
-    Args:
-        ctx (click.core.Context): for extra parameters passed to click
-        rounds (int): number of training rounds
-        data_manager (str): name of data manager
-        num_clients (int): number of clients
-        client_sample_scheme (str): client sampling scheme (default: uniform)
-        client_sample_rate (float): client sampling rate
-        dataset_root (str): root of the dataset
-        partitioning_root (str): root of partitioning destination
-        algorithm (str): federated learning algorithm to use for training
-        model (str): model architecture
-        epochs (int): number of local epochs
-        batch_size (int): batch size for local optimization
-        test_batch_size (int): batch size for inference
-        local_weight_decay (float): weight decay for local optimization
-        clr (float): client learning rate
-        slr (float): server learning rate
-        clr_decay (float): decay of the client learning rate through rounds
-        clr_decay_type (str): type of clr decay (step or cosine)
-        min_clr (float): min clr
-        clr_step_size (int): step size for clr decay (in rounds)
-        pseed (int): partitioning random seed
-        seed (float): seed of the training itself
-        device (str): device to load model and data on
-        log_dir (str): the directory to store logs
-        log_freq (int): gap between two reports in rounds.
-        train_report_point (int): number of last score reports points to average.
-        verbosity (int): verbosity of the outputs
+    .. note::
+        To automatically include your custom data-manager by the provided cli tool,
+        you can place your class in a python and pass its path to `-a` or
+        `--data-manager` option (without .py) followed by column and name of the
+        data-manager.
+        For example, if you have data-manager `DataManager` stored in
+        `foo/bar/my_custom_dm.py`, you can pass
+        `--data-manager foo/bar/my_custom_dm:DataManager`.
+        To deliver arguments to the **init** method of your data-manager, you can
+        pass options in form of `--d-<arg-name>` where `<arg-name>` is the
+        argument. Example
 
-        .. note::
-            To automatically include your custom data-manager by the provided cli tool,
-            you can place your class in a python and pass its path to `-a` or
-            `--data-manager` option (without .py) followed by column and name of the
-            data-manager.
-            For example, if you have data-manager `DataManager` stored in
-            `foo/bar/my_custom_dm.py`, you can pass
-            `--data-manager foo/bar/my_custom_dm:DataManager`.
-            To deliver arguments to the **init** method of your data-manager, you can
-            pass options in form of `--d-<arg-name>` where `<arg-name>` is the
-            argument. Example
+        .. code-block:: bash
 
-            .. code-block:: bash
+            fedsim-cli fed-learn --data-manager CustomDataManager
+                --d-other_arg <other_arg_value> ...
 
-                fedsim-cli fed-learn --data-manager CustomDataManager
-                    --d-other_arg <other_arg_value> ...
+    .. note::
+        To automatically include your custom algorithm by the provided cli tool,
+        you can place your class in a python and pass its path to `-a` or
+        `--algorithm` option (without .py) followed by column and name of the
+        algorithm.
+        For example, if you have algorithm `CustomFLAlgorithm` stored in
+        `foo/bar/my_custom_alg.py`, you can pass
+        `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
+        To deliver arguments to the **init** method of your algorithm, you can pass
+        options in form of `--a-<arg-name>` where `<arg-name>` is the argument.
+        Example
 
-        .. note::
-            To automatically include your custom algorithm by the provided cli tool,
-            you can place your class in a python and pass its path to `-a` or
-            `--algorithm` option (without .py) followed by column and name of the
-            algorithm.
-            For example, if you have algorithm `CustomFLAlgorithm` stored in
-            `foo/bar/my_custom_alg.py`, you can pass
-            `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
-            To deliver arguments to the **init** method of your algorithm, you can pass
-            options in form of `--a-<arg-name>` where `<arg-name>` is the argument.
-            Example
+        .. code-block:: bash
 
-            .. code-block:: bash
-
-                fedsim-cli fed-learn
-                    --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm
-                    --a-other_arg <other_arg_value> ...
+            fedsim-cli fed-learn
+                --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm
+                --a-other_arg <other_arg_value> ...
 
 
 

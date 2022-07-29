@@ -2,3 +2,4 @@ sphinx
 sphinx-panels
 pydata-sphinx-theme
 nbsphinx
+sphinx-click

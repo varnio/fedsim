@@ -48,6 +48,7 @@ extensions = [
     "sphinx.ext.extlinks",
     "nbsphinx",
     "sphinx_panels",
+    "sphinx_click.ext",
 ]
 
 add_module_names = False

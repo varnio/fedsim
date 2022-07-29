@@ -1,3 +1,7 @@
+"""
+FedSim cli Utils
+----------------
+"""
 import importlib.util
 import os
 
