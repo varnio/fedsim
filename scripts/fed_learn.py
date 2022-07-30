@@ -1,6 +1,6 @@
 r"""
-fed-learn cli Option
---------------------
+fed-learn cli Command
+---------------------
 """
 
 import inspect
@@ -17,10 +17,9 @@ import yaml
 from logall import TensorboardLogger
 
 from fedsim import scores
-from fedsim.utils import get_from_module
 from fedsim.utils import set_seed
 
-from .utils import parse_class_from_file
+from .utils import get_definition
 
 
 @click.command(
@@ -29,6 +28,7 @@ from .utils import parse_class_from_file
         ignore_unknown_options=True,
         allow_extra_args=True,
     ),
+    help="Simulates a Federated Learning system.",
 )
 @click.option(
     "--rounds",
@@ -317,35 +317,23 @@ def fed_learn(
         level=verbosity * 10,
     )
     logging.info("arguments: " + pformat(ctx.params))
-    # find data manager
-    if ":" in data_manager:
-        data_manager_class = parse_class_from_file(data_manager)
-    else:
-        data_manager_class = get_from_module(
-            "fedsim.distributed.data_management", data_manager
-        )
 
-    if data_manager_class is None:
-        raise Exception(f"{data_manager} is not a defined data manager")
-    # find algoritrhm
-    if ":" in algorithm:
-        algorithm_class = parse_class_from_file(algorithm)
-    else:
-        algorithm_repository = ["centralized", "decentralized"]
-        for mod in algorithm_repository:
-            full_mod = "fedsim.distributed." + mod + ".training"
-            algorithm_class = get_from_module(full_mod, algorithm)
-            if algorithm_class is not None:
-                break
-    if algorithm_class is None:
-        raise Exception(f"{algorithm} is not a define FL algorithm")
-    # find model
-    if ":" in model:
-        model_class = parse_class_from_file(model)
-    else:
-        model_class = get_from_module("fedsim.models", model)
-    if model_class is None:
-        raise Exception(f"{model} is not a defined model")
+    data_manager_class = get_definition(
+        name=data_manager,
+        modules="fedsim.distributed.data_management",
+    )
+    algorithm_class = get_definition(
+        name=algorithm,
+        modules=[
+            "fedsim.distributed.centralized.training",
+            "fedsim.distributed.decentralized.training",
+        ],
+    )
+
+    model_class = get_definition(
+        name=model,
+        modules="fedsim.models",
+    )
 
     dtm_args = dict()
     alg_args = dict()
