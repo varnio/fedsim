@@ -73,6 +73,7 @@ setup(
         "click",
         "numpy",
         "sklearn",
+        "scikit-optimize",
         "tqdm",
         "torch",
         "torchvision",
@@ -95,7 +96,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "fedsim-cli = scripts.fedsim_cli:main",
+            "fedsim-cli = scripts.fedsim_cli:cli",
         ],
     },
 )
