@@ -3,22 +3,20 @@ fed-learn cli Command
 ---------------------
 """
 
-import inspect
 import logging
 import os
-from collections import namedtuple
 from functools import partial
 from pprint import pformat
 from typing import Optional
 
 import click
 import torch
-import yaml
 from logall import TensorboardLogger
 
 from fedsim import scores
 from fedsim.utils import set_seed
 
+from .utils import get_context_pool
 from .utils import get_definition
 
 
@@ -335,51 +333,12 @@ def fed_learn(
         modules="fedsim.models",
     )
 
-    dtm_args = dict()
-    alg_args = dict()
-    mdl_args = dict()
-
-    ClassContext = namedtuple("ClassContext", ["cls", "prefix", "arg_dict"])
-
-    context_pool = dict(
-        alg_context=ClassContext(algorithm_class, "a-", alg_args),
-        dtm_context=ClassContext(data_manager_class, "d-", dtm_args),
-        mdl_context=ClassContext(model_class, "m-", mdl_args),
+    context_pool = get_context_pool(
+        ctx,
+        data_manager_class,
+        algorithm_class,
+        model_class,
     )
-
-    def add_arg(key, value, prefix):
-        context = list(filter(lambda x: x.prefix == prefix, context_pool.values()))
-        if len(context) == 0:
-            raise Exception("{} is an invalid argument".format(key))
-        else:
-            context = context[0]
-        if key in inspect.signature(context.cls).parameters.keys():
-            context.arg_dict[key] = yaml.safe_load(value)
-        else:
-            raise Exception(
-                "{} is not an argument of {}".format(key, context.cls.__name__)
-            )
-
-    i = 0
-    while i < len(ctx.args):
-        if ctx.args[i][:2] != "--":
-            raise Exception("unexpected option {}".format(ctx.args[i]))
-        if ctx.args[i][2] == "-":
-            raise Exception(
-                "option {} is not valid. No option should starts with ---".format(
-                    ctx.args[i]
-                )
-            )
-        prefix = ctx.args[i][2:4]
-        arg = ctx.args[i][4:]
-        arg = arg.replace("-", "_")
-        if i == len(ctx.args) - 1 or ctx.args[i + 1][:2] == "--":
-            add_arg(arg, "True", prefix)
-            i += 1
-        else:
-            next_arg = ctx.args[i + 1]
-            add_arg(arg, next_arg, prefix)
-            i += 2
 
     data_manager_args = dict(
         root=dataset_root,
