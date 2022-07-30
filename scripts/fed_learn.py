@@ -335,10 +335,14 @@ def fed_learn(
 
     context_pool = get_context_pool(
         ctx,
-        data_manager_class,
-        algorithm_class,
-        model_class,
+        [
+            (data_manager_class, "d-"),
+            (algorithm_class, "a-"),
+            (model_class, "m-"),
+        ],
     )
+
+    dmg_args, alg_args, mdl_args = context_pool
 
     data_manager_args = dict(
         root=dataset_root,
@@ -349,11 +353,11 @@ def fed_learn(
     data_manager_instant = data_manager_class(
         **{
             **data_manager_args,
-            **context_pool["dtm_context"].arg_dict,
+            **dmg_args.arg_dict,
         }
     )
 
-    model_class = partial(model_class, **context_pool["mdl_context"].arg_dict)
+    model_class = partial(model_class, **mdl_args.arg_dict)
 
     loss_criterion = None
     if hasattr(scores, loss_fn):
@@ -392,7 +396,7 @@ def fed_learn(
         metric_logger=tb_logger,
         device=device,
         log_freq=log_freq,
-        **context_pool["alg_context"].arg_dict,
+        **alg_args.arg_dict,
     )
     algorithm_instance.hook_global_score_function("test", "accuracy", scores.accuracy)
     for key in data_manager_instant.get_local_splits_names():

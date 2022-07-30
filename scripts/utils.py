@@ -49,20 +49,17 @@ def get_definition(name, modules):
     return definition
 
 
-def get_context_pool(context, data_manager_class, algorithm_class, model_class):
-    dtm_args = dict()
-    alg_args = dict()
-    mdl_args = dict()
+def get_context_pool(
+    context,
+    cls_pfx_tuple,
+):
     ClassContext = namedtuple("ClassContext", ["cls", "prefix", "arg_dict"])
-
-    context_pool = dict(
-        alg_context=ClassContext(algorithm_class, "a-", alg_args),
-        dtm_context=ClassContext(data_manager_class, "d-", dtm_args),
-        mdl_context=ClassContext(model_class, "m-", mdl_args),
-    )
+    context_pool = list()
+    for cls, pfx in cls_pfx_tuple:
+        context_pool.append(ClassContext(cls, pfx, dict()))
 
     def add_arg(key, value, prefix):
-        context = list(filter(lambda x: x.prefix == prefix, context_pool.values()))
+        context = list(filter(lambda x: x.prefix == prefix, context_pool))
         if len(context) == 0:
             raise Exception("{} is an invalid argument".format(key))
         else:
