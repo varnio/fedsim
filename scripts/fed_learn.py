@@ -1,19 +1,24 @@
-import inspect
+r"""
+fed-learn cli Command
+---------------------
+"""
+
 import logging
 import os
-from collections import namedtuple
 from functools import partial
 from pprint import pformat
 from typing import Optional
 
 import click
 import torch
-import yaml
-from torch.utils.tensorboard import SummaryWriter
+from logall import TensorboardLogger
 
 from fedsim import scores
-from fedsim.utils import search_in_submodules
 from fedsim.utils import set_seed
+
+from .utils import OptionEatAll
+from .utils import decode_margs
+from .utils import get_definition
 
 
 @click.command(
@@ -22,6 +27,7 @@ from fedsim.utils import set_seed
         ignore_unknown_options=True,
         allow_extra_args=True,
     ),
+    help="Simulates a Federated Learning system.",
 )
 @click.option(
     "--rounds",
@@ -33,7 +39,9 @@ from fedsim.utils import set_seed
 )
 @click.option(
     "--data-manager",
-    type=str,
+    "-d",
+    type=tuple,
+    cls=OptionEatAll,
     show_default=True,
     default="BasicDataManager",
     help="name of data manager.",
@@ -78,7 +86,8 @@ from fedsim.utils import set_seed
 @click.option(
     "--algorithm",
     "-a",
-    type=str,
+    type=tuple,
+    cls=OptionEatAll,
     default="FedAvg",
     show_default=True,
     help="federated learning algorithm.",
@@ -86,7 +95,8 @@ from fedsim.utils import set_seed
 @click.option(
     "--model",
     "-m",
-    type=str,
+    type=tuple,
+    cls=OptionEatAll,
     default="mlp_mnist",
     show_default=True,
     help="model architecture.",
@@ -197,7 +207,7 @@ from fedsim.utils import set_seed
     type=click.Path(resolve_path=True),
     default=None,
     show_default=True,
-    help="directory to store the tensorboard logs.",
+    help="directory to store the logs.",
 )
 @click.option(
     "--log-freq",
@@ -253,41 +263,93 @@ def fed_learn(
     verbosity: int,
 ) -> None:
     """simulates federated learning!
-        - Additional arg for algorithm is specified using prefix `--a-`
-        - Additional arg for data manager is specified using prefix `--d-`
-        - Additional arg for model is specified using prefix `--m-`
 
-    Args:
-        ctx (click.core.Context): for extra parameters passed to click
-        rounds (int): number of training rounds
-        data_manager (str): name of data manager found under data_manager dir
-        num_clients (int): number of clients
-        client_sample_scheme (str): client sampling scheme (default: uniform)
-        client_sample_rate (float): client sampling rate
-        dataset_root (str): root of the dataset
-        partitioning_root (str): root of partitioning destination
-        algorithm (str): federated learning algorithm to use for training
-        model (str): model architecture
-        epochs (int): number of local epochs
-        batch_size (int): batch size for local optimization
-        test_batch_size (int): batch size for inference
-        local_weight_decay (float): weight decay for local optimization
-        clr (float): client learning rate
-        slr (float): server learning rate
-        clr_decay (float): decay of the client learning rate through rounds
-        clr_decay_type (str): type of clr decay (step or cosine)
-        min_clr (float): min clr
-        clr_step_size (int): step size for clr decay (in rounds)
-        pseed (int): partitioning random seed
-        seed (float): seed of the training itself
-        device (str): device to load model and data on
-        log_dir (str): the directory to store logs
-        log_freq (int): gap between two reports in rounds.
-        train_report_point (int): number of last score reports points to average.
-        verbosity (int): verbosity of the outputs
+    .. note::
+
+        To automatically include your custom data-manager by the provided cli tool,
+        you can place your class in a python and pass its path to `-a` or
+        `--data-manager` option (without .py) followed by column and name of the
+        data-manager.
+        For example, if you have data-manager `DataManager` stored in
+        `foo/bar/my_custom_dm.py`, you can pass
+        `--data-manager foo/bar/my_custom_dm:DataManager`.
+
+    .. note::
+
+        Arguments of the **init** method of any data-manager could be given in
+        `arg:value` format following its name (or `path` if a local file is provided).
+        Examples:
+
+        .. code-block:: bash
+
+            fedsim-cli fed-learn --data-manager BasicDataManager num_clients:1100 ...
+
+        .. code-block:: bash
+
+            fedsim-cli fed-learn --data-manager foo/bar/my_custom_dm:DataManager
+            arg1:value ...
+
+
+    .. note::
+
+        To automatically include your custom algorithm by the provided cli tool,
+        you can place your class in a python and pass its path to `-a` or
+        `--algorithm` option (without .py) followed by column and name of the
+        algorithm.
+        For example, if you have algorithm `CustomFLAlgorithm` stored in
+        `foo/bar/my_custom_alg.py`, you can pass
+        `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
+        To automatically include your custom algorithm by the provided cli tool,
+        you can place your class in a python and pass its path to `-a` or `--algorithm`
+        option (without .py) followed by column and name of the algorithm.
+        For example, if you have algorithm `CustomFLAlgorithm` stored in a
+        `foo/bar/my_custom_alg.py`, you can pass
+        `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
+
+    .. note::
+
+        Arguments of the **init** method of any algoritthm could be given in
+        `arg:value` format following its name (or `path` if a local file is provided).
+        Examples:
+
+        .. code-block:: bash
+
+            fedsim-cli fed-learn --algorithm AdaBest mu:0.01 beta:0.6 ...
+
+        .. code-block:: bash
+
+            fedsim-cli fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm
+            mu:0.01 ...
+
+    .. note::
+
+    To automatically include your custom model by the provided cli tool, you can place
+    your class in a python and pass its path to `-m` or `--model` option (without .py)
+    followed by column and name of the model.
+    For example, if you have model `CustomModel` stored in a
+    `foo/bar/my_custom_model.py`, you can pass
+    `--model foo/bar/my_custom_alg:CustomModel`.
+
+    .. note::
+
+        Arguments of the **init** method of any model could be given in
+        `arg:value` format following its name (or `path` if a local file is provided).
+        Examples:
+
+        .. code-block:: bash
+
+            fedsim-cli fed-learn --model cnn_mnist num_classes:8 ...
+
+        .. code-block:: bash
+
+            fedsim-cli fed-learn --model foo/bar/my_custom_alg:CustomModel
+            num_classes:8 ...
+
+
     """
-    summary_writer = SummaryWriter(log_dir)
-    log_dir = summary_writer.get_logdir()
+
+    tb_logger = TensorboardLogger(path=log_dir)
+    log_dir = tb_logger.get_dir()
     print("log available at %s", os.path.join(log_dir, "log.log"))
     print(
         "run the following for monitoring:\n\t tensorboard --logdir=%s",
@@ -299,73 +361,28 @@ def fed_learn(
     )
     logging.info("arguments: " + pformat(ctx.params))
 
-    # find data manager
-    data_manager_class = search_in_submodules(
-        "fedsim.distributed.data_management", data_manager
-    )
-    if data_manager_class is None:
-        raise Exception(f"{data_manager} is not a defined data manager")
-    # find algoritrhm
-    algorithm_repository = ["centralized", "decentralized"]
-    for mod in algorithm_repository:
-        full_mod = "fedsim.distributed." + mod + ".training"
-        algorithm_class = search_in_submodules(full_mod, algorithm)
-        if algorithm_class is not None:
-            break
-    if algorithm_class is None:
-        raise Exception(f"{algorithm} is not a define FL algorithm")
-    # find model
-    model_class = search_in_submodules("fedsim.models", model)
-    if model_class is None:
-        raise Exception(f"{model} is not a defined model")
-
-    dtm_args = dict()
-    alg_args = dict()
-    mdl_args = dict()
-
-    ClassContext = namedtuple("ClassContext", ["cls", "prefix", "arg_dict"])
-
-    context_pool = dict(
-        alg_context=ClassContext(algorithm_class, "a-", alg_args),
-        dtm_context=ClassContext(data_manager_class, "d-", dtm_args),
-        mdl_context=ClassContext(model_class, "m-", mdl_args),
+    data_manager, data_manager_args = decode_margs(data_manager)
+    data_manager_class = get_definition(
+        name=data_manager,
+        modules="fedsim.distributed.data_management",
     )
 
-    def add_arg(key, value, prefix):
-        context = list(filter(lambda x: x.prefix == prefix, context_pool.values()))
-        if len(context) == 0:
-            raise Exception("{} is an invalid argument".format(key))
-        else:
-            context = context[0]
-        if key in inspect.signature(context.cls).parameters.keys():
-            context.arg_dict[key] = yaml.safe_load(value)
-        else:
-            raise Exception(
-                "{} is not an argument of {}".format(key, context.cls.__name__)
-            )
+    algorithm, algorithm_args = decode_margs(algorithm)
+    algorithm_class = get_definition(
+        name=algorithm,
+        modules=[
+            "fedsim.distributed.centralized.training",
+            "fedsim.distributed.decentralized.training",
+        ],
+    )
 
-    i = 0
-    while i < len(ctx.args):
-        if ctx.args[i][:2] != "--":
-            raise Exception("unexpected option {}".format(ctx.args[i]))
-        if ctx.args[i][2] == "-":
-            raise Exception(
-                "option {} is not valid. No option should starts with ---".format(
-                    ctx.args[i]
-                )
-            )
-        prefix = ctx.args[i][2:4]
-        arg = ctx.args[i][4:]
-        arg = arg.replace("-", "_")
-        if i == len(ctx.args) - 1 or ctx.args[i + 1][:2] == "--":
-            add_arg(arg, "True", prefix)
-            i += 1
-        else:
-            next_arg = ctx.args[i + 1]
-            add_arg(arg, next_arg, prefix)
-            i += 2
+    model, model_args = decode_margs(model)
+    model_class = get_definition(
+        name=model,
+        modules="fedsim.models",
+    )
 
-    data_manager_args = dict(
+    data_manager_default_args = dict(
         root=dataset_root,
         num_clients=num_clients,
         seed=pseed,
@@ -373,12 +390,12 @@ def fed_learn(
     )
     data_manager_instant = data_manager_class(
         **{
+            **data_manager_default_args,
             **data_manager_args,
-            **context_pool["dtm_context"].arg_dict,
         }
     )
 
-    model_class = partial(model_class, **context_pool["mdl_context"].arg_dict)
+    model_class = partial(model_class, **model_args)
 
     loss_criterion = None
     if hasattr(scores, loss_fn):
@@ -414,10 +431,10 @@ def fed_learn(
         clr_decay_type=clr_decay_type,
         min_clr=min_clr,
         clr_step_size=clr_step_size,
-        metric_logger=summary_writer,
+        metric_logger=tb_logger,
         device=device,
         log_freq=log_freq,
-        **context_pool["alg_context"].arg_dict,
+        **algorithm_args,
     )
     algorithm_instance.hook_global_score_function("test", "accuracy", scores.accuracy)
     for key in data_manager_instant.get_local_splits_names():
@@ -427,4 +444,4 @@ def fed_learn(
         f"average of the last {train_report_point}\
             reports: {algorithm_instance.train(rounds, train_report_point)}"
     )
-    summary_writer.flush()
+    tb_logger.flush()

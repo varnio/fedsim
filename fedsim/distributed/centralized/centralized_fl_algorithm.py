@@ -1,3 +1,7 @@
+r"""
+Centralized Federated Learnming Algorithm
+-----------------------------------------
+"""
 import inspect
 import logging
 import math
@@ -18,13 +22,37 @@ from tqdm import trange
 
 from fedsim import scores
 from fedsim.utils import apply_on_dict
-from fedsim.utils import search_in_submodules
+from fedsim.utils import get_from_module
 
 from ...utils.aggregators import AppendixAggregator
 from ...utils.aggregators import SerialAggregator
 
 
 class CentralFLAlgorithm(object):
+    r"""Base class for centralized FL algorithm.
+
+    Args:
+        data_manager (Callable): data manager
+        metric_logger (Callable): a logger object
+        num_clients (int): number of clients
+        sample_scheme (str): mode of sampling clients
+        sample_rate (float): rate of sampling clients
+        model_class (Callable): class for constructing the model
+        epochs (int): number of local epochs
+        loss_fn (Callable): loss function defining local objective
+        batch_size (int): local trianing batch size
+        test_batch_size (int): inference time batch size
+        local_weight_decay (float): weight decay for local optimization
+        slr (float): server learning rate
+        clr (float): client learning rate
+        clr_decay (float): round to round decay for clr (multiplicative)
+        clr_decay_type (str): type of decay for clr (step or cosine)
+        min_clr (float): minimum client learning rate
+        clr_step_size (int): frequency of applying clr_decay
+        device (str): cpu, cuda, or gpu number
+        log_freq (int): frequency of logging
+    """
+
     def __init__(
         self,
         data_manager,
@@ -77,7 +105,7 @@ class CentralFLAlgorithm(object):
             model_class_ = model_class
 
         if isinstance(model_class_, str):
-            self.model_class = search_in_submodules("fedsim.models", model_class)
+            self.model_class = get_from_module("fedsim.models", model_class)
         elif issubclass(model_class_, nn.Module):
             self.model_class = model_class
         else:
@@ -207,8 +235,8 @@ class CentralFLAlgorithm(object):
             optimize_reports,
             deployment_points,
         )
-        log_fn = self.metric_logger.add_scalar
-        apply_on_dict(report_metrics, log_fn, global_step=self.rounds)
+        log_fn = self.metric_logger.log_scalar
+        apply_on_dict(report_metrics, log_fn, step=self.rounds)
         return report_metrics
 
     def _train(self, rounds, num_score_report_point=None):
@@ -371,13 +399,13 @@ class CentralFLAlgorithm(object):
     ) -> Dict[str, Union[int, float]]:
         """test on global data and report info. If a flatten dict of
         str:Union[int,float] is returned from this function the content is
-        automatically logged using the metric logger (e.g., tensorboard.SummaryWriter).
+        automatically logged using the metric logger (e.g., logall.TensorboardLogger).
         metric_logger is also passed as an input argument for extra
         logging operations (non scalar).
 
         Args:
             dataloaders (Any): dict of data loaders to test the global model(s)
-            metric_logger (Any): the logging object (e.g., SummaryWriter)
+            metric_logger (Any): the logging object (e.g., logall.TensorboardLogger)
             device (str): 'cuda', 'cpu' or gpu number
             optimize_reports (Mapping[Hashable, Any]): dict returned by \
                 optimzier

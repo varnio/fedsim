@@ -11,7 +11,7 @@ A Simple Custom DataManager
 
 .. code-block:: python
 
-   from fedsim.data_manager.data_manager import DataManager
+   from fedsim.distributed.data_management import DataManager
 
    class CustomDataManager(DataManager)
        def __init__(self, root, other_arg, ...):
@@ -56,11 +56,20 @@ A Simple Custom DataManager
            raise NotImplementedError
 
 
-Integration with included cli
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Integration with fedsim-cli
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To automatically include your custom data manager in the provided cli tool, you can place your class in a file under ``fedsim/data_manager``. Then, call it using option ``--data-manager``. To deliver arguments to the ``__init__`` method of your custom data manager, you can pass options in form of ``--d-<arg-name>`` where ``<arg-name>`` is the argument. Example
+To automatically include your custom data-manager by the provided cli tool, you can place your class in a python file and pass its path to `-a` or `--data-manager` option (without .py) followed by column and name of the data-manager.
+For example, if you have data-manager `DataManager` stored in `foo/bar/my_custom_dm.py`, you can pass `--data-manager foo/bar/my_custom_dm:DataManager`.
 
-.. code-block:: bash
+.. note::
 
-   fedsim fed-learn --data-manager CustomDataManager --d-other_arg <other_arg_value> ...
+    Arguments of the **init** method of any data-manager could be given in `arg:value` format following its name (or `path` if a local file is provided). Examples:
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --data-manager BasicDataManager num_clients:1100 ...
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --data-manager foo/bar/my_custom_dm:DataManager arg1:value ...

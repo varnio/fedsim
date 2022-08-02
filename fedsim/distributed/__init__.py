@@ -1,7 +1,10 @@
-import os
+"""
+Distributed Learning
+--------------------
+"""
 
-__all__ = [
-    module[:-3]
-    for module in os.listdir(os.path.dirname(__file__))
-    if module != "__init__.py" and module[-3:] == ".py"
-]
+from . import centralized
+from . import data_management
+from . import decentralized
+
+__all__ = ["centralized", "decentralized", "data_management"]

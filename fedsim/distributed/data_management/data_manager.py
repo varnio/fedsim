@@ -1,3 +1,8 @@
+r"""
+Data Manager
+------------
+
+"""
 import os
 import pickle
 import random

@@ -1,7 +1,11 @@
+"""
+Aggregators
+-----------
+"""
 from collections import deque
 from typing import Dict
 
-from fedsim.utils import apply_on_dict
+from .dict_ops import apply_on_dict
 
 
 class SerialAggregator(object):

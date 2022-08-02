@@ -1,14 +1,12 @@
-fedsim.local.training package
-=============================
+
+
 
 .. automodule:: fedsim.local.training
-   :members:
-   :undoc-members:
-   :show-inheritance:
+
+    .. toctree::
+        :maxdepth: 1
 
 
-
-.. toctree::
-   :maxdepth: 1
-
-   fedsim.local.training.step_closures
+        fedsim.local.training.inference
+        fedsim.local.training.step_closures
+        fedsim.local.training.training

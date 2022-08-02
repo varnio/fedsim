@@ -1,7 +1,16 @@
-import os
+"""
+Centralized Distributed Learning
+--------------------------------
+"""
+from . import training
+from .centralized_fl_algorithm import CentralFLAlgorithm
+from .training import AdaBest
+from .training import FedAvg
+from .training import FedAvgM
+from .training import FedDyn
+from .training import FedNova
+from .training import FedProx
 
-__all__ = [
-    module[:-3]
-    for module in os.listdir(os.path.dirname(__file__))
-    if module != "__init__.py" and module[-3:] == ".py"
-]
+__all__ = ["training", "CentralFLAlgorithm"]
+
+__all__ += ["FedAvg", "FedAvgM", "AdaBest", "FedDyn", "FedNova", "FedProx"]

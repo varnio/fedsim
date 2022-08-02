@@ -49,14 +49,14 @@ Installation
 Usage
 =====
 
-As module
----------
+As package
+----------
 
 Here is a demo:
 
 .. code-block:: python
 
-    from torch.utils.tensorboard import SummaryWriter
+    from logall import TensorboardLogger
     from fedsim.distributed.centralized.training import FedAvg
     from fedsim.distributed.data_management import BasicDataManager
     from fedsim.models.mcmahan_nets import cnn_cifar100
@@ -67,7 +67,7 @@ Here is a demo:
     n_clients = 1000
 
     dm = BasicDataManager("./data", "cifar100", n_clients)
-    sw = SummaryWriter()
+    sw = TensorboardLogger(path=None)
 
     alg = FedAvg(
         data_manager=dm,
@@ -88,14 +88,14 @@ Here is a demo:
     alg.train(rounds=1)
 
 
-Included cli tool
------------------
+fedsim-cli tool
+---------------
 
 For help with cli check here:
 
 .. code-block:: bash
 
-   fedsim --help
+   fedsim-cli --help
 
 DataManager
 ===========
@@ -104,7 +104,7 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
 
 .. code-block:: python
 
-   from fedsim.distributed.data_management.data_manager import DataManager
+   from fedsim.distributed.data_management import DataManager
 
    class CustomDataManager(DataManager)
        def __init__(self, root, other_arg, ...):
@@ -148,14 +148,24 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
            """
            raise NotImplementedError
 
-Integration with included cli (DataManager)
--------------------------------------------
+Integration with fedsim-cli (DataManager)
+-----------------------------------------
 
-To automatically include your custom data manager in the provided cli tool, you can place your class in a file under ``fedsim/data_manager``. Then, call it using option ``--data-manager``. To deliver arguments to the ``__init__`` method of your custom data manager, you can pass options in form of ``--d-<arg-name>`` where ``<arg-name>`` is the argument. Example
+To automatically include your custom data-manager by the provided cli tool, you can place your class in a python file and pass its path to `-a` or `--data-manager` option (without .py) followed by column and name of the data-manager.
+For example, if you have data-manager `DataManager` stored in `foo/bar/my_custom_dm.py`, you can pass `--data-manager foo/bar/my_custom_dm:DataManager`.
 
-.. code-block:: bash
+.. note::
 
-   fedsim fed-learn --data-manager CustomDataManager --d-other_arg <other_arg_value> ...
+    Arguments of the **init** method of any data-manager could be given in `arg:value` format following its name (or `path` if a local file is provided). Examples:
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --data-manager BasicDataManager num_clients:1100 ...
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --data-manager foo/bar/my_custom_dm:DataManager arg1:value ...
+
 
 Included DataManager
 --------------------
@@ -172,12 +182,12 @@ It supports the popular partitioning schemes (iid, Dirichlet distribution, unbal
 CentralFLAlgorithm
 ==================
 
-Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.CentralFLAlgorithm`` (or its children) and implement its abstract methods. For example:
+Any custome DataManager class should inherit from ``fedsim.distributed.centralized.CentralFLAlgorithm`` (or its children) and implement its abstract methods. For example:
 
 .. code-block:: python
 
    from typing import Optional, Hashable, Mapping, Dict, Any
-   from fedsim.distributed.centralized.training.centralized_fl_algorithm import CentralFLAlgorithm
+   from fedsim.distributed.centralized import CentralFLAlgorithm
 
    class CustomFLAlgorithm(CentralFLAlgorithm):
        def __init__(
@@ -298,14 +308,24 @@ Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.Centr
            """
            raise NotImplementedError
 
-Integration with included cli (CentralFLAlgorithm)
---------------------------------------------------
+Integration with fedsim-cli (CentralFLAlgorithm)
+------------------------------------------------
 
-To automatically include your custom algorithm by the provided cli tool, you can place your class in a file under fedsim/fl/algorithms. Then, call it using option --algorithm. To deliver arguments to the **init** method of your custom algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
+To automatically include your custom algorithm by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--algorithm` option (without .py) followed by column and name of the algorithm.
+For example, if you have algorithm `CustomFLAlgorithm` stored in a `foo/bar/my_custom_alg.py`, you can pass `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
 
-.. code-block:: bash
+.. note::
 
-   fedsim fed-learn --algorithm CustomFLAlgorithm --a-other_arg <other_arg_value> ...
+    Arguments of the **init** method of any algoritthm could be given in `arg:value` format following its name (or `path` if a local file is provided). Examples:
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --algorithm AdaBest mu:0.01 beta:0.6 ...
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm mu:0.01 ...
+
 
 other attributes and methods provide by CentralFLAlgorithm
 ----------------------------------------------------------
@@ -380,11 +400,20 @@ The models used by `FedAvg paper <https://arxiv.org/abs/1602.05629>`_ are suppor
 
 To use them import ``fedsim.model.mcmahan_nets``.
 
-Integration with included cli
------------------------------
+Integration with fedsim-cli
+---------------------------
 
-If you want to use a custom pytorch class model with the cli tool, then you can simply place it under ``fedsim.models`` and call it:
+To automatically include your custom model by the provided cli tool, you can place your class in a python and pass its path to `-m` or `--model` option (without .py) followed by column and name of the model.
+For example, if you have model `CustomModel` stored in a `foo/bar/my_custom_model.py`, you can pass `--model foo/bar/my_custom_alg:CustomModel`.
 
-.. code-block:: bash
+.. note::
 
-   fedsim fed-learn --model CustomModule ...
+    Arguments of the **init** method of any model could be given in `arg:value` format following its name (or `path` if a local file is provided). Examples:
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --model cnn_mnist num_classes:8 ...
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --model foo/bar/my_custom_alg:CustomModel num_classes:8 ...

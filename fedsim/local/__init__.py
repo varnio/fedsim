@@ -1,11 +1,10 @@
-import logging
-import os
+r"""
+Local
+-----
+"""
 
-# Set default logging handler to avoid "No handler found" warnings.
-logging.getLogger(__name__).addHandler(logging.NullHandler())
+from .training import default_step_closure
+from .training import local_inference
+from .training import local_train
 
-__all__ = [
-    module[:-3]
-    for module in os.listdir(os.path.dirname(__file__))
-    if module != "__init__.py" and module[-3:] == ".py"
-]
+__all__ = ["local_train", "local_inference", "default_step_closure"]

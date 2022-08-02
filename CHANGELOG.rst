@@ -1,3 +1,12 @@
+0.2.0 (2022-08-01)
+------------------
+
+* cleaned the API reference in docs
+* changed cli name to `fedsim-cli`
+* improved documentation
+* improved importing
+* changed the way custom objects are passed to cli
+
 0.1.4 (2022-07-23)
 ------------------
 

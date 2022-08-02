@@ -1,4 +1,10 @@
-from ._inference import local_inference
-from ._training import local_train
+r"""
+Local Training
+--------------
+"""
 
-__all__ = ['local_train', 'local_inference']
+from .inference import local_inference
+from .step_closures import default_step_closure
+from .training import local_train
+
+__all__ = ["local_train", "local_inference", "default_step_closure"]

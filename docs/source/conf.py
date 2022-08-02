@@ -26,7 +26,7 @@ copyright = "2022, Farshid Varno"
 year = "2022"
 author = "Farshid Varno"
 copyright = "{0}, {1}".format(year, author)
-version = release = "0.1.4"
+version = release = "0.2.0"
 # The full version, including alpha/beta/rc tags
 
 # -- General configuration ---------------------------------------------------
@@ -48,6 +48,7 @@ extensions = [
     "sphinx.ext.extlinks",
     "nbsphinx",
     "sphinx_panels",
+    "sphinx_click.ext",
 ]
 
 add_module_names = False
@@ -67,7 +68,7 @@ root_doc = master_doc = "index"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["build", "**.ipynb_checkpoints", "_*"]
+exclude_patterns = ["build", "**.ipynb_checkpoints", "_*", "**/modules.rst"]
 
 
 # GitHub extension

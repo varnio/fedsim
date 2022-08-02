@@ -1,22 +1,49 @@
-r""" This file contains an implementation of the following paper:
-    Title: "Federated Optimization in Heterogeneous Networks"
-    Authors: Tian Li, Anit Kumar Sahu, Manzil Zaheer, Maziar Sanjabi,
-    ---- Ameet Talwalkar, Virginia Smith
-    Publication date: [Submitted on 14 Dec 2018 (v1), last revised
-    ---- 21 Apr 2020 (this version, v5)]
-    Link: https://arxiv.org/abs/1812.06127
+r"""
+FedProx
+-------
 """
 from functools import partial
 
 from torch.nn.utils import parameters_to_vector
 
-from fedsim.local.training.step_closures import default_closure
+from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import vector_to_parameters_like
 
 from . import fedavg
 
 
 class FedProx(fedavg.FedAvg):
+    r"""Implements FedProx algorithm for centralized FL.
+
+    For further details regarding the algorithm we refer to `Federated Optimization in
+    Heterogeneous Networks`_.
+
+    Args:
+        data_manager (Callable): data manager
+        metric_logger (Callable): a logger object
+        num_clients (int): number of clients
+        sample_scheme (str): mode of sampling clients
+        sample_rate (float): rate of sampling clients
+        model_class (Callable): class for constructing the model
+        epochs (int): number of local epochs
+        loss_fn (Callable): loss function defining local objective
+        batch_size (int): local trianing batch size
+        test_batch_size (int): inference time batch size
+        local_weight_decay (float): weight decay for local optimization
+        slr (float): server learning rate
+        clr (float): client learning rate
+        clr_decay (float): round to round decay for clr (multiplicative)
+        clr_decay_type (str): type of decay for clr (step or cosine)
+        min_clr (float): minimum client learning rate
+        clr_step_size (int): frequency of applying clr_decay
+        device (str): cpu, cuda, or gpu number
+        log_freq (int): frequency of logging
+        mu (float): FedProx's :math:`\mu` parameter for local regularization
+
+    .. _Federated Optimization in Heterogeneous Networks:
+        https://arxiv.org/abs/1812.06127
+    """
+
     def __init__(
         self,
         data_manager,
@@ -95,7 +122,7 @@ class FedProx(fedavg.FedAvg):
                 p.grad += g_a
 
         step_closure_ = partial(
-            default_closure, transform_grads=transform_grads_fn
+            default_step_closure, transform_grads=transform_grads_fn
         )
         return super(FedProx, self).send_to_server(
             client_id,

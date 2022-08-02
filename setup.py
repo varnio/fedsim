@@ -22,7 +22,7 @@ def read(*names, **kwargs):
 
 setup(
     name="fedsim",
-    version="0.1.4",
+    version="0.2.0",
     license="Apache-2.0",
     description="Generic Federated Learning Simulator with PyTorch",
     long_description="{}\n{}".format(
@@ -73,11 +73,13 @@ setup(
         "click",
         "numpy",
         "sklearn",
+        "scikit-optimize",
         "tqdm",
         "torch",
         "torchvision",
         "tensorboard",
         "pyyaml",
+        "logall",
     ],
     keywords="pytorch, neural networks, template, federated, federated \
         learning, deep learning, distributed learning",
@@ -94,7 +96,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "fedsim = scripts.simulate:main",
+            "fedsim-cli = scripts.fedsim_cli:cli",
         ],
     },
 )
