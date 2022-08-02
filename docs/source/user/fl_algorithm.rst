@@ -3,7 +3,7 @@
 Custom CentralFLAlgorithm
 =========================
 
-Any custome DataManager class should inherit from ``fedsim.fl.fl_algorithm.CentralFLAlgorithm`` (or its children) and implement its abstract methods.
+Any custome DataManager class should inherit from ``fedsim.distributed.centralized.CentralFLAlgorithm`` (or its children) and implement its abstract methods.
 
 
 A Simple Custom CentralFLAlgorithm
@@ -12,7 +12,7 @@ A Simple Custom CentralFLAlgorithm
 .. code-block:: python
 
    from typing import Optional, Hashable, Mapping, Dict, Any
-   from fedsim.fl.fl_algorithm import CentralFLAlgorithm
+   from fedsim.distributed.centralized import CentralFLAlgorithm
 
    class CustomFLAlgorithm(CentralFLAlgorithm):
        def __init__(
@@ -139,8 +139,15 @@ Integration with fedsim-cli
 
 To automatically include your custom algorithm by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--algorithm` option (without .py) followed by column and name of the algorithm.
 For example, if you have algorithm `CustomFLAlgorithm` stored in a `foo/bar/my_custom_alg.py`, you can pass `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
-To deliver arguments to the **init** method of your algorithm, you can pass options in form of `--a-<arg-name>` where `<arg-name>` is the argument. Example
 
-.. code-block:: bash
+.. note::
 
-   fedsim-cli fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm --a-other_arg <other_arg_value> ...
+    Arguments of the **init** method of any algoritthm could be given in `arg:value` format following its name (or `path` if a local file is provided). Examples:
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --algorithm AdaBest mu:0.01 beta:0.6 ...
+
+    .. code-block:: bash
+
+        fedsim-cli fed-learn --algorithm foo/bar/my_custom_alg:CustomFLAlgorithm mu:0.01 ...
