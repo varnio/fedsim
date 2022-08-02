@@ -142,11 +142,12 @@ class OptionEatAll(click.Option):
 
 def decode_margs(obj_and_args: Tuple):
     obj_and_args = list(obj_and_args)
-    # local model
+    # local definition
     if any([len(i) > 1 for i in obj_and_args]):
         obj_name = obj_and_args.pop(0)
         obj_arg_list = obj_and_args
         obj = obj_name
+    # included definitions
     else:
         obj = "".join(obj_and_args)
         obj_arg_list = []
