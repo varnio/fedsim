@@ -14,3 +14,4 @@ details are found in :ref:`reference`.
    quickstart
    data_manager
    fl_algorithm
+   model
