@@ -18,4 +18,4 @@ Two line to train
     .. code-block:: bash
         :caption: Train MNIST on 1000 clients:
 
-        fedsim fed-learn -n 1000
+        fedsim-cli fed-learn -n 1000

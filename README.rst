@@ -417,3 +417,14 @@ For example, if you have model `CustomModel` stored in a `foo/bar/my_custom_mode
     .. code-block:: bash
 
         fedsim-cli fed-learn --model foo/bar/my_custom_alg:CustomModel num_classes:8 ...
+
+
+fedsim-cli examples
+===================
+The following command splits CIFAR100 on 1000 idd partitions and then uses AdaBest algorithm with :math:`\mu=0.02` and :math:`\beta=0.96` to train a model.
+It randomly draws 1\% of all clients at each round (10 clients) and uses 0.05 as the local learning rate. The learning rate is decayed by a multiplicative factor of 0.998 from one round to another.
+Local training batch size is 50.
+
+
+.. code-block:: bash
+    fedsim-cli fed-learn -a AdaBest mu:0.02 beta:0.96 -m cnn_cifar100 -d BasicDataManager dataset:cifar100 num_partitions:1000 -r 1001 -n 1000 --clr 0.05 --clr-decay-type step --clr-decay 0.998 --batch-size 50 --client-sample-rate 0.01

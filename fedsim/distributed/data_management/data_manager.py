@@ -115,7 +115,7 @@ class DataManager(object):
         )
         if "test" in self._local_parition_indices:
             ts_idxs = self._local_parition_indices["test"]
-            if len(tr_idxs) > 0:
+            if len(ts_idxs) > 0:
                 ts_dset = Subset(
                     self.local_data,
                     ts_idxs[id],
@@ -134,7 +134,7 @@ class DataManager(object):
         )
         if "test" in self._local_parition_indices:
             ts_idxs = self._local_parition_indices["test"]
-            if len(tr_idxs) > 0:
+            if len(ts_idxs) > 0:
                 group_ts_idxs = [i for id in ids for i in ts_idxs[id]]
                 ts_dset = Subset(
                     self.local_data,
