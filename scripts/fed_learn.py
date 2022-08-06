@@ -131,54 +131,44 @@ from .utils import get_definition
     help="inference batch size.",
 )
 @click.option(
-    "--local-weight-decay",
-    type=float,
-    default=0.001,
+    "--optimizer",
+    type=tuple,
+    cls=OptionEatAll,
+    default=("SGD", "lr:1.0"),
     show_default=True,
-    help="local weight decay.",
+    help="server optimizer",
 )
 @click.option(
-    "--clr",
-    "-l",
-    type=float,
-    default=0.05,
+    "--local-optimizer",
+    type=tuple,
+    cls=OptionEatAll,
+    default=("SGD", "lr:0.1", "weight_decay:0.001"),
     show_default=True,
-    help="client learning rate.",
+    help="local optimizer",
 )
 @click.option(
-    "--slr",
-    type=float,
-    default=1.0,
+    "--lr-scheduler",
+    type=tuple,
+    cls=OptionEatAll,
+    default=("StepLR", "step_size:1", "gamma:1.0"),
     show_default=True,
-    help="server learning rarte.",
+    help="lr scheduler for server optimizer",
 )
 @click.option(
-    "--clr-decay",
-    type=float,
-    default=1.0,
+    "--local-lr-scheduler",
+    type=tuple,
+    cls=OptionEatAll,
+    default=("StepLR", "step_size:1", "gamma:1.0"),
     show_default=True,
-    help="scalar for round to round decay of the client learning rate.",
+    help="lr scheduler for server optimizer",
 )
 @click.option(
-    "--clr-decay-type",
-    type=click.Choice(["step", "cosine"]),
-    default="step",
+    "--r2r-local-lr-scheduler",
+    type=tuple,
+    cls=OptionEatAll,
+    default=("StepLR", "step_size:1", "gamma:0.999"),
     show_default=True,
-    help="type of decay for client learning rate decay.",
-)
-@click.option(
-    "--min-clr",
-    type=float,
-    default=1e-12,
-    show_default=True,
-    help="minimum client leanring rate.",
-)
-@click.option(
-    "--clr-step-size",
-    type=int,
-    default=1,
-    show_default=True,
-    help="step size for clr decay (in rounds), used both with cosine and step",
+    help="lr scheduler for round to round local optimization",
 )
 @click.option(
     "--pseed",
@@ -247,13 +237,11 @@ def fed_learn(
     loss_fn: str,
     batch_size: int,
     test_batch_size: int,
-    local_weight_decay: float,
-    clr: float,
-    slr: float,
-    clr_decay: float,
-    clr_decay_type: str,
-    min_clr: float,
-    clr_step_size: int,
+    optimizer,
+    local_optimizer,
+    lr_scheduler,
+    local_lr_scheduler,
+    r2r_local_lr_scheduler,
     pseed: int,
     seed: Optional[float],
     device: Optional[str],
@@ -381,6 +369,50 @@ def fed_learn(
         name=model,
         modules="fedsim.models",
     )
+    model_class = partial(model_class, **model_args)
+
+    optimizer, optimizer_args = decode_margs(optimizer)
+    optimizer_class = get_definition(
+        name=optimizer,
+        modules="torch.optim",
+    )
+    optimizer_class = partial(optimizer_class, **optimizer_args)
+
+    local_optimizer, local_optimizer_args = decode_margs(local_optimizer)
+    local_optimizer_class = get_definition(
+        name=local_optimizer,
+        modules="torch.optim",
+    )
+    local_optimizer_class = partial(local_optimizer_class, **local_optimizer_args)
+
+    lr_scheduler, lr_scheduler_args = decode_margs(lr_scheduler)
+    lr_scheduler_class = get_definition(
+        name=lr_scheduler,
+        modules="torch.optim.lr_scheduler",
+    )
+    lr_scheduler_class = partial(lr_scheduler_class, **lr_scheduler_args)
+
+    local_lr_scheduler, local_lr_scheduler_args = decode_margs(local_lr_scheduler)
+    local_lr_scheduler_class = get_definition(
+        name=local_lr_scheduler,
+        modules="torch.optim.lr_scheduler",
+    )
+    local_lr_scheduler_class = partial(
+        local_lr_scheduler_class,
+        **local_lr_scheduler_args,
+    )
+
+    r2r_local_lr_scheduler, r2r_local_lr_scheduler_args = decode_margs(
+        r2r_local_lr_scheduler
+    )
+    r2r_local_lr_scheduler_class = get_definition(
+        name=r2r_local_lr_scheduler,
+        modules="fedsim.lr_schedulers",
+    )
+    r2r_local_lr_scheduler_class = partial(
+        r2r_local_lr_scheduler_class,
+        **r2r_local_lr_scheduler_args,
+    )
 
     data_manager_default_args = dict(
         root=dataset_root,
@@ -422,15 +454,13 @@ def fed_learn(
         model_class=model_class,
         epochs=epochs,
         loss_fn=loss_criterion,
+        optimizer_class=optimizer_class,
+        local_optimizer_class=local_optimizer_class,
+        lr_scheduler_class=lr_scheduler_class,
+        local_lr_scheduler_class=local_lr_scheduler_class,
+        r2r_local_lr_scheduler_class=r2r_local_lr_scheduler_class,
         batch_size=batch_size,
         test_batch_size=test_batch_size,
-        local_weight_decay=local_weight_decay,
-        slr=slr,
-        clr=clr,
-        clr_decay=clr_decay,
-        clr_decay_type=clr_decay_type,
-        min_clr=min_clr,
-        clr_step_size=clr_step_size,
         metric_logger=tb_logger,
         device=device,
         log_freq=log_freq,
