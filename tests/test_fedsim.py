@@ -2,24 +2,41 @@ import math
 
 from logall import TensorboardLogger
 
-from fedsim.distributed.centralized.training import FedAvg
+from fedsim.distributed.centralized import AdaBest
+from fedsim.distributed.centralized import FedAvg
+from fedsim.distributed.centralized import FedDyn
+from fedsim.distributed.centralized import FedNova
+from fedsim.distributed.centralized import FedProx
 from fedsim.distributed.data_management import BasicDataManager
 from fedsim.models.mcmahan_nets import cnn_cifar100
 from fedsim.scores import accuracy
 from fedsim.scores import cross_entropy
 
 
-def test_main():
-    n_clients = 1000
+def alg_hook(alg, dm):
+    alg.hook_global_score_function("test", "accuracy", accuracy)
+    for key in dm.get_local_splits_names():
+        alg.hook_local_score_function(key, "accuracy", accuracy)
 
+
+def acc_check(alg):
+    for key, value in alg.train(rounds=1).items():
+        if "accuracy" in key:
+            assert value >= 0
+        elif "loss" in key:
+            assert 0 <= value < 2 * math.log(100)
+
+
+def test_algs():
+    n_clients = 1000
     dm = BasicDataManager("./data", "cifar100", n_clients)
     sw = TensorboardLogger(path=None)
 
-    alg = FedAvg(
+    common_cfg = dict(
         data_manager=dm,
-        num_clients=n_clients,
+        num_clients=2,
         sample_scheme="uniform",
-        sample_rate=0.01,
+        sample_rate=1.0,
         model_class=cnn_cifar100,
         epochs=1,
         loss_fn=cross_entropy,
@@ -27,13 +44,32 @@ def test_main():
         metric_logger=sw,
         device="cpu",
     )
+    # test fedavg
+    alg = FedAvg(**common_cfg)
+    alg_hook(alg, dm)
+    acc_check(alg)
+    del alg
 
-    alg.hook_global_score_function("test", "accuracy", accuracy)
-    for key in dm.get_local_splits_names():
-        alg.hook_local_score_function(key, "accuracy", accuracy)
+    # test fedprox
+    alg = FedProx(**common_cfg)
+    alg_hook(alg, dm)
+    acc_check(alg)
+    del alg
 
-    for key, value in alg.train(rounds=1).items():
-        if "accuracy" in key:
-            assert value >= 0
-        elif "loss" in key:
-            assert 0 <= value < 2 * math.log(100)
+    # test fednova
+    alg = FedNova(**common_cfg)
+    alg_hook(alg, dm)
+    acc_check(alg)
+    del alg
+
+    # test feddyn
+    alg = FedDyn(**common_cfg)
+    alg_hook(alg, dm)
+    acc_check(alg)
+    del alg
+
+    # test AdaBest
+    alg = AdaBest(**common_cfg)
+    alg_hook(alg, dm)
+    acc_check(alg)
+    del alg

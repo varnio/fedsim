@@ -22,7 +22,8 @@ def local_train(
     steps,
     loss_fn,
     optimizer,
-    device,
+    lr_scheduler=None,
+    device="cpu",
     step_closure=default_step_closure,
     metric_fn_dict=None,
     max_grad_norm=1000,
@@ -79,6 +80,8 @@ def local_train(
                 num_steps += 1
                 num_train_samples += y.shape[0]
                 all_loss += loss.item()
+                if lr_scheduler is not None:
+                    lr_scheduler.step()
 
         # add average metrics over epochs
         normalized_metrics = apply_on_dict(
