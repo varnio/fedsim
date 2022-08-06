@@ -94,7 +94,9 @@ class FedAvg(CentralFLAlgorithm):
         model = self.get_model_class()().to(self.device)
         params = deepcopy(parameters_to_vector(model.parameters()).clone().detach())
         optimizer = optimizer_class(params=[params])
-        lr_scheduler = lr_scheduler_class(optimizer)
+        lr_scheduler = None
+        if lr_scheduler_class is not None:
+            lr_scheduler = lr_scheduler_class(optimizer)
         # write model and optimizer to server
         self.write_server("model", model)
         self.write_server("cloud_params", params)
@@ -241,7 +243,8 @@ class FedAvg(CentralFLAlgorithm):
             optimizer.zero_grad()
             cloud_params.grad = pseudo_grads
             optimizer.step()
-            lr_scheduler.step()
+            if lr_scheduler is not None:
+                lr_scheduler.step()
             # purge aggregated results
             del param_avg
         return aggregator.pop_all()

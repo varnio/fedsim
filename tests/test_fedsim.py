@@ -4,7 +4,6 @@ from logall import TensorboardLogger
 
 from fedsim.distributed.centralized import AdaBest
 from fedsim.distributed.centralized import FedAvg
-from fedsim.distributed.centralized import FedAvgM
 from fedsim.distributed.centralized import FedDyn
 from fedsim.distributed.centralized import FedNova
 from fedsim.distributed.centralized import FedProx
@@ -30,30 +29,23 @@ def acc_check(alg):
 
 def test_algs():
     n_clients = 1000
-
     dm = BasicDataManager("./data", "cifar100", n_clients)
     sw = TensorboardLogger(path=None)
 
     common_cfg = dict(
         data_manager=dm,
-        num_clients=1,
+        num_clients=2,
         sample_scheme="uniform",
-        sample_rate=0.01,
+        sample_rate=1.0,
         model_class=cnn_cifar100,
         epochs=1,
         loss_fn=cross_entropy,
         batch_size=32,
         metric_logger=sw,
+        device="cpu",
     )
-
     # test fedavg
     alg = FedAvg(**common_cfg)
-    alg_hook(alg, dm)
-    acc_check(alg)
-    del alg
-
-    # test fedavgm
-    alg = FedAvgM(**common_cfg)
     alg_hook(alg, dm)
     acc_check(alg)
     del alg

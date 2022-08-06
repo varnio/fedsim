@@ -360,11 +360,6 @@ Included FL algorithms
         :target: https://arxiv.org/abs/1602.05629
         :alt: arXiv
 
-   * - FedAvgM
-     - .. image:: https://img.shields.io/badge/arXiv-1909.06335-b31b1b.svg?style=flat-square
-        :target: https://arxiv.org/abs/1909.06335
-        :alt: arXiv
-
    * - FedNova
      - .. image:: https://img.shields.io/badge/arXiv-2007.07481-b31b1b.svg?style=flat-square
         :target: https://arxiv.org/abs/2007.07481
@@ -427,4 +422,5 @@ Local training batch size is 50.
 
 
 .. code-block:: bash
+
     fedsim-cli fed-learn -a AdaBest mu:0.02 beta:0.96 -m cnn_cifar100 -d BasicDataManager dataset:cifar100 num_partitions:1000 -r 1001 -n 1000 --clr 0.05 --clr-decay-type step --clr-decay 0.998 --batch-size 50 --client-sample-rate 0.01

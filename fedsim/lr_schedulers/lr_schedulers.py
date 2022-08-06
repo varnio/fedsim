@@ -1,3 +1,11 @@
+r"""
+Round to Round Learning Rate Schedulers
+---------------------------------------
+
+Used to schedule the initial learning rate of the local learning rate at each round
+
+"""
+
 import math
 
 

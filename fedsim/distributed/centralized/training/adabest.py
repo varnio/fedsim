@@ -183,7 +183,8 @@ class AdaBest(fedavg.FedAvg):
             optimizer.zero_grad()
             cloud_params.grad = modified_pseudo_grads
             optimizer.step()
-            lr_scheduler.step()
+            if lr_scheduler is not None:
+                lr_scheduler.step()
             self.write_server("avg_params", param_avg.detach().clone())
         return aggregator.pop_all()
 
