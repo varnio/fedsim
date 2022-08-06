@@ -420,6 +420,19 @@ For example, if you have model `CustomModel` stored in a `foo/bar/my_custom_mode
         fedsim-cli fed-learn --model foo/bar/my_custom_alg:CustomModel num_classes:8 ...
 
 
+Learning Rate Schedulers
+========================
+
+`fedsim-cli fed-learn` accepts 3 scheduler objects.
+
+* **lr-scheduler:** learning rate scheduler for server optimizer. It accepts a pytorch lr scheduler.
+* **local-lr-scheduler:** learning rate scheduler for client optimizer. It accepts a pytorch lr scheduler.
+* **r2r-local-lr-scheduler:** schedules the initial learning rate that is delivered to the clients of each round. It accepts any class inherited from `fedsim.lr_schedulers.LRScheduler`.
+
+These arguments are passed to instances of the centralized FL algorithms.
+
+
+
 fedsim-cli examples
 ===================
 The following command splits CIFAR100 on 1000 idd partitions and then uses AdaBest algorithm with :math:`\mu=0.02` and :math:`\beta=0.96` to train a model.
