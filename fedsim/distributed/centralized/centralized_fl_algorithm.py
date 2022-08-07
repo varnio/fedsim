@@ -241,8 +241,9 @@ class CentralFLAlgorithm(object):
             optimize_reports,
             deployment_points,
         )
-        log_fn = self.metric_logger.log_scalar
-        apply_on_dict(report_metrics, log_fn, step=self.rounds)
+        if self.metric_logger is not None:
+            log_fn = self.metric_logger.log_scalar
+            apply_on_dict(report_metrics, log_fn, step=self.rounds)
         return report_metrics
 
     def _train(self, rounds, num_score_report_point=None):
@@ -414,7 +415,7 @@ class CentralFLAlgorithm(object):
     def report(
         self,
         dataloaders: Dict[str, Any],
-        metric_logger: Any,
+        metric_logger: Optional[Any],
         device: str,
         optimize_reports: Mapping[Hashable, Any],
         deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
@@ -427,7 +428,8 @@ class CentralFLAlgorithm(object):
 
         Args:
             dataloaders (Any): dict of data loaders to test the global model(s)
-            metric_logger (Any): the logging object (e.g., logall.TensorboardLogger)
+            metric_logger (Any, optional): the logging object
+                (e.g., logall.TensorboardLogger)
             device (str): 'cuda', 'cpu' or gpu number
             optimize_reports (Mapping[Hashable, Any]): dict returned by \
                 optimzier
