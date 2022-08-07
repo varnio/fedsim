@@ -344,86 +344,6 @@ def fed_learn(
         level=verbosity * 10,
     )
 
-    # data_manager, data_manager_args = decode_margs(data_manager)
-    # data_manager_class = get_definition(
-    #     name=data_manager,
-    #     modules="fedsim.distributed.data_management",
-    # )
-
-    # algorithm, algorithm_args = decode_margs(algorithm)
-    # algorithm_class = get_definition(
-    #     name=algorithm,
-    #     modules=[
-    #         "fedsim.distributed.centralized.training",
-    #         "fedsim.distributed.decentralized.training",
-    #     ],
-    # )
-
-    # model, model_args = decode_margs(model)
-    # model_class = get_definition(
-    #     name=model,
-    #     modules="fedsim.models",
-    # )
-    # model_class = partial(model_class, **model_args)
-
-    # optimizer, optimizer_args = decode_margs(optimizer)
-    # optimizer_class = get_definition(
-    #     name=optimizer,
-    #     modules="torch.optim",
-    # )
-    # optimizer_class = partial(optimizer_class, **optimizer_args)
-
-    # local_optimizer, local_optimizer_args = decode_margs(local_optimizer)
-    # local_optimizer_class = get_definition(
-    #     name=local_optimizer,
-    #     modules="torch.optim",
-    # )
-    # local_optimizer_class = partial(local_optimizer_class, **local_optimizer_args)
-
-    # lr_scheduler, lr_scheduler_args = decode_margs(lr_scheduler)
-    # lr_scheduler_class = get_definition(
-    #     name=lr_scheduler,
-    #     modules="torch.optim.lr_scheduler",
-    # )
-    # lr_scheduler_class = partial(lr_scheduler_class, **lr_scheduler_args)
-
-    # local_lr_scheduler, local_lr_scheduler_args = decode_margs(local_lr_scheduler)
-    # local_lr_scheduler_class = get_definition(
-    #     name=local_lr_scheduler,
-    #     modules="torch.optim.lr_scheduler",
-    # )
-    # local_lr_scheduler_class = partial(
-    #     local_lr_scheduler_class,
-    #     **local_lr_scheduler_args,
-    # )
-
-    # r2r_local_lr_scheduler, r2r_local_lr_scheduler_args = decode_margs(
-    #     r2r_local_lr_scheduler
-    # )
-    # r2r_local_lr_scheduler_class = get_definition(
-    #     name=r2r_local_lr_scheduler,
-    #     modules="fedsim.lr_schedulers",
-    # )
-    # r2r_local_lr_scheduler_class = partial(
-    #     r2r_local_lr_scheduler_class,
-    #     **r2r_local_lr_scheduler_args,
-    # )
-
-    # data_manager_default_args = dict(
-    #     root=dataset_root,
-    #     num_clients=num_clients,
-    #     seed=pseed,
-    #     save_dir=partitioning_root,
-    # )
-    # data_manager_instant = data_manager_class(
-    #     **{
-    #         **data_manager_default_args,
-    #         **data_manager_args,
-    #     }
-    # )
-
-    # model_class = partial(model_class, **model_args)
-
     loss_criterion = None
     if hasattr(scores, loss_fn):
         loss_criterion = getattr(scores, loss_fn)
@@ -460,48 +380,24 @@ def fed_learn(
     cfg['device'] = device
     cfg['log_dir'] = log_dir
 
-    cfg = {
-        **ctx.params, **cfg
-        # **dict(
-        #     data_manager=data_manager,
-        #     algorithm=algorithm,
-        #     model=model,
-        #     optimizer=optimizer,
-        #     local_optimizer=local_optimizer,
-        #     lr_scheduler=lr_scheduler,
-        #     local_lr_scheduler=local_lr_scheduler,
-        #     r2r_local_lr_scheduler=r2r_local_lr_scheduler,
-        #     device=device,
-        #     log_dir=log_dir,
-
-        #     data_manager_args = data_manager_args,
-        #     algorithm_args=algorithm_args,
-        #     model_args=model_args,
-        #     optimizer_args=optimizer_args,
-        #     local_optimizer_args=local_optimizer_args,
-        #     lr_scheduler_args=lr_scheduler_args,
-        #     local_lr_scheduler_args=local_lr_scheduler_args,
-        #     r2r_local_lr_scheduler_args=r2r_local_lr_scheduler_args,
-
-        # )
-    }
+    cfg = {**ctx.params, **cfg}
     logging.info("arguments: " + pformat(cfg))
     
     # set the seed of random generators
     if seed is not None:
         set_seed(seed, device)
 
-    # data_manager_default_args = dict(
-    #     root=dataset_root,
-    #     num_clients=num_clients,
-    #     seed=pseed,
-    #     save_dir=partitioning_root,
-    # )
+    data_manager_default_args = dict(
+        root=dataset_root,
+        num_clients=num_clients,
+        seed=pseed,
+        save_dir=partitioning_root,
+    )
     data_manager_instant = data_manager_class(
-        # **{
-        #     **data_manager_default_args,
-        #     **data_manager_args,
-        # }
+        **{
+            **data_manager_default_args,
+            **data_manager_class.keywords,
+        }
     )
 
     algorithm_instance = algorithm_class(
@@ -522,7 +418,6 @@ def fed_learn(
         metric_logger=tb_logger,
         device=device,
         log_freq=log_freq,
-        # **algorithm_args,
     )
     algorithm_instance.hook_global_score_function("test", "accuracy", scores.accuracy)
     for key in data_manager_instant.get_local_splits_names():

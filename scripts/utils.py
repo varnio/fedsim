@@ -220,7 +220,16 @@ def ingest_fed_context(
     r2r_local_lr_scheduler_class = get_definition(
         name=r2r_local_lr_scheduler,
         modules="fedsim.lr_schedulers",
-    )    
+    )
+    # raise if algorithm parent signature is overwritten (allow only hparam args)
+    grandpa = inspect.getmro(algorithm_class)[-2]
+    grandpa_args = set(inspect.signature(grandpa).parameters.keys())
+    for alg_arg in algorithm_args:
+        if alg_arg in grandpa_args:
+            raise Exception(
+                f"Not allowed to change parameters of {grandpa} which is "
+                f"the parent of algorithm class {algorithm_class}." 
+                "Check other cli options")
     # customize defs
     data_manager_class = partial(data_manager_class, **data_manager_args)
     algorithm_class = partial(algorithm_class, **algorithm_args)
