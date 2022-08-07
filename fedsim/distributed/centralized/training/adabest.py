@@ -68,8 +68,6 @@ class AdaBest(fedavg.FedAvg):
         log_freq=10,
         mu=0.02,
         beta=0.98,
-        *args,
-        **kwargs,
     ):
         self.mu = mu
         self.beta = beta
