@@ -23,10 +23,6 @@ from .utils import get_definition
 
 @click.command(
     name="fed-learn",
-    context_settings=dict(
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    ),
     help="Simulates a Federated Learning system.",
 )
 @click.option(
@@ -335,7 +331,6 @@ def fed_learn(
 
 
     """
-
     tb_logger = TensorboardLogger(path=log_dir)
     log_dir = tb_logger.get_dir()
     print("log available at %s", os.path.join(log_dir, "log.log"))
@@ -347,7 +342,6 @@ def fed_learn(
         filename=os.path.join(log_dir, "log.log"),
         level=verbosity * 10,
     )
-    logging.info("arguments: " + pformat(ctx.params))
 
     data_manager, data_manager_args = decode_margs(data_manager)
     data_manager_class = get_definition(
@@ -442,6 +436,33 @@ def fed_learn(
         else:
             device = "cpu"
 
+    cfg = {
+        **ctx.params,
+        **dict(
+            data_manager=data_manager,
+            algorithm=algorithm,
+            model=model,
+            optimizer=optimizer,
+            local_optimizer=local_optimizer,
+            lr_scheduler=lr_scheduler,
+            local_lr_scheduler=local_lr_scheduler,
+            r2r_local_lr_scheduler=r2r_local_lr_scheduler,
+            device=device,
+            log_dir=log_dir,
+
+            data_manager_args = data_manager_args,
+            algorithm_args=algorithm_args,
+            model_args=model_args,
+            optimizer_args=optimizer_args,
+            local_optimizer_args=local_optimizer_args,
+            lr_scheduler_args=lr_scheduler_args,
+            local_lr_scheduler_args=local_lr_scheduler_args,
+            r2r_local_lr_scheduler_args=r2r_local_lr_scheduler_args,
+
+        )
+    }
+    logging.info("arguments: " + pformat(cfg))
+    
     # set the seed of random generators
     if seed is not None:
         set_seed(seed, device)
