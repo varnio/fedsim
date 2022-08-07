@@ -10,6 +10,7 @@ from typing import Tuple
 
 import click
 import yaml
+from functools import partial
 
 from fedsim.utils import get_from_module
 
@@ -162,3 +163,108 @@ def decode_margs(obj_and_args: Tuple):
             raise Exception(f"{arg} is invalid argument!")
 
     return obj, obj_args
+
+def ingest_fed_context(
+    data_manager,
+    algorithm,
+    model,
+    optimizer,
+    local_optimizer,
+    lr_scheduler,
+    local_lr_scheduler,
+    r2r_local_lr_scheduler, 
+):
+    # decode
+    data_manager, data_manager_args = decode_margs(data_manager)
+    algorithm, algorithm_args = decode_margs(algorithm)
+    model, model_args = decode_margs(model)
+    optimizer, optimizer_args = decode_margs(optimizer)
+    local_optimizer, local_optimizer_args = decode_margs(local_optimizer)
+    lr_scheduler, lr_scheduler_args = decode_margs(lr_scheduler)
+    local_lr_scheduler, local_lr_scheduler_args = decode_margs(local_lr_scheduler)
+    r2r_local_lr_scheduler, r2r_local_lr_scheduler_args = decode_margs(
+        r2r_local_lr_scheduler
+    )
+    # find class defs
+    data_manager_class = get_definition(
+        name=data_manager,
+        modules="fedsim.distributed.data_management",
+    )
+    algorithm_class = get_definition(
+        name=algorithm,
+        modules=[
+            "fedsim.distributed.centralized.training",
+            "fedsim.distributed.decentralized.training",
+        ],
+    )
+    model_class = get_definition(
+        name=model,
+        modules="fedsim.models",
+    )
+    optimizer_class = get_definition(
+        name=optimizer,
+        modules="torch.optim",
+    )
+    local_optimizer_class = get_definition(
+        name=local_optimizer,
+        modules="torch.optim",
+    )
+    lr_scheduler_class = get_definition(
+        name=lr_scheduler,
+        modules="torch.optim.lr_scheduler",
+    )
+    local_lr_scheduler_class = get_definition(
+        name=local_lr_scheduler,
+        modules="torch.optim.lr_scheduler",
+    )
+    r2r_local_lr_scheduler_class = get_definition(
+        name=r2r_local_lr_scheduler,
+        modules="fedsim.lr_schedulers",
+    )    
+    # customize defs
+    data_manager_class = partial(data_manager_class, **data_manager_args)
+    algorithm_class = partial(algorithm_class, **algorithm_args)
+    model_class = partial(model_class, **model_args)
+    optimizer_class = partial(optimizer_class, **optimizer_args)
+    local_optimizer_class = partial(local_optimizer_class, **local_optimizer_args)
+    lr_scheduler_class = partial(lr_scheduler_class, **lr_scheduler_args)
+    local_lr_scheduler_class = partial(
+        local_lr_scheduler_class,
+        **local_lr_scheduler_args,
+    )
+    r2r_local_lr_scheduler_class = partial(
+        r2r_local_lr_scheduler_class,
+        **r2r_local_lr_scheduler_args,
+    )
+    cfg = dict(
+            data_manager=data_manager,
+            algorithm=algorithm,
+            model=model,
+            optimizer=optimizer,
+            local_optimizer=local_optimizer,
+            lr_scheduler=lr_scheduler,
+            local_lr_scheduler=local_lr_scheduler,
+            r2r_local_lr_scheduler=r2r_local_lr_scheduler,
+
+            data_manager_args = data_manager_args,
+            algorithm_args=algorithm_args,
+            model_args=model_args,
+            optimizer_args=optimizer_args,
+            local_optimizer_args=local_optimizer_args,
+            lr_scheduler_args=lr_scheduler_args,
+            local_lr_scheduler_args=local_lr_scheduler_args,
+            r2r_local_lr_scheduler_args=r2r_local_lr_scheduler_args,
+
+        )
+
+    return (
+        cfg,
+        data_manager_class,
+        algorithm_class,
+        model_class,
+        optimizer_class,
+        local_optimizer_class,
+        lr_scheduler_class,
+        local_lr_scheduler_class,
+        r2r_local_lr_scheduler_class,
+    )

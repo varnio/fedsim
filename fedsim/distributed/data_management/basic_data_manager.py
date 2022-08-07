@@ -45,7 +45,7 @@ class BasicDataManager(DataManager):
 
     def __init__(
         self,
-        root,
+        root='data',
         dataset="mnist",
         num_partitions=500,
         rule="iid",
