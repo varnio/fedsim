@@ -6,7 +6,13 @@ import importlib.util
 import inspect
 import os
 from collections import namedtuple
+from typing import Dict, OrderedDict
 from typing import Tuple
+from typing import NamedTuple
+import skopt
+from skopt.space import Real 
+from skopt.space import Integer 
+from skopt.space import Categorical 
 
 import click
 import yaml
@@ -14,6 +20,12 @@ from functools import partial
 
 from fedsim.utils import get_from_module
 
+space_list = [Real, Integer, Categorical]
+
+class ObjectContext(NamedTuple):
+    definition: str
+    arguments: str
+    harguments: skopt.space.Space
 
 def parse_class_from_file(s: str) -> object:
     f, c = s.split(":")
@@ -140,7 +152,6 @@ class OptionEatAll(click.Option):
                 break
         return retval
 
-
 def decode_margs(obj_and_args: Tuple):
     obj_and_args = list(obj_and_args)
     # local definition
@@ -154,15 +165,23 @@ def decode_margs(obj_and_args: Tuple):
         obj_arg_list = []
 
     obj_args = dict()
+    obj_hargs = OrderedDict()
     while len(obj_arg_list) > 0:
         arg = obj_arg_list.pop(0)
         if ":" in arg:
-            key, val = arg.split(":")
-            obj_args[key] = yaml.safe_load(val)
+            slices = arg.split(":")
+            key = slices[0]
+            if not 2 <= len(slices) <= 3:
+                raise Exception(f"{arg} does not seem to be enetered correctly!")
+            if len(slices) == 3:
+                val = eval(f"{slices[1]}({slices[2].replace('-', ',')})")
+                obj_hargs[key] = val
+            else:
+                val = yaml.safe_load(slices[1])
+                obj_args[key] = val
         else:
             raise Exception(f"{arg} is invalid argument!")
-
-    return obj, obj_args
+    return obj, obj_args, obj_hargs
 
 def ingest_fed_context(
     data_manager,
@@ -173,16 +192,28 @@ def ingest_fed_context(
     lr_scheduler,
     local_lr_scheduler,
     r2r_local_lr_scheduler, 
-):
+) -> Dict[str, ObjectContext]:
     # decode
-    data_manager, data_manager_args = decode_margs(data_manager)
-    algorithm, algorithm_args = decode_margs(algorithm)
-    model, model_args = decode_margs(model)
-    optimizer, optimizer_args = decode_margs(optimizer)
-    local_optimizer, local_optimizer_args = decode_margs(local_optimizer)
-    lr_scheduler, lr_scheduler_args = decode_margs(lr_scheduler)
-    local_lr_scheduler, local_lr_scheduler_args = decode_margs(local_lr_scheduler)
-    r2r_local_lr_scheduler, r2r_local_lr_scheduler_args = decode_margs(
+    data_manager, data_manager_args, data_manager_hargs = decode_margs(data_manager)
+    algorithm, algorithm_args, algorithm_hargs = decode_margs(algorithm)
+    model, model_args, model_hargs = decode_margs(model)
+    optimizer, optimizer_args, optimizer_hargs = decode_margs(optimizer)
+    local_optimizer, local_optimizer_args, local_optimizer_hargs = decode_margs(
+        local_optimizer
+    )
+    lr_scheduler, lr_scheduler_args, lr_scheduler_hargs = decode_margs(lr_scheduler)
+    (
+        local_lr_scheduler,
+        local_lr_scheduler_args,
+        local_lr_scheduler_hargs
+    ) = decode_margs(
+        local_lr_scheduler
+    )
+    (
+        r2r_local_lr_scheduler,
+        r2r_local_lr_scheduler_args, 
+        r2r_local_lr_scheduler_hargs
+    ) = decode_margs(
         r2r_local_lr_scheduler
     )
     # find class defs
@@ -230,7 +261,8 @@ def ingest_fed_context(
                 f"Not allowed to change parameters of {grandpa} which is "
                 f"the parent of algorithm class {algorithm_class}." 
                 "Check other cli options")
-    # customize defs
+
+    # partially customize defs
     data_manager_class = partial(data_manager_class, **data_manager_args)
     algorithm_class = partial(algorithm_class, **algorithm_args)
     model_class = partial(model_class, **model_args)
@@ -245,35 +277,45 @@ def ingest_fed_context(
         r2r_local_lr_scheduler_class,
         **r2r_local_lr_scheduler_args,
     )
-    cfg = dict(
-            data_manager=data_manager,
-            algorithm=algorithm,
-            model=model,
-            optimizer=optimizer,
-            local_optimizer=local_optimizer,
-            lr_scheduler=lr_scheduler,
-            local_lr_scheduler=local_lr_scheduler,
-            r2r_local_lr_scheduler=r2r_local_lr_scheduler,
-
-            data_manager_args = data_manager_args,
-            algorithm_args=algorithm_args,
-            model_args=model_args,
-            optimizer_args=optimizer_args,
-            local_optimizer_args=local_optimizer_args,
-            lr_scheduler_args=lr_scheduler_args,
-            local_lr_scheduler_args=local_lr_scheduler_args,
-            r2r_local_lr_scheduler_args=r2r_local_lr_scheduler_args,
-
-        )
-
-    return (
-        cfg,
-        data_manager_class,
-        algorithm_class,
-        model_class,
-        optimizer_class,
-        local_optimizer_class,
-        lr_scheduler_class,
-        local_lr_scheduler_class,
-        r2r_local_lr_scheduler_class,
+    
+    # pack and return as dict
+    cfg = OrderedDict(
+        data_manager = ObjectContext(
+            data_manager_class,
+            data_manager_args,
+            data_manager_hargs
+        ),
+        algorithm = ObjectContext(algorithm_class, algorithm_args, algorithm_hargs),
+        model = ObjectContext(model_class, model_args, model_hargs),
+        optimizer = ObjectContext(optimizer_class, optimizer_args, optimizer_hargs),
+        local_optimizer = ObjectContext(
+            local_optimizer_class,
+            local_optimizer_args,
+            local_optimizer_hargs
+        ),
+        lr_scheduler = ObjectContext(
+            lr_scheduler_class,
+            lr_scheduler_args,
+            lr_scheduler_hargs
+        ),
+        local_lr_scheduler = ObjectContext(
+            local_lr_scheduler_class,
+            local_lr_scheduler_args,
+            local_lr_scheduler_hargs,
+        ),
+        r2r_local_lr_scheduler = ObjectContext(
+            r2r_local_lr_scheduler_class,
+            r2r_local_lr_scheduler_args,
+            r2r_local_lr_scheduler_hargs,
+        ),
     )
+    return cfg
+
+# to use separate log files as suggested at https://stackoverflow.com/a/57774450/9784436
+class LogFilter:
+    def __init__(self, flow):
+        self.flow = flow
+
+    def filter(self, record):
+        if record.flow == self.flow:
+            return True

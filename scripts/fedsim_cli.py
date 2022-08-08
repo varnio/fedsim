@@ -9,7 +9,7 @@ import click
 
 from .fed_learn import fed_learn
 
-# from .fed_tune import fed_tune
+from .fed_tune import fed_tune
 
 # Enable click
 os.environ["LC_ALL"] = "C.UTF-8"
@@ -22,7 +22,7 @@ def cli():
 
 
 cli.add_command(fed_learn)
-# cli.add_command(fed_tune)
+cli.add_command(fed_tune)
 
 
 if __name__ == "__main__":
