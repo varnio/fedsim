@@ -28,7 +28,7 @@ class FedAvg(CentralFLAlgorithm):
 
     Args:
         data_manager (Callable): data manager
-        metric_logger (Callable): a logger object
+        metric_logger (Callable): a logall.Logger instance
         num_clients (int): number of clients
         sample_scheme (str): mode of sampling clients
         sample_rate (float): rate of sampling clients
@@ -272,7 +272,7 @@ class FedAvg(CentralFLAlgorithm):
                         model,
                         loader,
                         metric_fn_dict={
-                            f"{point_name}.{split_name}_{key}": score
+                            f"server.{point_name}.{split_name}_{key}": score
                             for key, score in self.get_global_score_functions(
                                 split_name
                             ).items()

@@ -23,7 +23,7 @@ class AdaBest(fedavg.FedAvg):
 
     Args:
         data_manager (Callable): data manager
-        metric_logger (Callable): a logger object
+        metric_logger (Callable): a logall.Logger instance
         num_clients (int): number of clients
         sample_scheme (str): mode of sampling clients
         sample_rate (float): rate of sampling clients
@@ -68,8 +68,6 @@ class AdaBest(fedavg.FedAvg):
         log_freq=10,
         mu=0.02,
         beta=0.98,
-        *args,
-        **kwargs,
     ):
         self.mu = mu
         self.beta = beta

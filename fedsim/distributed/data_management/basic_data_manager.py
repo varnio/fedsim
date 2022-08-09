@@ -45,7 +45,7 @@ class BasicDataManager(DataManager):
 
     def __init__(
         self,
-        root,
+        root='data',
         dataset="mnist",
         num_partitions=500,
         rule="iid",
@@ -54,8 +54,6 @@ class BasicDataManager(DataManager):
         local_test_portion=0.0,
         seed=10,
         save_dir=None,
-        *args,
-        **kwargs,
     ):
         """A basic data manager for partitioning the data. Currecntly three
         rules of partitioning are supported:

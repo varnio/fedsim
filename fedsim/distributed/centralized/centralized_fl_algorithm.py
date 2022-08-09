@@ -3,10 +3,8 @@ Centralized Federated Learnming Algorithm
 -----------------------------------------
 """
 import inspect
-import logging
 import random
 from functools import partial
-from pprint import pformat
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -34,7 +32,7 @@ class CentralFLAlgorithm(object):
 
     Args:
         data_manager (Callable): data manager
-        metric_logger (Callable): a logger object
+        metric_logger (Callable): a logall.Logger instance
         num_clients (int): number of clients
         sample_scheme (str): mode of sampling clients
         sample_rate (float): rate of sampling clients
@@ -75,17 +73,6 @@ class CentralFLAlgorithm(object):
         *args,
         **kwargs,
     ):
-        grandpa = inspect.getmro(self.__class__)[-2]
-        cls = self.__class__
-
-        grandpa_args = set(inspect.signature(grandpa).parameters.keys())
-        self_args = set(inspect.signature(cls).parameters.keys())
-
-        added_args = self_args - grandpa_args
-        added_args_dict = {key: getattr(self, key) for key in added_args}
-        if len(added_args_dict) > 0:
-            logging.info("algorithm arguments: " + pformat(added_args_dict))
-
         self._data_manager = data_manager
         self.num_clients = num_clients
         self.sample_scheme = sample_scheme
@@ -241,8 +228,9 @@ class CentralFLAlgorithm(object):
             optimize_reports,
             deployment_points,
         )
-        log_fn = self.metric_logger.log_scalar
-        apply_on_dict(report_metrics, log_fn, step=self.rounds)
+        if self.metric_logger is not None:
+            log_fn = self.metric_logger.log_scalar
+            apply_on_dict(report_metrics, log_fn, step=self.rounds)
         return report_metrics
 
     def _train(self, rounds, num_score_report_point=None):
@@ -284,6 +272,11 @@ class CentralFLAlgorithm(object):
     ) -> Optional[Dict[str, Optional[float]]]:
         r"""loop over the learning pipeline of distributed algorithm for given
         number of rounds.
+
+        .. note::
+            * The clients metrics are reported in the form of clients.{metric_name}.
+            * The server metrics are reported in the form of
+                server.{deployment_point}.{metric_name}
 
         Args:
             rounds (int): number of rounds to train.
@@ -414,7 +407,7 @@ class CentralFLAlgorithm(object):
     def report(
         self,
         dataloaders: Dict[str, Any],
-        metric_logger: Any,
+        metric_logger: Optional[Any],
         device: str,
         optimize_reports: Mapping[Hashable, Any],
         deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
@@ -427,7 +420,8 @@ class CentralFLAlgorithm(object):
 
         Args:
             dataloaders (Any): dict of data loaders to test the global model(s)
-            metric_logger (Any): the logging object (e.g., logall.TensorboardLogger)
+            metric_logger (Any, optional): the logging object
+                (e.g., logall.TensorboardLogger)
             device (str): 'cuda', 'cpu' or gpu number
             optimize_reports (Mapping[Hashable, Any]): dict returned by \
                 optimzier

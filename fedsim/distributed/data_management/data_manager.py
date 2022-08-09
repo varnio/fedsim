@@ -36,8 +36,6 @@ class DataManager(object):
         root,
         seed,
         save_dir=None,
-        *args,
-        **kwargs,
     ):
         self.root = root
         self.seed = seed
