@@ -103,6 +103,8 @@ class AppendixAggregator(object):
         if key not in self._members:
             raise Exception(f"{key} is not in the aggregator")
         list_v, list_w, _ = self._members[key]
+        list_v = list(list_v)
+        list_w = list(list_w)
         if k is None:
             k = len(list_v)
         start_idx = min(k, len(list_v))
