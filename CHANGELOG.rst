@@ -1,3 +1,9 @@
+0.3.1 (2022-08-09)
+------------------
+
+* added advanced learning rate schedulers
+* properly tested r2r lr scheduler
+
 0.3.0 (2022-08-09)
 ------------------
 
