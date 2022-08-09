@@ -3,11 +3,10 @@ Centralized Federated Learnming Algorithm
 -----------------------------------------
 """
 import inspect
-import logging
-import math
 import random
-from pprint import pformat
+from functools import partial
 from typing import Any
+from typing import Callable
 from typing import Dict
 from typing import Hashable
 from typing import Iterable
@@ -33,22 +32,21 @@ class CentralFLAlgorithm(object):
 
     Args:
         data_manager (Callable): data manager
-        metric_logger (Callable): a logger object
+        metric_logger (Callable): a logall.Logger instance
         num_clients (int): number of clients
         sample_scheme (str): mode of sampling clients
         sample_rate (float): rate of sampling clients
         model_class (Callable): class for constructing the model
         epochs (int): number of local epochs
         loss_fn (Callable): loss function defining local objective
+        optimizer_class (Callable): server optimizer class
+        local_optimizer_class (Callable): local optimization class
+        lr_scheduler_class: class definition for lr scheduler of server optimizer
+        local_lr_scheduler_class: class definition for lr scheduler of local optimizer
+        r2r_local_lr_scheduler_class: class definition to schedule lr delivered to
+            clients at each round (init lr of the client optimizer)
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
-        local_weight_decay (float): weight decay for local optimization
-        slr (float): server learning rate
-        clr (float): client learning rate
-        clr_decay (float): round to round decay for clr (multiplicative)
-        clr_decay_type (str): type of decay for clr (step or cosine)
-        min_clr (float): minimum client learning rate
-        clr_step_size (int): frequency of applying clr_decay
         device (str): cpu, cuda, or gpu number
         log_freq (int): frequency of logging
     """
@@ -63,31 +61,18 @@ class CentralFLAlgorithm(object):
         model_class,
         epochs,
         loss_fn,
+        optimizer_class,
+        local_optimizer_class,
+        lr_scheduler_class,
+        local_lr_scheduler_class,
+        r2r_local_lr_scheduler_class,
         batch_size,
         test_batch_size,
-        local_weight_decay,
-        slr,
-        clr,
-        clr_decay,
-        clr_decay_type,
-        min_clr,
-        clr_step_size,
         device,
         log_freq,
         *args,
         **kwargs,
     ):
-        grandpa = inspect.getmro(self.__class__)[-2]
-        cls = self.__class__
-
-        grandpa_args = set(inspect.signature(grandpa).parameters.keys())
-        self_args = set(inspect.signature(cls).parameters.keys())
-
-        added_args = self_args - grandpa_args
-        added_args_dict = {key: getattr(self, key) for key in added_args}
-        if len(added_args_dict) > 0:
-            logging.info("algorithm arguments: " + pformat(added_args_dict))
-
         self._data_manager = data_manager
         self.num_clients = num_clients
         self.sample_scheme = sample_scheme
@@ -118,13 +103,26 @@ class CentralFLAlgorithm(object):
             self.loss_fn = loss_fn
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
-        self.local_weight_decay = local_weight_decay
-        self.slr = slr
-        self.clr = clr
-        self.clr_decay = clr_decay
-        self.clr_decay_type = clr_decay_type
-        self.min_clr = min_clr
-        self.clr_step_size = clr_step_size
+        self.optimizer_class = optimizer_class
+        self.local_optimizer_class = local_optimizer_class
+        self.lr_scheduler_class = lr_scheduler_class
+        self.local_lr_scheduler_class = local_lr_scheduler_class
+
+        if r2r_local_lr_scheduler_class is not None:
+            # get local lr to build r2r scheduler
+
+            # if partial is used
+            if hasattr(local_optimizer_class, "keywords"):
+                clr = local_optimizer_class.keywords["lr"]
+            # if lr is argumetn
+            elif "lr" in inspect.signature(local_optimizer_class).parameters.keys():
+                clr = inspect.signature(local_optimizer_class).parameters["lr"].default
+            else:
+                raise Exception("lr not found in local optimizer class")
+
+            self.r2r_local_lr_scheduler = r2r_local_lr_scheduler_class(init_lr=clr)
+        else:
+            self.r2r_local_lr_scheduler = None
 
         self.metric_logger = metric_logger
         self.device = device
@@ -191,25 +189,20 @@ class CentralFLAlgorithm(object):
         return self.send_to_client(client_id=client_id)
 
     def _send_to_server(self, client_id):
-        if self.clr_decay_type == "step":
-            decayed_clr = self.clr * (
-                self.clr_decay ** (self.rounds // self.clr_step_size)
+        if self.r2r_local_lr_scheduler is None:
+            local_optimizer_class = self.local_optimizer_class
+        else:
+            local_optimizer_class = partial(
+                self.local_optimizer_class, lr=self.r2r_local_lr_scheduler.get_lr()
             )
-        elif self.clr_decay_type == "cosine":
-            T_i = self.clr_step_size
-            T_cur = self.rounds % T_i
-            decayed_clr = self.min_clr + 0.5 * (self.clr - self.min_clr) * (
-                1 + math.cos(math.pi * T_cur / T_i)
-            )
-
         client_ctx = self.send_to_server(
             client_id,
             self._data_manager.get_local_dataset(client_id),
             self.epochs,
             self.loss_fn,
             self.batch_size,
-            decayed_clr,
-            self.local_weight_decay,
+            local_optimizer_class,
+            self.lr_scheduler_class,
             self.device,
             ctx=self._send_to_client(client_id),
         )
@@ -235,13 +228,15 @@ class CentralFLAlgorithm(object):
             optimize_reports,
             deployment_points,
         )
-        log_fn = self.metric_logger.log_scalar
-        apply_on_dict(report_metrics, log_fn, step=self.rounds)
+        if self.metric_logger is not None:
+            log_fn = self.metric_logger.log_scalar
+            apply_on_dict(report_metrics, log_fn, step=self.rounds)
         return report_metrics
 
     def _train(self, rounds, num_score_report_point=None):
         score_aggregator = AppendixAggregator(max_deque_lenght=num_score_report_point)
         for self.rounds in trange(rounds):
+            self._at_round_start()
             round_aggregator = SerialAggregator()
             for client_id in self._sample_clients():
                 client_msg = self._send_to_server(client_id)
@@ -251,6 +246,7 @@ class CentralFLAlgorithm(object):
                 deploy_poiont = self.deploy()
                 score_dict = self._report(opt_reports, deploy_poiont)
                 score_aggregator.append_all(score_dict, step=self.rounds)
+            self._at_round_end()
 
         # one last report
         if self.rounds % self.log_freq > 0:
@@ -258,6 +254,14 @@ class CentralFLAlgorithm(object):
             score_dict = self._report(opt_reports, deploy_poiont)
             score_aggregator.append_all(score_dict, step=self.rounds)
         return score_aggregator.pop_all()
+
+    def _at_round_start(self) -> None:
+        self.at_round_start()
+
+    def _at_round_end(self) -> None:
+        if self.r2r_local_lr_scheduler is not None:
+            self.r2r_local_lr_scheduler.step()
+        self.at_round_end()
 
     # API functions
 
@@ -268,6 +272,11 @@ class CentralFLAlgorithm(object):
     ) -> Optional[Dict[str, Optional[float]]]:
         r"""loop over the learning pipeline of distributed algorithm for given
         number of rounds.
+
+        .. note::
+            * The clients metrics are reported in the form of clients.{metric_name}.
+            * The server metrics are reported in the form of
+                server.{deployment_point}.{metric_name}
 
         Args:
             rounds (int): number of rounds to train.
@@ -292,6 +301,12 @@ class CentralFLAlgorithm(object):
 
     def get_global_score_functions(self, split_name) -> Dict[str, Any]:
         return self._server_scores[split_name]
+
+    def at_round_start(self) -> None:
+        pass
+
+    def at_round_end(self) -> None:
+        pass
 
     # we do not do type hinting, however, the hints for abstract
     # methods are provided to help clarity for users
@@ -321,8 +336,8 @@ class CentralFLAlgorithm(object):
         epochs: int,
         loss_fn: nn.Module,
         batch_size: int,
-        lr: float,
-        weight_decay: float = 0,
+        optimizer_class: Callable,
+        lr_scheduler_class: Optional[Callable] = None,
         device: Union[int, str] = "cuda",
         ctx: Optional[Dict[Hashable, Any]] = None,
         *args,
@@ -336,8 +351,8 @@ class CentralFLAlgorithm(object):
             epochs (int): number of epochs to train
             loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
             batch_size (int): training batch_size
-            lr (float): client learning rate
-            weight_decay (float, optional): weight decay. Defaults to 0.
+            optimizer_class (float): class for constructing the local optimizer
+            lr_scheduler_class (float): class for constructing the local lr scheduler
             device (Union[int, str], optional): Defaults to 'cuda'.
             ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
 
@@ -392,7 +407,7 @@ class CentralFLAlgorithm(object):
     def report(
         self,
         dataloaders: Dict[str, Any],
-        metric_logger: Any,
+        metric_logger: Optional[Any],
         device: str,
         optimize_reports: Mapping[Hashable, Any],
         deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
@@ -405,7 +420,8 @@ class CentralFLAlgorithm(object):
 
         Args:
             dataloaders (Any): dict of data loaders to test the global model(s)
-            metric_logger (Any): the logging object (e.g., logall.TensorboardLogger)
+            metric_logger (Any, optional): the logging object
+                (e.g., logall.TensorboardLogger)
             device (str): 'cuda', 'cpu' or gpu number
             optimize_reports (Mapping[Hashable, Any]): dict returned by \
                 optimzier

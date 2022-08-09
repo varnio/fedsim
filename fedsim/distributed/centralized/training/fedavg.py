@@ -5,6 +5,7 @@ FedAvg
 import math
 import sys
 from copy import deepcopy
+from functools import partial
 
 from torch.nn.utils import parameters_to_vector
 from torch.nn.utils import vector_to_parameters
@@ -27,22 +28,21 @@ class FedAvg(CentralFLAlgorithm):
 
     Args:
         data_manager (Callable): data manager
-        metric_logger (Callable): a logger object
+        metric_logger (Callable): a logall.Logger instance
         num_clients (int): number of clients
         sample_scheme (str): mode of sampling clients
         sample_rate (float): rate of sampling clients
         model_class (Callable): class for constructing the model
         epochs (int): number of local epochs
         loss_fn (Callable): loss function defining local objective
+        optimizer_class (Callable): server optimizer class
+        local_optimizer_class (Callable): local optimization class
+        lr_scheduler_class: class definition for lr scheduler of server optimizer
+        local_lr_scheduler_class: class definition for lr scheduler of local optimizer
+        r2r_local_lr_scheduler_class: class definition to schedule lr delivered to
+            clients at each round (init lr of the client optimizer)
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
-        local_weight_decay (float): weight decay for local optimization
-        slr (float): server learning rate
-        clr (float): client learning rate
-        clr_decay (float): round to round decay for clr (multiplicative)
-        clr_decay_type (str): type of decay for clr (step or cosine)
-        min_clr (float): minimum client learning rate
-        clr_step_size (int): frequency of applying clr_decay
         device (str): cpu, cuda, or gpu number
         log_freq (int): frequency of logging
 
@@ -60,19 +60,15 @@ class FedAvg(CentralFLAlgorithm):
         model_class,
         epochs,
         loss_fn,
+        optimizer_class=partial(SGD, lr=0.1, weight_decay=0.001),
+        local_optimizer_class=partial(SGD, lr=1.0),
+        lr_scheduler_class=None,
+        local_lr_scheduler_class=None,
+        r2r_local_lr_scheduler_class=None,
         batch_size=32,
         test_batch_size=64,
-        local_weight_decay=0.0,
-        slr=1.0,
-        clr=0.1,
-        clr_decay=1.0,
-        clr_decay_type="step",
-        min_clr=1e-12,
-        clr_step_size=1000,
         device="cuda",
         log_freq=10,
-        *args,
-        **kwargs,
     ):
         super(FedAvg, self).__init__(
             data_manager,
@@ -83,15 +79,13 @@ class FedAvg(CentralFLAlgorithm):
             model_class,
             epochs,
             loss_fn,
+            optimizer_class,
+            local_optimizer_class,
+            lr_scheduler_class,
+            local_lr_scheduler_class,
+            r2r_local_lr_scheduler_class,
             batch_size,
             test_batch_size,
-            local_weight_decay,
-            slr,
-            clr,
-            clr_decay,
-            clr_decay_type,
-            min_clr,
-            clr_step_size,
             device,
             log_freq,
         )
@@ -99,11 +93,15 @@ class FedAvg(CentralFLAlgorithm):
         # make mode and optimizer
         model = self.get_model_class()().to(self.device)
         params = deepcopy(parameters_to_vector(model.parameters()).clone().detach())
-        optimizer = SGD(params=[params], lr=slr)
+        optimizer = optimizer_class(params=[params])
+        lr_scheduler = None
+        if lr_scheduler_class is not None:
+            lr_scheduler = lr_scheduler_class(optimizer)
         # write model and optimizer to server
         self.write_server("model", model)
         self.write_server("cloud_params", params)
         self.write_server("optimizer", optimizer)
+        self.write_server("lr_scheduler", lr_scheduler)
 
     def send_to_client(self, client_id):
         # since fedavg broadcast the same model to all selected clients,
@@ -125,8 +123,8 @@ class FedAvg(CentralFLAlgorithm):
         epochs,
         loss_fn,
         batch_size,
-        lr,
-        weight_decay=0,
+        optimizer_class,
+        lr_scheduler_class=None,
         device="cuda",
         ctx=None,
         step_closure=None,
@@ -146,7 +144,10 @@ class FedAvg(CentralFLAlgorithm):
         )
 
         model = ctx["model"]
-        optimizer = SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
+        optimizer = optimizer_class(model.parameters())
+        lr_scheduler = None
+        if lr_scheduler_class is not None:
+            lr_scheduler = lr_scheduler_class(optimizer=optimizer)
         # optimize the model locally
         step_closure_ = default_step_closure if step_closure is None else step_closure
         opt_result = local_train(
@@ -156,6 +157,7 @@ class FedAvg(CentralFLAlgorithm):
             0,
             loss_fn,
             optimizer,
+            lr_scheduler,
             device,
             step_closure_,
             metric_fn_dict={
@@ -234,12 +236,15 @@ class FedAvg(CentralFLAlgorithm):
         if "local_params" in aggregator:
             param_avg = aggregator.pop("local_params")
             optimizer = self.read_server("optimizer")
+            lr_scheduler = self.read_server("lr_scheduler")
             cloud_params = self.read_server("cloud_params")
             pseudo_grads = cloud_params.data - param_avg
             # update cloud params
             optimizer.zero_grad()
             cloud_params.grad = pseudo_grads
             optimizer.step()
+            if lr_scheduler is not None:
+                lr_scheduler.step()
             # purge aggregated results
             del param_avg
         return aggregator.pop_all()
@@ -267,7 +272,7 @@ class FedAvg(CentralFLAlgorithm):
                         model,
                         loader,
                         metric_fn_dict={
-                            f"{point_name}.{split_name}_{key}": score
+                            f"server.{point_name}.{split_name}_{key}": score
                             for key, score in self.get_global_score_functions(
                                 split_name
                             ).items()

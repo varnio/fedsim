@@ -85,7 +85,7 @@ Here is a demo:
     for key in dm.get_local_splits_names():
         alg.hook_local_score_function(key, "accuracy", accuracy)
 
-    alg.train(rounds=1)
+    report_summary = alg.train(rounds=1)
 
 
 fedsim-cli tool
@@ -186,127 +186,133 @@ Any custome DataManager class should inherit from ``fedsim.distributed.centraliz
 
 .. code-block:: python
 
-   from typing import Optional, Hashable, Mapping, Dict, Any
-   from fedsim.distributed.centralized import CentralFLAlgorithm
+    from typing import Optional, Hashable, Mapping, Dict, Any
+    from fedsim.distributed.centralized import CentralFLAlgorithm
 
-   class CustomFLAlgorithm(CentralFLAlgorithm):
-       def __init__(
-           self, data_manager, num_clients, sample_scheme, sample_rate, model_class, epochs, loss_fn,
-           batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type,
-           min_clr, clr_step_size, metric_logger, device, log_freq, other_arg, ... , *args, **kwargs,
-       ):
-           self.other_arg = other_arg
+    class CustomFLAlgorithm(CentralFLAlgorithm):
+        def __init__(
+            self, data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_class,
+            epochs, loss_fn, optimizer_class, local_optimizer_class, batch_size, test_batch_size,
+            lr_scheduler_class, local_lr_scheduler_class, r2r_local_lr_scheduler_class, device,
+            log_freq, other_arg, ...
+        ):
+            self.other_arg = other_arg
 
-           super(CustomFLAlgorithm, self).__init__(
-               data_manager, num_clients, sample_scheme, sample_rate, model_class, epochs, loss_fn,
-               batch_size, test_batch_size, local_weight_decay, slr, clr, clr_decay, clr_decay_type,
-               min_clr, clr_step_size, metric_logger, device, log_freq,
-           )
-           # make mode and optimizer
-           model = self.get_model_class()().to(self.device)
-           params = deepcopy(
-               parameters_to_vector(model.parameters()).clone().detach())
-           optimizer = SGD(params=[params], lr=slr)
-           # write model and optimizer to server
-           self.write_server('model', model)
-           self.write_server('cloud_params', params)
-           self.write_server('optimizer', optimizer)
-           ...
+            super(CustomFLAlgorithm, self).__init__(
+                data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_class,
+                epochs, loss_fn, optimizer_class, local_optimizer_class, batch_size, test_batch_size,
+                lr_scheduler_class, local_lr_scheduler_class, r2r_local_lr_scheduler_class, device,
+                log_freq,
+            )
+            # make mode and optimizer
+            model = self.get_model_class()().to(self.device)
+            params = deepcopy(parameters_to_vector(model.parameters()).clone().detach())
+            optimizer = optimizer_class(params=[params])
+            lr_scheduler = None
+            if lr_scheduler_class is not None:
+                lr_scheduler = lr_scheduler_class(optimizer)
+            # write model and optimizer to server
+            self.write_server("model", model)
+            self.write_server("cloud_params", params)
+            self.write_server("optimizer", optimizer)
+            self.write_server("lr_scheduler", lr_scheduler)
+            ...
 
-       def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
-           """ returns context to send to the client corresponding to client_id.
-               Do not send shared objects like server model if you made any
-               before you deepcopy it.
+        def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
+            """ returns context to send to the client corresponding to client_id.
+                Do not send shared objects like server model if you made any
+                before you deepcopy it.
 
-           Args:
-               client_id (int): id of the receiving client
+            Args:
+                client_id (int): id of the receiving client
 
-           Raises:
-               NotImplementedError: abstract class to be implemented by child
+            Raises:
+                NotImplementedError: abstract class to be implemented by child
 
-           Returns:
-               Mapping[Hashable, Any]: the context to be sent in form of a Mapping
-           """
-           raise NotImplementedError
+            Returns:
+                Mapping[Hashable, Any]: the context to be sent in form of a Mapping
+            """
+            raise NotImplementedError
 
-       def send_to_server(
-           self, client_id: int, datasets: Dict[str, Iterable], epochs: int, loss_fn: nn.Module,
-           batch_size: int, lr: float, weight_decay: float = 0, device: Union[int, str] = 'cuda',
-           ctx: Optional[Dict[Hashable, Any]] = None, *args, **kwargs
-       ) -> Mapping[str, Any]:
-           """ client operation on the recieved information.
+        def send_to_server(self, client_id: int, datasets: Dict[str, Iterable], epochs: int,
+            loss_fn: nn.Module, batch_size: int, optimizer_class: Callable,
+            lr_scheduler_class: Optional[Callable] = None, device: Union[int, str] = "cuda",
+            ctx: Optional[Dict[Hashable, Any]] = None
+        ) -> Mapping[str, Any]:
+            """client operation on the recieved information.
 
-           Args:
-               client_id (int): id of the client
-               datasets (Dict[str, Iterable]): this comes from Data Manager
-               epochs (int): number of epochs to train
-               loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
-               batch_size (int): training batch_size
-               lr (float): client learning rate
-               weight_decay (float, optional): weight decay for SGD. Defaults to 0.
-               device (Union[int, str], optional): Defaults to 'cuda'.
-               ctx (Optional[Dict[Hashable, Any]], optional): context reveived from server. Defaults to None.
+            Args:
+                client_id (int): id of the client
+                datasets (Dict[str, Iterable]): this comes from Data Manager
+                epochs (int): number of epochs to train
+                loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
+                batch_size (int): training batch_size
+                optimizer_class (float): class for constructing the local optimizer
+                lr_scheduler_class (float): class for constructing the local lr scheduler
+                device (Union[int, str], optional): Defaults to 'cuda'.
+                ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
 
-           Raises:
-               NotImplementedError: abstract class to be implemented by child
+            Raises:
+                NotImplementedError: abstract class to be implemented by child
 
-           Returns:
-               Mapping[str, Any]: client context to be sent to the server
-           """
-           raise NotImplementedError
+            Returns:
+                Mapping[str, Any]: client context to be sent to the server
+            """
+            raise NotImplementedError
 
-       def receive_from_client(self, client_id: int, client_msg: Mapping[Hashable, Any], aggregator: Any):
-           """ receive and aggregate info from selected clients
 
-           Args:
-               client_id (int): id of the sender (client)
-               client_msg (Mapping[Hashable, Any]): client context that is sent
-               aggregator (Any): aggregator instance to collect info
+        def receive_from_client(self, client_id: int, client_msg: Mapping[Hashable, Any], aggregator: Any):
+            """ receive and aggregate info from selected clients
 
-           Raises:
-               NotImplementedError: abstract class to be implemented by child
-           """
-           raise NotImplementedError
+            Args:
+                client_id (int): id of the sender (client)
+                client_msg (Mapping[Hashable, Any]): client context that is sent
+                aggregator (Any): aggregator instance to collect info
 
-       def optimize(self, aggregator: Any) -> Mapping[Hashable, Any]:
-           """ optimize server mdoel(s) and return metrics to be reported
+            Raises:
+                NotImplementedError: abstract class to be implemented by child
+            """
+            raise NotImplementedError
 
-           Args:
-               aggregator (Any): Aggregator instance
+        def optimize(self, aggregator: Any) -> Mapping[Hashable, Any]:
+            """ optimize server mdoel(s) and return metrics to be reported
 
-           Raises:
-               NotImplementedError: abstract class to be implemented by child
+            Args:
+                aggregator (Any): Aggregator instance
 
-           Returns:
-               Mapping[Hashable, Any]: context to be reported
-           """
-           raise NotImplementedError
+            Raises:
+                NotImplementedError: abstract class to be implemented by child
 
-       def deploy(self) -> Optional[Mapping[Hashable, Any]]:
-           """ return Mapping of name -> parameters_set to test the model
+            Returns:
+                Mapping[Hashable, Any]: context to be reported
+            """
+            raise NotImplementedError
 
-           Raises:
-               NotImplementedError: abstract class to be implemented by child
-           """
-           raise NotImplementedError
+        def deploy(self) -> Optional[Mapping[Hashable, Any]]:
+            """ return Mapping of name -> parameters_set to test the model
 
-       def report(
-           self, dataloaders, metric_logger: Any, device: str, optimize_reports: Mapping[Hashable, Any],
-           deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None
-       ) -> None:
-           """test on global data and report info
+            Raises:
+                NotImplementedError: abstract class to be implemented by child
+            """
+            raise NotImplementedError
 
-           Args:
-               dataloaders (Any): dict of data loaders to test the global model(s)
-               metric_logger (Any): the logging object (e.g., SummaryWriter)
-               device (str): 'cuda', 'cpu' or gpu number
-               optimize_reports (Mapping[Hashable, Any]): dict returned by optimzier
-               deployment_points (Mapping[Hashable, torch.Tensor], optional): output of deploy method
+        def report(
+            self, dataloaders, metric_logger: Any, device: str, optimize_reports: Mapping[Hashable, Any],
+            deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None
+        ) -> None:
+            """test on global data and report info
 
-           Raises:
-               NotImplementedError: abstract class to be implemented by child
-           """
-           raise NotImplementedError
+            Args:
+                dataloaders (Any): dict of data loaders to test the global model(s)
+                metric_logger (Any): the logging object (e.g., SummaryWriter)
+                device (str): 'cuda', 'cpu' or gpu number
+                optimize_reports (Mapping[Hashable, Any]): dict returned by optimzier
+                deployment_points (Mapping[Hashable, torch.Tensor], optional): output of deploy method
+
+            Raises:
+                NotImplementedError: abstract class to be implemented by child
+            """
+            raise NotImplementedError
 
 Integration with fedsim-cli (CentralFLAlgorithm)
 ------------------------------------------------
@@ -358,11 +364,6 @@ Included FL algorithms
    * - FedAvg
      - .. image:: https://img.shields.io/badge/arXiv-1602.05629-b31b1b.svg?style=flat-square
         :target: https://arxiv.org/abs/1602.05629
-        :alt: arXiv
-
-   * - FedAvgM
-     - .. image:: https://img.shields.io/badge/arXiv-1909.06335-b31b1b.svg?style=flat-square
-        :target: https://arxiv.org/abs/1909.06335
         :alt: arXiv
 
    * - FedNova
@@ -417,3 +418,44 @@ For example, if you have model `CustomModel` stored in a `foo/bar/my_custom_mode
     .. code-block:: bash
 
         fedsim-cli fed-learn --model foo/bar/my_custom_alg:CustomModel num_classes:8 ...
+
+
+Learning Rate Schedulers
+========================
+
+`fedsim-cli fed-learn` accepts 3 scheduler objects.
+
+* **lr-scheduler:** learning rate scheduler for server optimizer. It accepts a pytorch lr scheduler.
+* **local-lr-scheduler:** learning rate scheduler for client optimizer. It accepts a pytorch lr scheduler.
+* **r2r-local-lr-scheduler:** schedules the initial learning rate that is delivered to the clients of each round. It accepts any class inherited from `fedsim.lr_schedulers.LRScheduler`.
+
+These arguments are passed to instances of the centralized FL algorithms.
+
+
+
+fedsim-cli examples
+===================
+The following command splits CIFAR100 on 1000 idd partitions and then uses AdaBest algorithm with :math:`\mu=0.02` and :math:`\beta=0.96` to train a model.
+It randomly draws 1\% of all clients (200 clietns, first 200 paritions of the 1000) at each round (2 clients) and uses SGD with lr=0.05 and weight_decay=0.001 as for the local learning rate.
+Local training batch size is 50.
+
+
+.. code-block:: bash
+
+    fedsim-cli fed-learn -a AdaBest mu:0.02 beta:0.96 -m cnn_cifar100 -d BasicDataManager dataset:cifar100 num_partitions:1000 -r 1001 -n 200 --local-optimizer SGD lr:0.05 weight_decay:0.001 --batch-size 50 --client-sample-rate 0.01
+
+The following command tunes :math:`\mu` and :math:`\beta` for AdaBest algorithm. It uses Gaussian Process to maximize the average of the last 10 reported test accuracy scores.
+:math:`\mu` is tuned for float numbers (Real) between 0 and 0.1 and :math:`\beta` is tuned for float numbers between 0.1 and 1. Notice that only 2 clients are defined while the data manager by default is splitting the data over 500 partitions.
+
+.. code-block:: bash
+
+    fedsim-cli fed-tune --epochs 1 --n-clients 2 --client-sample-rate 0.5 -a AdaBest mu:Real:0-0.1 beta:Real:0.3-1 --maximize-metric --n-iters 20
+
+    .. note::
+        * To define a float range to tune use `Real` keyword as the argument value (e.g., `mu:Real:0-0.1`)
+        * To define an integer range to tune use `Integer` keyword as the argument value (e.g., `arg1:Integer:2-15`)
+        * To define a categorical range to tune use `Categorical` keyword as the argument value (e.g., `arg2:Categorical:uniform-normal-special`)
+
+Side Notes
+==========
+* Do not use double underscores (`__`) in argument names of your customized classes.

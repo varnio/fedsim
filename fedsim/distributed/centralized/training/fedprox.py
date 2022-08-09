@@ -5,6 +5,7 @@ FedProx
 from functools import partial
 
 from torch.nn.utils import parameters_to_vector
+from torch.optim import SGD
 
 from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import vector_to_parameters_like
@@ -20,22 +21,21 @@ class FedProx(fedavg.FedAvg):
 
     Args:
         data_manager (Callable): data manager
-        metric_logger (Callable): a logger object
+        metric_logger (Callable): a logall.Logger instance
         num_clients (int): number of clients
         sample_scheme (str): mode of sampling clients
         sample_rate (float): rate of sampling clients
         model_class (Callable): class for constructing the model
         epochs (int): number of local epochs
         loss_fn (Callable): loss function defining local objective
+        optimizer_class (Callable): server optimizer class
+        local_optimizer_class (Callable): local optimization class
+        lr_scheduler_class: class definition for lr scheduler of server optimizer
+        local_lr_scheduler_class: class definition for lr scheduler of local optimizer
+        r2r_local_lr_scheduler_class: class definition to schedule lr delivered to
+            clients at each round (init lr of the client optimizer)
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
-        local_weight_decay (float): weight decay for local optimization
-        slr (float): server learning rate
-        clr (float): client learning rate
-        clr_decay (float): round to round decay for clr (multiplicative)
-        clr_decay_type (str): type of decay for clr (step or cosine)
-        min_clr (float): minimum client learning rate
-        clr_step_size (int): frequency of applying clr_decay
         device (str): cpu, cuda, or gpu number
         log_freq (int): frequency of logging
         mu (float): FedProx's :math:`\mu` parameter for local regularization
@@ -54,20 +54,16 @@ class FedProx(fedavg.FedAvg):
         model_class,
         epochs,
         loss_fn,
+        optimizer_class=partial(SGD, lr=0.1, weight_decay=0.001),
+        local_optimizer_class=partial(SGD, lr=1.0),
+        lr_scheduler_class=None,
+        local_lr_scheduler_class=None,
+        r2r_local_lr_scheduler_class=None,
         batch_size=32,
         test_batch_size=64,
-        local_weight_decay=0.0,
-        slr=1.0,
-        clr=0.1,
-        clr_decay=1.0,
-        clr_decay_type="step",
-        min_clr=1e-12,
-        clr_step_size=1000,
         device="cuda",
         log_freq=10,
         mu=0.0001,
-        *args,
-        **kwargs,
     ):
         self.mu = mu
 
@@ -80,15 +76,13 @@ class FedProx(fedavg.FedAvg):
             model_class,
             epochs,
             loss_fn,
+            optimizer_class,
+            local_optimizer_class,
+            lr_scheduler_class,
+            local_lr_scheduler_class,
+            r2r_local_lr_scheduler_class,
             batch_size,
             test_batch_size,
-            local_weight_decay,
-            slr,
-            clr,
-            clr_decay,
-            clr_decay_type,
-            min_clr,
-            clr_step_size,
             device,
             log_freq,
         )
@@ -100,8 +94,8 @@ class FedProx(fedavg.FedAvg):
         epochs,
         loss_fn,
         batch_size,
-        lr,
-        weight_decay=0,
+        optimizer_class,
+        lr_scheduler_class=None,
         device="cuda",
         ctx=None,
         *args,
@@ -130,8 +124,8 @@ class FedProx(fedavg.FedAvg):
             epochs,
             loss_fn,
             batch_size,
-            lr,
-            weight_decay,
+            optimizer_class,
+            lr_scheduler_class,
             device,
             ctx,
             step_closure=step_closure_,
