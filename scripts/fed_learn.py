@@ -41,7 +41,7 @@ from .utils import ingest_fed_context
     help="name of data manager.",
 )
 @click.option(
-    "--num-clients",
+    "--n-clients",
     "-n",
     type=int,
     default=500,
@@ -179,7 +179,7 @@ from .utils import ingest_fed_context
     help="gap between two reports in rounds.",
 )
 @click.option(
-    "--train-report-point",
+    "--n-point-summary",
     type=int,
     default=10,
     show_default=True,
@@ -198,7 +198,7 @@ def fed_learn(
     ctx: click.core.Context,
     rounds: int,
     data_manager: str,
-    num_clients: int,
+    n_clients: int,
     client_sample_scheme: str,
     client_sample_rate: float,
     algorithm: str,
@@ -216,7 +216,7 @@ def fed_learn(
     device: Optional[str],
     log_dir: str,
     log_freq: int,
-    train_report_point: int,
+    n_point_summary: int,
     verbosity: int,
 ) -> None:
     """simulates federated learning!
@@ -316,7 +316,6 @@ def fed_learn(
     logger.setLevel(logging.INFO)
     logger.addHandler(log_handler)
 
-
     loss_criterion = None
     if hasattr(scores, loss_fn):
         loss_criterion = getattr(scores, loss_fn)
@@ -338,35 +337,35 @@ def fed_learn(
         local_optimizer,
         lr_scheduler,
         local_lr_scheduler,
-        r2r_local_lr_scheduler
+        r2r_local_lr_scheduler,
     )
 
     # log configuration
-    args_dict = {obj_name:obj.arguments for obj_name, obj in cfg.items()}
+    args_dict = {obj_name: obj.arguments for obj_name, obj in cfg.items()}
     log = {**ctx.params, **args_dict}
-    log['device'] = device
-    log['log_dir'] = log_dir
+    log["device"] = device
+    log["log_dir"] = log_dir
     logger.info("arguments: \n" + pformat(log))
-    
+
     # set the seed of random generators
     if seed is not None:
         set_seed(seed, device)
 
-    data_manager_instant = cfg['data_manager'].definition()
+    data_manager_instant = cfg["data_manager"].definition()
 
-    algorithm_instance = cfg['algorithm'].definition(
+    algorithm_instance = cfg["algorithm"].definition(
         data_manager=data_manager_instant,
-        num_clients=num_clients,
+        num_clients=n_clients,
         sample_scheme=client_sample_scheme,
         sample_rate=client_sample_rate,
-        model_class=cfg['model'].definition,
+        model_class=cfg["model"].definition,
         epochs=epochs,
         loss_fn=loss_criterion,
-        optimizer_class=cfg['optimizer'].definition,
-        local_optimizer_class=cfg['local_optimizer'].definition,
-        lr_scheduler_class=cfg['lr_scheduler'].definition,
-        local_lr_scheduler_class=cfg['local_lr_scheduler'].definition,
-        r2r_local_lr_scheduler_class=cfg['r2r_local_lr_scheduler'].definition,
+        optimizer_class=cfg["optimizer"].definition,
+        local_optimizer_class=cfg["local_optimizer"].definition,
+        lr_scheduler_class=cfg["lr_scheduler"].definition,
+        local_lr_scheduler_class=cfg["local_lr_scheduler"].definition,
+        r2r_local_lr_scheduler_class=cfg["r2r_local_lr_scheduler"].definition,
         batch_size=batch_size,
         test_batch_size=test_batch_size,
         metric_logger=tb_logger,
@@ -377,8 +376,7 @@ def fed_learn(
     for key in data_manager_instant.get_local_splits_names():
         algorithm_instance.hook_local_score_function(key, "accuracy", scores.accuracy)
 
-    logging.info(
-        f"average of the last {train_report_point}\
-            reports: {algorithm_instance.train(rounds, train_report_point)}"
-    )
+    report_summary = algorithm_instance.train(rounds, n_point_summary)
+    logger.info(f"average of the last {n_point_summary} reports")
+    logger.info(report_summary)
     tb_logger.flush()

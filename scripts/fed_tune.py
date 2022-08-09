@@ -3,36 +3,35 @@ fed-tune cli Command
 --------------------
 """
 
-from functools import partial
 import logging
 import os
+from functools import partial
 from pprint import pformat
-from typing import Optional, OrderedDict
+from typing import Optional
+from typing import OrderedDict
 
 import click
 import torch
-
-from skopt import Optimizer
-from skopt.space import Real
-from skopt.space import Integer
-from skopt.space import Categorical
-
 from logall import TensorboardLogger
+from skopt import Optimizer
+from skopt.space import Categorical
+from skopt.space import Integer
+from skopt.space import Real
 
 from fedsim import scores
 from fedsim.utils import set_seed
 
+from .utils import LogFilter
 from .utils import OptionEatAll
 from .utils import ingest_fed_context
-from .utils import LogFilter
-from .agglogger import AggLogger
+
 
 @click.command(
     name="fed-tune",
     help="Tunes a Federated Learning system.",
 )
 @click.option(
-    "--num-iters",
+    "--n-iters",
     type=int,
     default=10,
     show_default=True,
@@ -60,6 +59,22 @@ from .agglogger import AggLogger
     help="skopt estimator",
 )
 @click.option(
+    "--eval-metric",
+    type=str,
+    default="server.avg.test_accuracy",
+    show_default=True,
+    help="complete name of the metric (returned from train method of algorithm) to\
+        minimize (or maximize if --maximize is passed)",
+)
+@click.option(
+    "--maximize-metric",
+    type=str,
+    is_flag=True,
+    show_default=True,
+    help="complete name of the metric (returned from train method of algorithm) to\
+        minimize or maximize",
+)
+@click.option(
     "--rounds",
     "-r",
     type=int,
@@ -77,7 +92,7 @@ from .agglogger import AggLogger
     help="name of data manager.",
 )
 @click.option(
-    "--num-clients",
+    "--n-clients",
     "-n",
     type=int,
     default=500,
@@ -215,7 +230,7 @@ from .agglogger import AggLogger
     help="gap between two reports in rounds.",
 )
 @click.option(
-    "--train-report-point",
+    "--n-point-summary",
     type=int,
     default=10,
     show_default=True,
@@ -232,13 +247,15 @@ from .agglogger import AggLogger
 @click.pass_context
 def fed_tune(
     ctx: click.core.Context,
-    num_iters: int,
+    n_iters: int,
     skopt_n_initial_points: int,
     skopt_random_state: int,
     skopt_base_estimator: str,
+    eval_metric: str,
+    maximize_metric: bool,
     rounds: int,
     data_manager: str,
-    num_clients: int,
+    n_clients: int,
     client_sample_scheme: str,
     client_sample_rate: float,
     algorithm: str,
@@ -256,7 +273,7 @@ def fed_tune(
     device: Optional[str],
     log_dir: str,
     log_freq: int,
-    train_report_point: int,
+    n_point_summary: int,
     verbosity: int,
 ) -> None:
     """simulates federated learning!
@@ -344,12 +361,13 @@ def fed_tune(
 
 
     """
-    agg_logger = AggLogger(logdir=log_dir)
-    log_dir = agg_logger.get_dir()
-    print("log available at %s", os.path.join(log_dir, "log.log"))
-    
+    tb_logger = TensorboardLogger(path=log_dir)
+    log_dir = tb_logger.get_dir()
+    print(f'log available at: \n\t {os.path.join(log_dir, "log.log")}')
+    print(f"run the following for monitoring:\n\t tensorboard --logdir={log_dir}")
+    print()
     log_handler = logging.FileHandler(os.path.join(log_dir, "log.log"))
-    log_handler.addFilter(LogFilter('parent'))
+    log_handler.addFilter(LogFilter("parent"))
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logger.addHandler(log_handler)
@@ -375,25 +393,25 @@ def fed_tune(
         local_optimizer,
         lr_scheduler,
         local_lr_scheduler,
-        r2r_local_lr_scheduler
+        r2r_local_lr_scheduler,
     )
     hparams = OrderedDict()
     for obj_name, obj in cfg.items():
         for arg_name, arg in obj.harguments.items():
-            hparams['.'.join([obj_name, arg_name])] = arg
+            hparams[".".join([obj_name, arg_name])] = arg
     if len(hparams) == 0:
         raise Exception("no hyper-params specified!")
-    
+
     # log configuration
     compined_args = dict()
     for obj_name, obj in cfg.items():
         compined_args[obj_name] = {**obj.arguments, **obj.harguments}
-        
+
     log = {**ctx.params, **compined_args}
-    log['device'] = device
-    log['log_dir'] = log_dir
-    logger.info("arguments: \n" + pformat(log), extra={'flow':'parent'})
-    logger.info("hyperparams are: " + pformat(hparams), extra={'flow':'parent'})
+    log["device"] = device
+    log["log_dir"] = log_dir
+    logger.info("configuration: \n" + pformat(log), extra={"flow": "parent"})
+    logger.info("hyper-params: \n" + pformat(dict(hparams)), extra={"flow": "parent"})
     # make hparam opt
     optimizer = Optimizer(
         dimensions=hparams.values(),
@@ -403,60 +421,59 @@ def fed_tune(
     )
 
     def refine_hparams(hparam_dict, obj_name):
-        """ filters hparams of obj_name from hparam_dict and returns as a dict.
-        Example: 
-            hparam_dict := {'algorithm.mu': 0.1, 'model.omega: 5'}, obj_name == algorithm
-            the result would be {'mu': 0.1}
+        """filters hparams of obj_name from hparam_dict and returns as a dict.
+        Example:
+            if hparam_dict := {'algorithm.mu': 0.1, 'model.omega: 5'},
+            obj_name == algorithm, then the result would be {'mu': 0.1}
 
         """
         hargs = dict()
         for k, v in hparam_dict.items():
-            o_name, arg_name = k.split('.')
+            o_name, arg_name = k.split(".")
             if o_name == obj_name:
                 hargs[arg_name] = v
         return hargs
 
     def update_def(hparam_dict, obj_name):
-        """ updates the partial definition of cfg[obj_name].definition, with
-            corresponding entries in hparam_dict
+        """updates the partial definition of cfg[obj_name].definition, with
+        corresponding entries in hparam_dict
         """
         return partial(
-            cfg[obj_name].definition,
-            **refine_hparams(hparam_dict, obj_name)
+            cfg[obj_name].definition, **refine_hparams(hparam_dict, obj_name)
         )
-     
+
+    best_metric = None
+    best_config = None
+    best_itr = None
     # loop
-    for _ in range(num_iters):
+    for itr in range(n_iters):
         suggested = optimizer.ask()
         hparams_suggested = {k: v for k, v in zip(hparams.keys(), suggested)}
-        data_manager_class = update_def(hparams_suggested, 'data_manager')
-        algorithm_class = update_def(hparams_suggested, 'algorithm')
-        model_class = update_def(hparams_suggested, 'model')
-        optimizer_class = update_def(hparams_suggested, 'optimizer')
-        local_optimizer_class = update_def(hparams_suggested, 'local_optimizer')
-        lr_scheduler_class = update_def(hparams_suggested, 'lr_scheduler')
-        local_lr_scheduler_class = update_def(hparams_suggested, 'local_lr_scheduler')
+        data_manager_class = update_def(hparams_suggested, "data_manager")
+        algorithm_class = update_def(hparams_suggested, "algorithm")
+        model_class = update_def(hparams_suggested, "model")
+        optimizer_class = update_def(hparams_suggested, "optimizer")
+        local_optimizer_class = update_def(hparams_suggested, "local_optimizer")
+        lr_scheduler_class = update_def(hparams_suggested, "lr_scheduler")
+        local_lr_scheduler_class = update_def(hparams_suggested, "local_lr_scheduler")
         r2r_local_lr_scheduler_class = update_def(
-            hparams_suggested,
-            'r2r_local_lr_scheduler'
+            hparams_suggested, "r2r_local_lr_scheduler"
         )
         # logging
-        identity = ''
+        identity = ""
         for k, v in hparams_suggested.items():
+            if len(identity) > 0:
+                identity += "&"
             if isinstance(hparams[k], Real):
-                identity += f'{k}_{v:.3f}'
+                identity += f"{k}__{v:.3f}"
             elif isinstance(hparams[k], (Integer, Categorical)):
-                identity += f'{k}_{v}'
+                identity += f"{k}__{v}"
             else:
-                raise Exception(f'{k} is not a hyperparam!')
-        child_dir = os.path.join(log_dir, identity)
-        tb_logger = TensorboardLogger(path=child_dir)
-        child_dir = tb_logger.get_dir()
-        print("log available at %s", os.path.join(child_dir, "log.log"))
-        print(
-            "run the following for monitoring:\n\t tensorboard --logdir=%s",
-            child_dir,
-        )
+                raise Exception(f"{k} is not a hyperparam!")
+        child_dir = os.path.join(log_dir, str(itr), identity)
+        tb_logger_child = TensorboardLogger(path=child_dir)
+        child_dir = tb_logger_child.get_dir()
+        print("log of child available at %s", os.path.join(child_dir, "log.log"))
         log_handler = logging.FileHandler(os.path.join(child_dir, "log.log"))
         log_handler.addFilter(LogFilter(identity))
         logger.addHandler(log_handler)
@@ -465,22 +482,22 @@ def fed_tune(
         for obj_name, obj in cfg.items():
             compined_args[obj_name] = {
                 **obj.arguments,
-                **refine_hparams(hparams_suggested, obj_name)
+                **refine_hparams(hparams_suggested, obj_name),
             }
 
         log = {**log, **compined_args}
-        log['log_dir'] = log_dir
-        logger.info("arguments: " + pformat(log), extra={'flow':identity})
+        log["log_dir"] = log_dir
+        logger.info("configuration: \n" + pformat(log), extra={"flow": identity})
 
         # set the seed of random generators
         if seed is not None:
             set_seed(seed, device)
-    
+
         data_manager_instant = data_manager_class()
 
         algorithm_instance = algorithm_class(
             data_manager=data_manager_instant,
-            num_clients=num_clients,
+            num_clients=n_clients,
             sample_scheme=client_sample_scheme,
             sample_rate=client_sample_rate,
             model_class=model_class,
@@ -493,26 +510,45 @@ def fed_tune(
             r2r_local_lr_scheduler_class=r2r_local_lr_scheduler_class,
             batch_size=batch_size,
             test_batch_size=test_batch_size,
-            metric_logger=tb_logger,
+            metric_logger=tb_logger_child,
             device=device,
             log_freq=log_freq,
         )
         algorithm_instance.hook_global_score_function(
-            "test",
-            "accuracy",
-            scores.accuracy
+            "test", "accuracy", scores.accuracy
         )
         for key in data_manager_instant.get_local_splits_names():
             algorithm_instance.hook_local_score_function(
-                key,
-                "accuracy",
-                scores.accuracy
+                key, "accuracy", scores.accuracy
             )
 
+        report_summary = algorithm_instance.train(rounds, n_point_summary)
         logger.info(
-            f"average of the last {train_report_point}\
-                reports: {algorithm_instance.train(rounds, train_report_point)}", 
-                extra={'flow':identity}
+            f"average of the last {n_point_summary} reports", extra={"flow": identity}
         )
-        # TODO: complete the following
-        # optimizer.tell(suggested, - test_acc)
+        logger.info(report_summary, extra={"flow": identity})
+        tb_logger_child.flush()
+        metric = report_summary[eval_metric]
+        tb_logger.log_scalars(
+            {f"grid.{k}": v for k, v in report_summary.items()}, step=itr
+        )
+        if maximize_metric:
+            metric = -metric
+        optimizer.tell(suggested, metric)
+
+        # save the best metric
+        if best_metric is None or metric < best_metric:
+            best_metric = metric
+            best_config = identity
+            best_itr = itr
+
+    if maximize_metric:
+        best_metric = -best_metric
+    logger.info(
+        f"best metric observed ({best_metric:.3f}) at iteration {best_itr}",
+        extra={"flow": "parent"},
+    )
+    logger.info(
+        f"best config {best_config.replace('__', '=').replace('&',',')}",
+        extra={"flow": "parent"},
+    )

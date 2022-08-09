@@ -85,7 +85,7 @@ Here is a demo:
     for key in dm.get_local_splits_names():
         alg.hook_local_score_function(key, "accuracy", accuracy)
 
-    alg.train(rounds=1)
+    report_summary = alg.train(rounds=1)
 
 
 fedsim-cli tool
@@ -443,3 +443,19 @@ Local training batch size is 50.
 .. code-block:: bash
 
     fedsim-cli fed-learn -a AdaBest mu:0.02 beta:0.96 -m cnn_cifar100 -d BasicDataManager dataset:cifar100 num_partitions:1000 -r 1001 -n 200 --local-optimizer SGD lr:0.05 weight_decay:0.001 --batch-size 50 --client-sample-rate 0.01
+
+The following command tunes :math:`\mu` and :math:`\beta` for AdaBest algorithm. It uses Gaussian Process to maximize the average of the last 10 reported test accuracy scores.
+:math:`\mu` is tuned for float numbers (Real) between 0 and 0.1 and :math:`\beta` is tuned for float numbers between 0.1 and 1. Notice that only 2 clients are defined while the data manager by default is splitting the data over 500 partitions.
+
+.. code-block:: bash
+
+    fedsim-cli fed-tune --epochs 1 --n-clients 2 --client-sample-rate 0.5 -a AdaBest mu:Real:0-0.1 beta:Real:0.3-1 --maximize-metric --n-iters 20
+
+    .. note::
+        * To define a float range to tune use `Real` keyword as the argument value (e.g., `mu:Real:0-0.1`)
+        * To define an integer range to tune use `Integer` keyword as the argument value (e.g., `arg1:Integer:2-15`)
+        * To define a categorical range to tune use `Categorical` keyword as the argument value (e.g., `arg2:Categorical:uniform-normal-special`)
+
+Side Notes
+==========
+* Do not use double underscores (`__`) in argument names of your customized classes.

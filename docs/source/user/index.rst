@@ -15,3 +15,4 @@ details are found in :ref:`reference`.
    data_manager
    fl_algorithm
    model
+   fine_tune
