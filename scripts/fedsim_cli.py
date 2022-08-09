@@ -8,7 +8,6 @@ import os
 import click
 
 from .fed_learn import fed_learn
-
 from .fed_tune import fed_tune
 
 # Enable click
