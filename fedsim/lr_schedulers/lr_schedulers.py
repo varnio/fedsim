@@ -154,7 +154,7 @@ class ReduceLROnPlateau(object):
         self.factor = factor
 
         self.init_lr = init_lr
-        self.base_lr = init_lr
+        self._cur_lr = init_lr
         self.trigger_metric = trigger_metric
         self.min_lr = min_lr
 
@@ -201,13 +201,13 @@ class ReduceLROnPlateau(object):
             self.cooldown_counter = self.cooldown
             self.num_bad_epochs = 0
 
-        self._last_lr = self.base_lr
+        self._last_lr = self._cur_lr
 
     def _reduce_lr(self, epoch):
-        old_lr = self.base_lr
+        old_lr = self._cur_lr
         new_lr = max(old_lr * self.factor, self.min_lr)
         if old_lr - new_lr > self.eps:
-            self.base_lr = new_lr
+            self._cur_lr = new_lr
             if self.verbose:
                 epoch_str = ("%.2f" if isinstance(epoch, float) else "%.5d") % epoch
                 print(
@@ -261,4 +261,141 @@ class ReduceLROnPlateau(object):
         )
 
     def get_lr(self):
-        return self.base_lr
+        return self._cur_lr
+
+
+class StepLRWithRestartOnPlateau(ReduceLROnPlateau):
+    def __init__(
+        self,
+        init_lr,
+        step_size,
+        trigger_metric="clients.train_loss",
+        mode="min",
+        factor=0.1,
+        patience=10,
+        threshold=0.0001,
+        threshold_mode="rel",
+        cooldown=0,
+        min_lr=0,
+        eps=1e-8,
+        verbose=False,
+    ):
+        super(StepLRWithRestartOnPlateau, self).__init__(
+            init_lr,
+            trigger_metric,
+            mode,
+            factor,
+            patience,
+            threshold,
+            threshold_mode,
+            cooldown,
+            min_lr,
+            eps,
+            verbose,
+        )
+        self.step_size = step_size
+
+    def step(self, metrics):
+        # convert `metrics` to float, in case it's a zero-dim Tensor
+        current = float(metrics)
+        epoch = self.last_epoch + 1
+
+        if self.is_better(current, self.best):
+            self.best = current
+            self.num_bad_epochs = 0
+        else:
+            self.num_bad_epochs += 1
+
+        if self.in_cooldown:
+            self.cooldown_counter -= 1
+            self.num_bad_epochs = 0  # ignore any bad epochs in cooldown
+
+        if self.num_bad_epochs > self.patience:
+            self._restart_lr(epoch)
+            self.cooldown_counter = self.cooldown
+            self.num_bad_epochs = 0
+        else:
+            if self.num_bad_epochs % self.step_size == 0:
+                self._cur_lr = self._cur_lr * self.factor
+
+        self._last_lr = self._cur_lr
+
+    def _restart_lr(self, epoch):
+        self._cur_lr = self.init_lr
+        if self.verbose:
+            epoch_str = ("%.2f" if isinstance(epoch, float) else "%.5d") % epoch
+            print(
+                "Epoch {}: restarted learning rate"
+                " to {:.4e}.".format(epoch_str, self._cur_lr)
+            )
+
+
+class CosineAnnealingWithRestartOnPlateau(ReduceLROnPlateau):
+    def __init__(
+        self,
+        init_lr,
+        T_0,
+        trigger_metric="clients.train_loss",
+        mode="min",
+        factor=0.1,
+        patience=10,
+        threshold=0.0001,
+        threshold_mode="rel",
+        cooldown=0,
+        min_lr=10e-7,
+        eps=1e-8,
+        verbose=False,
+    ):
+        super().__init__(
+            init_lr,
+            trigger_metric,
+            mode,
+            factor,
+            patience,
+            threshold,
+            threshold_mode,
+            cooldown,
+            min_lr,
+            eps,
+            verbose,
+        )
+        self.T_0 = T_0
+
+    def step(self, metrics):
+        # convert `metrics` to float, in case it's a zero-dim Tensor
+        current = float(metrics)
+        epoch = self.last_epoch + 1
+
+        if self.is_better(current, self.best):
+            self.best = current
+            self.num_bad_epochs = 0
+        else:
+            self.num_bad_epochs += 1
+
+        if self.in_cooldown:
+            self.cooldown_counter -= 1
+            self.num_bad_epochs = 0  # ignore any bad epochs in cooldown
+
+        if self.num_bad_epochs > self.patience:
+            self._restart_lr(epoch)
+            self.cooldown_counter = self.cooldown
+            self.num_bad_epochs = 0
+        else:
+            if self.num_bad_epochs < self.T_0:
+                self._cur_lr = (
+                    self.min_lr
+                    + (self.init_lr - self.min_lr)
+                    * (1 + math.cos(math.pi * self.num_bad_epochs / self.T_0))
+                    / 2
+                )
+
+        self._last_lr = self._cur_lr
+
+    def _restart_lr(self, epoch):
+        self._cur_lr = self.init_lr
+        if self.verbose:
+            epoch_str = ("%.2f" if isinstance(epoch, float) else "%.5d") % epoch
+            print(
+                "Epoch {}: restarted learning rate"
+                " to {:.4e}.".format(epoch_str, self._cur_lr)
+            )
