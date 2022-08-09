@@ -1,3 +1,12 @@
+0.3.0 (2022-08-09)
+------------------
+
+* added fine-tunning to cli, `fed-tune`
+* cleaner cli
+* made optimizers and schedulers user definable
+* improved logging
+
+
 0.2.0 (2022-08-01)
 ------------------
 
