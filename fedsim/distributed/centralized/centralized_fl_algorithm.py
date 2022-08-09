@@ -246,7 +246,7 @@ class CentralFLAlgorithm(object):
                 deploy_poiont = self.deploy()
                 score_dict = self._report(opt_reports, deploy_poiont)
                 score_aggregator.append_all(score_dict, step=self.rounds)
-            self._at_round_end()
+            self._at_round_end(score_aggregator)
 
         # one last report
         if self.rounds % self.log_freq > 0:
@@ -258,10 +258,17 @@ class CentralFLAlgorithm(object):
     def _at_round_start(self) -> None:
         self.at_round_start()
 
-    def _at_round_end(self) -> None:
+    def _at_round_end(self, score_aggregator) -> None:
         if self.r2r_local_lr_scheduler is not None:
-            self.r2r_local_lr_scheduler.step()
-        self.at_round_end()
+            step_args = inspect.signature(self.r2r_local_lr_scheduler.step).parameters
+            if "metrics" in step_args:
+                trigger_metric = self.r2r_local_lr_scheduler.trigger_metric
+                self.r2r_local_lr_scheduler.step(
+                    score_aggregator.get(trigger_metric, 1)
+                )
+            else:
+                self.r2r_local_lr_scheduler.step()
+        self.at_round_end(score_aggregator)
 
     # API functions
 
@@ -305,7 +312,12 @@ class CentralFLAlgorithm(object):
     def at_round_start(self) -> None:
         pass
 
-    def at_round_end(self) -> None:
+    def at_round_end(self, score_aggregator: AppendixAggregator) -> None:
+        """to inject code at the end of rounds in training loop
+
+        Args:
+            score_aggregator (AppendixAggregator): contains the aggregated scores
+        """
         pass
 
     # we do not do type hinting, however, the hints for abstract
