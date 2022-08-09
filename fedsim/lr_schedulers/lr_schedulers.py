@@ -92,6 +92,7 @@ class ReduceLROnPlateau(object):
     of 2-10 once learning stagnates. This scheduler reads a metrics
     quantity and if no improvement is seen for a 'patience' number
     of epochs, the learning rate is reduced.
+
     Args:
         init_lr (float): initial learning rate.
         trigger_metric (str): name of the metric to pass to step. This should be a
@@ -124,6 +125,7 @@ class ReduceLROnPlateau(object):
             ignored. Default: 1e-8.
         verbose (bool): If ``True``, prints a message to stdout for
             each update. Default: ``False``.
+
     Example:
         >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
         >>> scheduler = ReduceLROnPlateau(0.1, 'min')

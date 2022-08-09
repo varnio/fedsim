@@ -462,6 +462,7 @@ Training goes for 10000 rounds and at each round initial local learning rate is 
 The patience for `CosineAnnealingWithRestartOnPlateau` is set to 5 report points (250 rounds). In case patience is not violated at any point, learning rate is restarted to the initial values.
 
 .. code-block:: bash
+
     fedsim-cli fed-learn -d BasicDataManager num_partitions:1000 seed:0 dataset:cifar100 rule:dir label_balance:0.03 -m cnn_cifar100 --rounds 10000 -n 100 --client-sample-rate 0.2 --r2r-local-lr-scheduler CosineAnnealingWithRestartOnPlateau verbose:True T_0:10 patience:5
 
 Side Notes
