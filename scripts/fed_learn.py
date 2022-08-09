@@ -306,11 +306,9 @@ def fed_learn(
     """
     tb_logger = TensorboardLogger(path=log_dir)
     log_dir = tb_logger.get_dir()
-    print("log available at %s", os.path.join(log_dir, "log.log"))
-    print(
-        "run the following for monitoring:\n\t tensorboard --logdir=%s",
-        log_dir,
-    )
+    print(f'log available at: \n\t {os.path.join(log_dir, "log.log")}')
+    print(f"run the following for monitoring:\n\t tensorboard --logdir={log_dir}")
+    print()
     log_handler = logging.FileHandler(os.path.join(log_dir, "log.log"))
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)

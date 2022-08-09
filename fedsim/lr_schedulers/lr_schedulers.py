@@ -276,7 +276,7 @@ class StepLRWithRestartOnPlateau(ReduceLROnPlateau):
         threshold=0.0001,
         threshold_mode="rel",
         cooldown=0,
-        min_lr=0,
+        min_lr=10e-7,
         eps=1e-8,
         verbose=False,
     ):

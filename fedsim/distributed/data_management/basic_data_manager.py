@@ -45,7 +45,7 @@ class BasicDataManager(DataManager):
 
     def __init__(
         self,
-        root='data',
+        root="data",
         dataset="mnist",
         num_partitions=500,
         rule="iid",
@@ -76,9 +76,10 @@ class BasicDataManager(DataManager):
             root (str): root dir of the dataset to partition
             dataset (str): name of the dataset
             num_clients (int): number of partitions or clients
-            rule (str): rule of partitioning
+            rule (str): rule of partitioning, options are 'iid' and 'dir'
             sample_balance (float): balance of number of samples among clients
-            label_balance (float): balance of the labels on each clietns
+            label_balance (float): balance of the labels on each client. This argumetns
+                is ignored if rule is set to iid.
             local_test_portion (float): portion of local test set from trian
             seed (int): random seed of partitioning
             save_dir (str, optional): path to save partitioned indices.

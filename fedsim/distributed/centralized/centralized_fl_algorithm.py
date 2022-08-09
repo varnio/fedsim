@@ -259,15 +259,18 @@ class CentralFLAlgorithm(object):
         self.at_round_start()
 
     def _at_round_end(self, score_aggregator) -> None:
-        if self.r2r_local_lr_scheduler is not None:
-            step_args = inspect.signature(self.r2r_local_lr_scheduler.step).parameters
-            if "metrics" in step_args:
-                trigger_metric = self.r2r_local_lr_scheduler.trigger_metric
-                self.r2r_local_lr_scheduler.step(
-                    score_aggregator.get(trigger_metric, 1)
-                )
-            else:
-                self.r2r_local_lr_scheduler.step()
+        if self.rounds % self.log_freq == 0:
+            if self.r2r_local_lr_scheduler is not None:
+                step_args = inspect.signature(
+                    self.r2r_local_lr_scheduler.step
+                ).parameters
+                if "metrics" in step_args:
+                    trigger_metric = self.r2r_local_lr_scheduler.trigger_metric
+                    self.r2r_local_lr_scheduler.step(
+                        score_aggregator.get(trigger_metric, 1)
+                    )
+                else:
+                    self.r2r_local_lr_scheduler.step()
         self.at_round_end(score_aggregator)
 
     # API functions

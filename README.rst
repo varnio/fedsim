@@ -456,6 +456,14 @@ The following command tunes :math:`\mu` and :math:`\beta` for AdaBest algorithm.
         * To define an integer range to tune use `Integer` keyword as the argument value (e.g., `arg1:Integer:2-15`)
         * To define a categorical range to tune use `Categorical` keyword as the argument value (e.g., `arg2:Categorical:uniform-normal-special`)
 
+In the following command, CIFAR100 is split over 1000 partitions from which 100 are used in the FL setup. From those 100, 20 clietns are selected at random at each round for training.
+The partitioning setup is non-iid with Dirichlet distribution factor :math:`\alpha=0.03`. The model architecture is cnn_cifar100.
+Training goes for 10000 rounds and at each round initial local learning rate is determined by CosineAnnealing with period of 10 report points (which is equal to 500 rounds when reports are stored each 50 rounds as default).
+The patience for `CosineAnnealingWithRestartOnPlateau` is set to 5 report points (250 rounds). In case patience is not violated at any point, learning rate is restarted to the initial values.
+
+.. code-block:: bash
+    fedsim-cli fed-learn -d BasicDataManager num_partitions:1000 seed:0 dataset:cifar100 rule:dir label_balance:0.03 -m cnn_cifar100 --rounds 10000 -n 100 --client-sample-rate 0.2 --r2r-local-lr-scheduler CosineAnnealingWithRestartOnPlateau verbose:True T_0:10 patience:5
+
 Side Notes
 ==========
 * Do not use double underscores (`__`) in argument names of your customized classes.
