@@ -6,6 +6,7 @@ fed-learn cli Command
 import logging
 import os
 from pprint import pformat
+from typing import Iterable
 from typing import Optional
 
 import click
@@ -39,6 +40,13 @@ from .utils import ingest_fed_context
     show_default=True,
     default="BasicDataManager",
     help="name of data manager.",
+)
+@click.option(
+    "--train-split-name",
+    type=str,
+    default="train",
+    show_default=True,
+    help="name of local split to train train on",
 )
 @click.option(
     "--n-clients",
@@ -183,7 +191,22 @@ from .utils import ingest_fed_context
     type=int,
     default=10,
     show_default=True,
-    help="number of last score reports points to store and get average performance.",
+    help="number of last score report points to store and get the final average\
+        performance from.",
+)
+@click.option(
+    "--add-local-score",
+    type=str,
+    multiple=True,
+    help="hooks a local score function to all local splits. choose these functions from\
+        `fedsim.scores`. It is possible to call this option multiple times.",
+)
+@click.option(
+    "--add-global-score",
+    type=str,
+    multiple=True,
+    help="hooks a global score function to all local splits. choose these functions\
+        from `fedsim.scores`. It is possible to call this option multiple times.",
 )
 @click.option(
     "--verbosity",
@@ -198,6 +221,7 @@ def fed_learn(
     ctx: click.core.Context,
     rounds: int,
     data_manager: str,
+    train_split_name: str,
     n_clients: int,
     client_sample_scheme: str,
     client_sample_rate: float,
@@ -217,6 +241,8 @@ def fed_learn(
     log_dir: str,
     log_freq: int,
     n_point_summary: int,
+    add_local_score: Iterable,
+    add_global_score: Iterable,
     verbosity: int,
 ) -> None:
     """simulates federated learning!
@@ -353,6 +379,7 @@ def fed_learn(
 
     algorithm_instance = cfg["algorithm"].definition(
         data_manager=data_manager_instant,
+        metric_logger=tb_logger,
         num_clients=n_clients,
         sample_scheme=client_sample_scheme,
         sample_rate=client_sample_rate,
@@ -366,15 +393,23 @@ def fed_learn(
         r2r_local_lr_scheduler_class=cfg["r2r_local_lr_scheduler"].definition,
         batch_size=batch_size,
         test_batch_size=test_batch_size,
-        metric_logger=tb_logger,
         device=device,
         log_freq=log_freq,
     )
-    algorithm_instance.hook_global_score_function("test", "accuracy", scores.accuracy)
+    for key in data_manager_instant.get_global_splits_names():
+        algorithm_instance.hook_global_score_function(key, "accuracy", scores.accuracy)
+        for score in add_global_score:
+            if score != "accuracy":
+                algorithm_instance.hook_global_score_function(
+                    key, score, getattr(scores, score)
+                )
     for key in data_manager_instant.get_local_splits_names():
-        algorithm_instance.hook_local_score_function(key, "accuracy", scores.accuracy)
+        for score in add_local_score:
+            algorithm_instance.hook_local_score_function(
+                key, score, getattr(scores, score)
+            )
 
-    report_summary = algorithm_instance.train(rounds, n_point_summary)
+    report_summary = algorithm_instance.train(rounds, n_point_summary, train_split_name)
     logger.info(f"average of the last {n_point_summary} reports")
     logger.info(report_summary)
     tb_logger.flush()

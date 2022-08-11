@@ -5,10 +5,11 @@ fed-tune cli Command
 
 import logging
 import os
+from collections import OrderedDict
 from functools import partial
 from pprint import pformat
+from typing import Iterable
 from typing import Optional
-from typing import OrderedDict
 
 import click
 import torch
@@ -90,6 +91,13 @@ from .utils import ingest_fed_context
     show_default=True,
     default="BasicDataManager",
     help="name of data manager.",
+)
+@click.option(
+    "--train-split-name",
+    type=str,
+    default="train",
+    show_default=True,
+    help="name of local split to train train on",
 )
 @click.option(
     "--n-clients",
@@ -234,7 +242,22 @@ from .utils import ingest_fed_context
     type=int,
     default=10,
     show_default=True,
-    help="number of last score reports points to store and get average performance.",
+    help="number of last score report points to store and get the final average\
+        performance from.",
+)
+@click.option(
+    "--add-local-score",
+    type=str,
+    multiple=True,
+    help="hooks a local score function to all local splits. choose these functions from\
+        `fedsim.scores`. It is possible to call this option multiple times.",
+)
+@click.option(
+    "--add-global-score",
+    type=str,
+    multiple=True,
+    help="hooks a global score function to all local splits. choose these functions\
+        from `fedsim.scores`. It is possible to call this option multiple times.",
 )
 @click.option(
     "--verbosity",
@@ -255,6 +278,7 @@ def fed_tune(
     maximize_metric: bool,
     rounds: int,
     data_manager: str,
+    train_split_name: str,
     n_clients: int,
     client_sample_scheme: str,
     client_sample_rate: float,
@@ -274,6 +298,8 @@ def fed_tune(
     log_dir: str,
     log_freq: int,
     n_point_summary: int,
+    add_local_score: Iterable,
+    add_global_score: Iterable,
     verbosity: int,
 ) -> None:
     """simulates federated learning!
@@ -497,6 +523,7 @@ def fed_tune(
 
         algorithm_instance = algorithm_class(
             data_manager=data_manager_instant,
+            metric_logger=tb_logger_child,
             num_clients=n_clients,
             sample_scheme=client_sample_scheme,
             sample_rate=client_sample_rate,
@@ -510,19 +537,29 @@ def fed_tune(
             r2r_local_lr_scheduler_class=r2r_local_lr_scheduler_class,
             batch_size=batch_size,
             test_batch_size=test_batch_size,
-            metric_logger=tb_logger_child,
             device=device,
             log_freq=log_freq,
         )
-        algorithm_instance.hook_global_score_function(
-            "test", "accuracy", scores.accuracy
-        )
-        for key in data_manager_instant.get_local_splits_names():
-            algorithm_instance.hook_local_score_function(
+        for key in data_manager_instant.get_global_splits_names():
+            algorithm_instance.hook_global_score_function(
                 key, "accuracy", scores.accuracy
             )
+            for score in add_global_score:
+                if score != "accuracy":
+                    algorithm_instance.hook_global_score_function(
+                        key, score, getattr(scores, score)
+                    )
+        for key in data_manager_instant.get_local_splits_names():
+            for score in add_local_score:
+                algorithm_instance.hook_local_score_function(
+                    key, score, getattr(scores, score)
+                )
 
-        report_summary = algorithm_instance.train(rounds, n_point_summary)
+        report_summary = algorithm_instance.train(
+            rounds,
+            n_point_summary,
+            train_split_name,
+        )
         logger.info(
             f"average of the last {n_point_summary} reports", extra={"flow": identity}
         )
