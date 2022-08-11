@@ -80,5 +80,7 @@ class FedNova(fedavg.FedAvg):
         )
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):
-        weight = client_msg["num_samples"] / client_msg["num_steps"]
-        self.agg(client_id, client_msg, aggregation_results, weight=weight)
+        train_split_name = self.get_train_split_name()
+        n_train = client_msg["num_samples"][train_split_name]
+        weight = n_train / client_msg["num_steps"]
+        self.agg(client_id, client_msg, aggregation_results, train_weight=weight)

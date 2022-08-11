@@ -55,35 +55,6 @@ class BasicDataManager(DataManager):
         seed=10,
         save_dir=None,
     ):
-        """A basic data manager for partitioning the data. Currecntly three
-        rules of partitioning are supported:
-
-        - iid:
-            same label distribution among clients. sample balance determines
-            quota of each client samples from a lognorm distribution.
-        - dir:
-            Dirichlete distribution with concentration parameter given by
-            label_balance determines label balance of each client.
-            sample balance determines quota of each client samples from a
-            lognorm distribution.
-        - exclusive:
-            samples corresponding to each label are randomly splitted to
-            k clients where k = total_sample_size * label_balance.
-            sample_balance determines the way this split happens (quota).
-            This rule also is know as "shards splitting".
-
-        Args:
-            root (str): root dir of the dataset to partition
-            dataset (str): name of the dataset
-            num_clients (int): number of partitions or clients
-            rule (str): rule of partitioning, options are 'iid' and 'dir'
-            sample_balance (float): balance of number of samples among clients
-            label_balance (float): balance of the labels on each client. This argumetns
-                is ignored if rule is set to iid.
-            local_test_portion (float): portion of local test set from trian
-            seed (int): random seed of partitioning
-            save_dir (str, optional): path to save partitioned indices.
-        """
         self.dataset_name = dataset
         self.num_partitions = num_partitions
         self.rule = rule
@@ -99,7 +70,18 @@ class BasicDataManager(DataManager):
             save_dir=save_dir,
         )
 
-    def make_datasets(self, root, global_transforms=None):
+    def make_datasets(self, root):
+        """makes and returns local and global dataset objects. The created datasets do
+        not need a transform as recompiled datasets with separately
+        provided transforms on the fly.
+
+        Args:
+            dataset_name (str): name of the dataset.
+            root (str): directory to download and manipulate data.
+
+        Returns:
+            Tuple[object, object]: local and global dataset
+        """
         if self.dataset_name == "mnist":
             local_dset = MNIST(root, download=True, train=True, transform=None)
             global_dset = MNIST(root, download=True, train=True, transform=None)
@@ -112,20 +94,27 @@ class BasicDataManager(DataManager):
                 root=root,
                 download=True,
                 train=False,
-                transform=global_transforms["test"],
+                transform=None,
             )
         else:
             raise NotImplementedError
         return local_dset, global_dset
 
     def make_transforms(self):
+        """make and return the dataset trasformations for local and global split.
+
+        Returns:
+            Tuple[Dict[str, Callable], Dict[str, Callable]]: tuple of two dictionaries,
+                first, the local transform mapping and second the global transform
+                mapping.
+        """
         if self.dataset_name == "mnist":
             train_transform = torchvision.transforms.Compose(
                 [
                     torchvision.transforms.ToTensor(),
                 ]
             )
-            test_transform = train_transform
+            infer_transform = train_transform
         if self.dataset_name == "cifar10" or self.dataset_name == "cifar100":
             train_transform = torchvision.transforms.Compose(
                 [
@@ -137,15 +126,27 @@ class BasicDataManager(DataManager):
                     ),
                 ]
             )
-            test_transform = torchvision.transforms.Compose(
+            infer_transform = torchvision.transforms.Compose(
                 [
                     torchvision.transforms.ToTensor(),
                     torchvision.transforms.CenterCrop(24),
                 ]
             )
-        return train_transform, test_transform
+        return (
+            dict(train=train_transform, test=infer_transform),  # for local
+            dict(test=infer_transform),  # for gloval
+        )
 
     def partition_local_data(self, dataset):
+        """partitions local data indices into client-indexed Iterable.
+
+        Args:
+            dataset (object): local dataset
+
+        Returns:
+            Dict[str, Iterable[Iterable[int]]]:
+                dictionary of {split:client-indexed iterables of example indices}.
+        """
         n = self.num_partitions
 
         targets = np.array(dataset.targets)
@@ -258,7 +259,24 @@ class BasicDataManager(DataManager):
             new_indices = dict(train=indices)
         return new_indices
 
+    def partition_global_data(self, dataset):
+        """partitions global data indices into splits (e.g., train, test, ...).
+
+        Args:
+            dataset (object): global dataset
+
+        Returns:
+            Dict[str, Iterable[int]]:
+                dictionary of {split:example indices of global dataset}.
+        """
+        return dict(test=range(len(dataset)))
+
     def get_identifiers(self):
+        """Returns identifiers to be used for saving the partition info.
+
+        Returns:
+            Sequence[str]: a sequence of str identifing class instance
+        """
         identifiers = [
             self.dataset_name,
             str(self.num_partitions),

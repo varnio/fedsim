@@ -25,6 +25,10 @@ class DataManager(object):
     four abstract class methods that child classes should implement:
     get_identifiers, make_datasets, make_transforms, partition_local_data.
 
+    .. warning::
+        when inheritted, super should be called at the end of the constructor
+        because the abstract classes are called in super's constructor!
+
     Args:
         root (str): root dir of the dataset to partition
         seed (int): random seed of partitioning
@@ -48,8 +52,8 @@ class DataManager(object):
         self.local_data: Optional[Dict[str, Dataset]] = None
         self.global_data: Optional[Dict[str, Dataset]] = None
 
-        self.train_transforms = None
-        self.test_transforms = None
+        self.global_transforms = None
+        self.local_transforms = None
 
         # {'<split_name>': [<client index>:[<sample_index>,],]}
         self._local_parition_indices: Optional[Dict[Iterable[Iterable[int]]]] = None
@@ -63,26 +67,18 @@ class DataManager(object):
         self._make_transforms()
         self._make_datasets()
         self._partition_local_data()
+        self._partition_global_data()
 
     def _make_transforms(self) -> None:
         (
-            self.train_transforms,
-            self.test_transforms,
+            self.local_transforms,
+            self.global_transforms,
         ) = self.make_transforms()
 
     def _make_datasets(self) -> None:
-        if self.test_transforms is None:
-            raise Exception("call make_tranforms() before make_datasets()")
         self.local_data, self.global_data = self.make_datasets(
             self.root,
-            dict(train=self.train_transforms, test=self.test_transforms),
         )
-        if self.global_data is not None:
-            self.global_data = Subset(
-                self.global_data,
-                indices=-1,
-                transform=self.test_transforms,
-            )
 
     def _partition_local_data(self) -> None:
         if self.local_data is None:
@@ -90,8 +86,8 @@ class DataManager(object):
                 "call a make_datasets that returns a dict of datasets first!"
             )
         name = self.get_partitioning_name()
-        if os.path.exists(os.path.join(self.save_dir, name + ".pkl")):
-            with open(os.path.join(self.save_dir, name + ".pkl"), "rb") as rfile:
+        if os.path.exists(os.path.join(self.save_dir, name + "_local.pkl")):
+            with open(os.path.join(self.save_dir, name + "_local.pkl"), "rb") as rfile:
                 self._local_parition_indices = pickle.load(rfile)
         else:
             self._local_parition_indices = self.partition_local_data(self.local_data)
@@ -99,58 +95,100 @@ class DataManager(object):
 
             # create directories if not existing
             os.makedirs(os.path.join(self.save_dir), exist_ok=True)
-            with open(os.path.join(self.save_dir, name + ".pkl"), "wb") as wfile:
+            with open(os.path.join(self.save_dir, name + "_local.pkl"), "wb") as wfile:
                 pickle.dump(self._local_parition_indices, wfile)
 
+    def _partition_global_data(self) -> None:
+        if self.global_data is not None:
+            name = self.get_partitioning_name()
+        if os.path.exists(os.path.join(self.save_dir, name + "_global.pkl")):
+            with open(os.path.join(self.save_dir, name + "_global.pkl"), "rb") as rfile:
+                self._global_parition_indices = pickle.load(rfile)
+        else:
+            self._global_parition_indices = self.partition_global_data(self.local_data)
+            # save on disk for later usage
+
+            # create directories if not existing
+            os.makedirs(os.path.join(self.save_dir), exist_ok=True)
+            with open(os.path.join(self.save_dir, name + "_global.pkl"), "wb") as wfile:
+                pickle.dump(self._global_parition_indices, wfile)
+
     # *************************************************************************
-    # to call by user
+    # to be called by user
     def get_local_dataset(self, id: int) -> Dict[str, Dataset]:
-        tr_idxs = self._local_parition_indices["train"]
-        tr_dset = Subset(
-            self.local_data,
-            tr_idxs[id],
-            transform=self.train_transforms,
-        )
-        if "test" in self._local_parition_indices:
-            ts_idxs = self._local_parition_indices["test"]
-            if len(ts_idxs) > 0:
-                ts_dset = Subset(
+        """returns the local dataset corresponding to a given partition id
+
+        Args:
+            id (int): partition id
+
+        Returns:
+            Dict[str, Dataset]: a mapping of split_name: dataset
+        """
+        ans = dict()
+        for key, val in self._local_parition_indices.items():
+            if len(val) > 0:
+                ans[key] = Subset(
                     self.local_data,
-                    ts_idxs[id],
-                    transform=self.test_transforms,
+                    val[id],
+                    transform=self.local_transforms[key],
                 )
-                return dict(train=tr_dset, test=ts_dset)
-        return dict(train=tr_dset)
+        return ans
 
     def get_group_dataset(self, ids: Iterable[int]) -> Dict[str, Dataset]:
-        tr_idxs = self._local_parition_indices["train"]
-        group_tr_idxs = [i for id in ids for i in tr_idxs[id]]
-        tr_dset = Subset(
-            self.local_data,
-            group_tr_idxs,
-            transform=self.train_transforms,
-        )
-        if "test" in self._local_parition_indices:
-            ts_idxs = self._local_parition_indices["test"]
-            if len(ts_idxs) > 0:
-                group_ts_idxs = [i for id in ids for i in ts_idxs[id]]
-                ts_dset = Subset(
+        """returns the local dataset corresponding to a group of given partition ids
+
+        Args:
+            ids (Iterable[int]): a list or tuple of partition ids
+
+        Returns:
+            Dict[str, Dataset]: a mapping of split_name: dataset
+        """
+        ans = dict()
+        for key, val in self._local_parition_indices.items():
+            group_split_idxs = [i for id in ids for i in val[id]]
+            if len(group_split_idxs) > 0:
+                ans[key] = Subset(
                     self.local_data,
-                    group_ts_idxs,
-                    transform=self.test_transforms,
+                    group_split_idxs,
+                    transform=self.local_transforms[key],
                 )
-                return dict(train=tr_dset, test=ts_dset)
-        return dict(train=tr_dset)
+        return ans
 
     def get_oracle_dataset(self) -> Dict[str, Dataset]:
+        """returns all of the local datasets stacked up.
+
+        Returns:
+            Dict[str, Dataset]: Oracle dataset for each split
+        """
         return self.get_group_dataset(
             ids=range(len(self._local_parition_indices["train"]))
         )
 
     def get_global_dataset(self) -> Dict[str, Dataset]:
-        return dict(test=self.global_data)
+        """returns the global dataset
+
+        Returns:
+            Dict[str, Dataset]: global dataset for each split
+        """
+        ans = dict()
+        for key, val in self._global_parition_indices.items():
+            if len(val) > 0:
+                ans[key] = Subset(
+                    self.local_data,
+                    val,
+                    transform=self.global_transforms[key],
+                )
+        return ans
 
     def get_partitioning_name(self) -> str:
+        """returns unique name of the DataManager instance.
+        .. note::
+            This method can help store and retrieval of the partitioning indices, so
+            the experiments could reproduced on a machine.
+
+        Returns:
+            str: a unique name for the DataManager instance.
+        """
         identifiers = self.get_identifiers()
         name = "_".join(identifiers)
         if self.seed is not None:
@@ -158,21 +196,31 @@ class DataManager(object):
         return name
 
     def get_local_splits_names(self):
+        """returns name of the local splits (train, test, etc.)
+
+        Returns:
+            List[str]: list of local split names
+        """
         return list(self._local_parition_indices.keys())
+
+    def get_global_splits_names(self):
+        """returns name of the global splits (train, test, etc.)
+
+        Returns:
+            List[str]: list of global split names
+        """
+        return list(self._global_parition_indices.keys())
 
     # *************************************************************************
     # to implement by child
-    def make_datasets(
-        self, root: str, global_transforms: Dict[str, object]
-    ) -> Tuple[object, object]:
-        """makes and returns local and global dataset objects. The local
-            datasets do not need a transform as recompiled datasets from
-            indices already use transforms as they are requested.
+    def make_datasets(self, root: str) -> Tuple[object, object]:
+        """makes and returns local and global dataset objects. The created datasets do
+        not need a transform as recompiled datasets with separately provided transforms
+        on the fly.
 
         Args:
             dataset_name (str): name of the dataset.
             root (str): directory to download and manipulate data.
-            global_transforms (Dict[str, object]): transforms for global dset
 
         Raises:
             NotImplementedError: this abstract method should be
@@ -184,14 +232,15 @@ class DataManager(object):
         raise NotImplementedError
 
     def make_transforms(self) -> Tuple[object, object]:
-        """makes and returns train and inference transforms.
+        """make and return the dataset trasformations for local and global split.
 
         Raises:
             NotImplementedError: this abstract method should be
                 implemented by child classes
-
         Returns:
-            Tuple[object, object]: train and inference transforms
+            Tuple[Dict[str, Callable], Dict[str, Callable]]: tuple of two dictionaries,
+                first, the local transform mapping and second the global transform
+                mapping.
         """
         raise NotImplementedError
 
@@ -199,7 +248,7 @@ class DataManager(object):
         self,
         dataset: object,
     ) -> Dict[str, Iterable[Iterable[int]]]:
-        """partitions local data indices into client index Iterable.
+        """partitions local data indices into client-indexed Iterable.
 
         Args:
             dataset (object): local dataset
@@ -210,7 +259,22 @@ class DataManager(object):
 
         Returns:
             Dict[str, Iterable[Iterable[int]]]:
-                {'train': tr_indices, 'test': ts_indices}
+                dictionary of {split:client-indexed iterables of example indices}.
+        """
+        raise NotImplementedError
+
+    def partition_global_data(
+        self,
+        dataset: object,
+    ) -> Dict[str, Iterable[int]]:
+        """partitions global data indices into splits (e.g., train, test, ...).
+
+        Args:
+            dataset (object): global dataset
+
+        Returns:
+            Dict[str, Iterable[int]]:
+                dictionary of {split:example indices of global dataset}.
         """
         raise NotImplementedError
 

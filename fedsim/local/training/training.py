@@ -87,12 +87,11 @@ def local_train(
         normalized_metrics = apply_on_dict(
             metrics, lambda _, x: x / num_steps, return_as_dict=True
         )
-        avg_loss = all_loss / num_steps
+        normalized_metrics["loss"] = all_loss / num_steps
 
     return (
         num_train_samples,
         num_steps,
         diverged,
-        avg_loss,
         normalized_metrics,
     )

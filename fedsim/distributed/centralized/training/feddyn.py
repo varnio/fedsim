@@ -103,19 +103,22 @@ class FedDyn(fedavg.FedAvg):
         datasets,
         epochs,
         loss_fn,
-        batch_size,
+        train_batch_size,
+        inference_batch_size,
         optimizer_class,
         lr_scheduler_class=None,
         device="cuda",
         ctx=None,
-        *args,
-        **kwargs,
+        step_closure=None,
     ):
+        train_split_name = self.get_train_split_name()
         model = ctx["model"]
         params_init = parameters_to_vector(model.parameters()).detach().clone()
         h = self.read_client(client_id, "h")
         mu_adaptive = (
-            self.mu / len(datasets["train"]) * self.read_server("average_sample")
+            self.mu
+            / len(datasets[train_split_name])
+            * self.read_server("average_sample")
         )
 
         def transform_grads_fn(model):
@@ -136,14 +139,13 @@ class FedDyn(fedavg.FedAvg):
             datasets,
             epochs,
             loss_fn,
-            batch_size,
+            train_batch_size,
+            inference_batch_size,
             optimizer_class,
             lr_scheduler_class,
             device,
             ctx,
             step_closure=step_closure_,
-            *args,
-            **kwargs,
         )
 
         # update local h
@@ -156,7 +158,7 @@ class FedDyn(fedavg.FedAvg):
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):
         weight = 1
-        self.agg(client_id, client_msg, aggregation_results, weight=weight)
+        self.agg(client_id, client_msg, aggregation_results, train_weight=weight)
 
     def optimize(self, aggregator):
         if "local_params" in aggregator:

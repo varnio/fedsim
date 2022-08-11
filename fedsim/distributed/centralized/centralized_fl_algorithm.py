@@ -70,8 +70,6 @@ class CentralFLAlgorithm(object):
         test_batch_size,
         device,
         log_freq,
-        *args,
-        **kwargs,
     ):
         self._data_manager = data_manager
         self.num_clients = num_clients
@@ -107,6 +105,7 @@ class CentralFLAlgorithm(object):
         self.local_optimizer_class = local_optimizer_class
         self.lr_scheduler_class = lr_scheduler_class
         self.local_lr_scheduler_class = local_lr_scheduler_class
+        self._train_split_name = "train"
 
         if r2r_local_lr_scheduler_class is not None:
             # get local lr to build r2r scheduler
@@ -201,6 +200,7 @@ class CentralFLAlgorithm(object):
             self.epochs,
             self.loss_fn,
             self.batch_size,
+            self.test_batch_size,
             local_optimizer_class,
             self.lr_scheduler_class,
             self.device,
@@ -279,6 +279,7 @@ class CentralFLAlgorithm(object):
         self,
         rounds: int,
         num_score_report_point: Optional[int] = None,
+        train_split_name="train",
     ) -> Optional[Dict[str, Optional[float]]]:
         r"""loop over the learning pipeline of distributed algorithm for given
         number of rounds.
@@ -291,19 +292,33 @@ class CentralFLAlgorithm(object):
         Args:
             rounds (int): number of rounds to train.
             num_score_report_point (int): limits num of points to return reports.
+            train_split_name (str): local split name to perform training on. Defaults
+                to 'train'.
 
         Returns:
             Optional[Dict[str, Union[float]]]: collected score metrics.
         """
-        return self._train(rounds=rounds, num_score_report_point=num_score_report_point)
+        # store default split name
+        default_split_name = self._train_split_name
+        self._train_split_name = train_split_name
+        ans = self._train(
+            rounds=rounds,
+            num_score_report_point=num_score_report_point,
+        )
+        # restore default split name
+        self._train_split_name = default_split_name
+        return ans
 
     def get_model_class(self):
         return self.model_class
 
-    def hook_local_score_function(self, split_name, score_name, score_fn):
+    def get_train_split_name(self):
+        return self._train_split_name
+
+    def hook_local_score_function(self, split_name, score_name, score_fn) -> None:
         self._client_scores[split_name][score_name] = score_fn
 
-    def hook_global_score_function(self, split_name, score_name, score_fn):
+    def hook_global_score_function(self, split_name, score_name, score_fn) -> None:
         self._server_scores[split_name][score_name] = score_fn
 
     def get_local_score_functions(self, split_name) -> Dict[str, Any]:
@@ -350,7 +365,8 @@ class CentralFLAlgorithm(object):
         datasets: Dict[str, Iterable],
         epochs: int,
         loss_fn: nn.Module,
-        batch_size: int,
+        train_batch_size: int,
+        inference_batch_size: int,
         optimizer_class: Callable,
         lr_scheduler_class: Optional[Callable] = None,
         device: Union[int, str] = "cuda",
@@ -365,7 +381,8 @@ class CentralFLAlgorithm(object):
             datasets (Dict[str, Iterable]): this comes from Data Manager
             epochs (int): number of epochs to train
             loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
-            batch_size (int): training batch_size
+            train_batch_size (int): training batch_size
+            inference_batch_size (int): inference batch_size
             optimizer_class (float): class for constructing the local optimizer
             lr_scheduler_class (float): class for constructing the local lr scheduler
             device (Union[int, str], optional): Defaults to 'cuda'.

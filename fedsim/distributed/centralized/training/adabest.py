@@ -109,20 +109,22 @@ class AdaBest(fedavg.FedAvg):
         datasets,
         epochs,
         loss_fn,
-        batch_size,
+        train_batch_size,
+        inference_batch_size,
         optimizer_class,
         lr_scheduler_class=None,
         device="cuda",
         ctx=None,
         step_closure=None,
-        *args,
-        **kwargs,
     ):
+        train_split_name = self.get_train_split_name()
         model = ctx["model"]
         params_init = parameters_to_vector(model.parameters()).detach().clone()
         h = self.read_client(client_id, "h")
         mu_adaptive = (
-            self.mu / len(datasets["train"]) * self.read_server("average_sample")
+            self.mu
+            / len(datasets[train_split_name])
+            * self.read_server("average_sample")
         )
 
         def transform_grads_fn(model):
@@ -142,14 +144,13 @@ class AdaBest(fedavg.FedAvg):
             datasets,
             epochs,
             loss_fn,
-            batch_size,
+            train_batch_size,
+            inference_batch_size,
             optimizer_class,
             lr_scheduler_class,
             device,
             ctx,
             step_closure=step_closure_,
-            *args,
-            **kwargs,
         )
 
         # update local h
@@ -164,8 +165,9 @@ class AdaBest(fedavg.FedAvg):
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):
         weight = 1
-        self.agg(client_id, client_msg, aggregation_results, weight=weight)
-        self.general_agg.add("avg_m", client_msg["num_samples"] / self.epochs, 1)
+        self.agg(client_id, client_msg, aggregation_results, train_weight=weight)
+        n_train = client_msg["num_samples"][self.get_train_split_name()]
+        self.general_agg.add("avg_m", n_train / self.epochs, 1)
         self.write_server("average_sample", self.general_agg.get("avg_m"))
 
     def optimize(self, aggregator):
