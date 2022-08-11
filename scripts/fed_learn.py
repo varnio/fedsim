@@ -6,6 +6,7 @@ fed-learn cli Command
 import logging
 import os
 from pprint import pformat
+from typing import Iterable
 from typing import Optional
 
 import click
@@ -190,7 +191,22 @@ from .utils import ingest_fed_context
     type=int,
     default=10,
     show_default=True,
-    help="number of last score reports points to store and get average performance.",
+    help="number of last score report points to store and get the final average\
+        performance from.",
+)
+@click.option(
+    "--add-local-score",
+    type=str,
+    multiple=True,
+    help="hooks a local score function to all local splits. choose these functions from\
+        `fedsim.scores`. It is possible to call this option multiple times.",
+)
+@click.option(
+    "--add-global-score",
+    type=str,
+    multiple=True,
+    help="hooks a global score function to all local splits. choose these functions\
+        from `fedsim.scores`. It is possible to call this option multiple times.",
 )
 @click.option(
     "--verbosity",
@@ -225,6 +241,8 @@ def fed_learn(
     log_dir: str,
     log_freq: int,
     n_point_summary: int,
+    add_local_score: Iterable,
+    add_global_score: Iterable,
     verbosity: int,
 ) -> None:
     """simulates federated learning!
@@ -380,8 +398,16 @@ def fed_learn(
     )
     for key in data_manager_instant.get_global_splits_names():
         algorithm_instance.hook_global_score_function(key, "accuracy", scores.accuracy)
+        for score in add_global_score:
+            if score != "accuracy":
+                algorithm_instance.hook_global_score_function(
+                    key, score, getattr(scores, score)
+                )
     for key in data_manager_instant.get_local_splits_names():
-        algorithm_instance.hook_local_score_function(key, "accuracy", scores.accuracy)
+        for score in add_local_score:
+            algorithm_instance.hook_local_score_function(
+                key, score, getattr(scores, score)
+            )
 
     report_summary = algorithm_instance.train(rounds, n_point_summary, train_split_name)
     logger.info(f"average of the last {n_point_summary} reports")

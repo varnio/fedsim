@@ -194,9 +194,15 @@ class CentralFLAlgorithm(object):
             local_optimizer_class = partial(
                 self.local_optimizer_class, lr=self.r2r_local_lr_scheduler.get_lr()
             )
+
+        datasets = self._data_manager.get_local_dataset(client_id)
+        # only if round % log_freq = 0, let other datasets go through
+        if self.rounds % self.log_freq != 0:
+            train_split_name = self.get_train_split_name()
+            datasets = {train_split_name: datasets[train_split_name]}
         client_ctx = self.send_to_server(
             client_id,
-            self._data_manager.get_local_dataset(client_id),
+            datasets,
             self.epochs,
             self.loss_fn,
             self.batch_size,

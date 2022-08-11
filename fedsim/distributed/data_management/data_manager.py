@@ -183,8 +183,8 @@ class DataManager(object):
     def get_partitioning_name(self) -> str:
         """returns unique name of the DataManager instance.
         .. note::
-            This method can help store and retrieval of the partitioning indices, so
-            the experiments could reproduced on a machine.
+        This method can help store and retrieval of the partitioning indices, so
+        the experiments could reproduced on a machine.
 
         Returns:
             str: a unique name for the DataManager instance.

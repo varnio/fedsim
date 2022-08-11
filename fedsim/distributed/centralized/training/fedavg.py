@@ -178,6 +178,7 @@ class FedAvg(CentralFLAlgorithm):
         metrics_dict = {f"{train_split_name}": train_metrics}
         num_samples_dict = {f"{train_split_name}": num_train_samples}
         # other splits
+        # only if round % log_freq is 0 datasets contains other splits
         for split_name, split in datasets.items():
             if split_name != train_split_name:
                 split_loader = DataLoader(
