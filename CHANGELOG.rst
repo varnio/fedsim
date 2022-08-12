@@ -1,3 +1,9 @@
+0.4.0 (2022-08-12)
+------------------
+
+* changed the structure of scores and losses
+* made it possible to hook multiple local and global scores
+
 0.3.1 (2022-08-09)
 ------------------
 
