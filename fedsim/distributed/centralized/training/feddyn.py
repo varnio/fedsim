@@ -28,7 +28,7 @@ class FedDyn(fedavg.FedAvg):
         sample_rate (float): rate of sampling clients
         model_class (Callable): class for constructing the model
         epochs (int): number of local epochs
-        loss_fn (Callable): loss function defining local objective
+        criterion (Callable): loss function defining local objective
         optimizer_class (Callable): server optimizer class
         local_optimizer_class (Callable): local optimization class
         lr_scheduler_class: class definition for lr scheduler of server optimizer
@@ -53,7 +53,7 @@ class FedDyn(fedavg.FedAvg):
         sample_rate,
         model_class,
         epochs,
-        loss_fn,
+        criterion,
         optimizer_class=partial(SGD, lr=0.1, weight_decay=0.001),
         local_optimizer_class=partial(SGD, lr=1.0),
         lr_scheduler_class=None,
@@ -74,7 +74,7 @@ class FedDyn(fedavg.FedAvg):
             sample_rate,
             model_class,
             epochs,
-            loss_fn,
+            criterion,
             optimizer_class,
             local_optimizer_class,
             lr_scheduler_class,
@@ -98,8 +98,9 @@ class FedDyn(fedavg.FedAvg):
         self,
         client_id,
         datasets,
+        round_scores,
         epochs,
-        loss_fn,
+        criterion,
         train_batch_size,
         inference_batch_size,
         optimizer_class,
@@ -134,8 +135,9 @@ class FedDyn(fedavg.FedAvg):
         opt_res = super(FedDyn, self).send_to_server(
             client_id,
             datasets,
+            round_scores,
             epochs,
-            loss_fn,
+            criterion,
             train_batch_size,
             inference_batch_size,
             optimizer_class,

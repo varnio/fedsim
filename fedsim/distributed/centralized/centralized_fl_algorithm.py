@@ -38,7 +38,7 @@ class CentralFLAlgorithm(object):
         sample_rate (float): rate of sampling clients
         model_class (Callable): class for constructing the model
         epochs (int): number of local epochs
-        loss_fn (Callable): loss function defining local objective
+        criterion (Callable): loss function defining local objective
         optimizer_class (Callable): server optimizer class
         local_optimizer_class (Callable): local optimization class
         lr_scheduler_class: class definition for lr scheduler of server optimizer
@@ -59,7 +59,7 @@ class CentralFLAlgorithm(object):
         sample_rate,
         model_class,
         epochs,
-        loss_fn,
+        criterion,
         optimizer_class,
         local_optimizer_class,
         lr_scheduler_class,
@@ -93,10 +93,10 @@ class CentralFLAlgorithm(object):
             raise Exception("incompatiple model!")
         self.epochs = epochs
 
-        if isinstance(loss_fn, str) and hasattr(scores, loss_fn):
-            self.loss_fn = getattr(scores, loss_fn)
+        if isinstance(criterion, str) and hasattr(scores, criterion):
+            self.loss_fn = getattr(scores, criterion)
         else:
-            self.loss_fn = loss_fn
+            self.loss_fn = criterion
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
         self.optimizer_class = optimizer_class
