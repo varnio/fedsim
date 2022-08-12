@@ -15,7 +15,6 @@ from .dict_ops import apply_on_dict
 from .dict_ops import reduce_dict
 from .import_utils import get_from_module
 from .random_utils import set_seed
-from .score_utils import collect_scores
 
 __all__ = [
     "vector_to_parameters_like",
@@ -25,7 +24,6 @@ __all__ = [
     "apply_on_dict",
     "reduce_dict",
     "get_from_module",
-    "collect_scores",
     "set_seed",
     "SerialAggregator",
 ]

@@ -5,18 +5,13 @@ Local Inference
 Inference for local client
 """
 
-from functools import partial
-
 import torch
-
-from fedsim.utils import collect_scores
 
 
 def local_inference(
     model,
     data_loader,
-    metric_fn_dict,
-    link_fn=partial(torch.argmax, dim=1),
+    scores,
     device="cpu",
     transform_y=None,
 ):
@@ -28,7 +23,6 @@ def local_inference(
     :param link_fn: to be applied on top of model output (e.g. softmax)
     :param device: device (e.g., 'cuda', '<gpu number> or 'cpu')
     """
-    y_true, y_pred = [], []
     num_samples = 0
     model_is_training = model.training
     model.eval()
@@ -36,18 +30,14 @@ def local_inference(
         for (X, y) in data_loader:
             if transform_y is not None:
                 y = transform_y(y)
-            y_true.extend(y.tolist())
             y = y.reshape(-1).long()
             y = y.to(device)
             X = X.to(device)
             outputs = model(X)
-            y_pred_batch = link_fn(outputs).tolist()
-            y_pred.extend(y_pred_batch)
             num_samples += len(y)
+            for score in scores.values():
+                score(outputs, y)
             del outputs
     if model_is_training:
         model.train()
-    return (
-        collect_scores(metric_fn_dict, y_true, y_pred),
-        num_samples,
-    )
+    return (num_samples,)
