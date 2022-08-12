@@ -19,6 +19,7 @@ from fedsim.utils import set_seed
 from .utils import OptionEatAll
 from .utils import ingest_fed_context
 from .utils import ingest_scores
+from .utils import validate_score
 
 
 @click.command(
@@ -39,7 +40,7 @@ from .utils import ingest_scores
     type=tuple,
     cls=OptionEatAll,
     show_default=True,
-    default="BasicDataManager",
+    default=("BasicDataManager",),
     help="name of data manager.",
 )
 @click.option(
@@ -77,7 +78,7 @@ from .utils import ingest_scores
     "-a",
     type=tuple,
     cls=OptionEatAll,
-    default="FedAvg",
+    default=("FedAvg",),
     show_default=True,
     help="federated learning algorithm.",
 )
@@ -86,7 +87,7 @@ from .utils import ingest_scores
     "-m",
     type=tuple,
     cls=OptionEatAll,
-    default="mlp_mnist",
+    default=("mlp_mnist",),
     show_default=True,
     help="model architecture.",
 )
@@ -101,7 +102,8 @@ from .utils import ingest_scores
 @click.option(
     "--criterion",
     type=tuple,
-    default="CrossEntropyLoss",
+    cls=OptionEatAll,
+    default=("CrossEntropyLoss",),
     show_default=True,
     help="loss function to use (defined under fedsim.losses).",
 )
@@ -181,13 +183,6 @@ from .utils import ingest_scores
     help="directory to store the logs.",
 )
 @click.option(
-    "--log-freq",
-    type=int,
-    default=50,
-    show_default=True,
-    help="gap between two reports in rounds.",
-)
-@click.option(
     "--n-point-summary",
     type=int,
     default=10,
@@ -200,6 +195,7 @@ from .utils import ingest_scores
     type=tuple,
     cls=OptionEatAll,
     multiple=True,
+    default=(("Accuracy", "eval_freq:50", "split:train"),),
     help="hooks a score object to a split of local datasets. Choose the score classes\
         from `fedsim.scores`. It is possible to call this option multiple times.",
 )
@@ -208,16 +204,9 @@ from .utils import ingest_scores
     type=tuple,
     cls=OptionEatAll,
     multiple=True,
+    default=(("CrossEntropyScore", "eval_freq:50", "split:test"),),
     help="hooks a score object to a split of global datasets. Choose the score classes\
         from `fedsim.scores`. It is possible to call this option multiple times.",
-)
-@click.option(
-    "--verbosity",
-    "-v",
-    type=int,
-    default=0,
-    help="verbosity.",
-    show_default=True,
 )
 @click.pass_context
 def fed_learn(
@@ -242,11 +231,9 @@ def fed_learn(
     seed: Optional[float],
     device: Optional[str],
     log_dir: str,
-    log_freq: int,
     n_point_summary: int,
     local_score: Iterable,
     global_score: Iterable,
-    verbosity: int,
 ) -> None:
     """simulates federated learning!
 
@@ -363,7 +350,7 @@ def fed_learn(
     )
 
     # log configuration
-    args_dict = {obj_name: obj.arguments for obj_name, obj in cfg.items()}
+    args_dict = {def_name: defn.arguments for def_name, defn in cfg.items()}
     log = {**ctx.params, **args_dict}
     log["device"] = device
     log["log_dir"] = log_dir
@@ -395,38 +382,34 @@ def fed_learn(
         batch_size=batch_size,
         test_batch_size=test_batch_size,
         device=device,
-        log_freq=log_freq,
     )
 
-    local_score_objs = ingest_scores(local_score)
-    global_score_objs = ingest_scores(global_score)
+    local_score_defs = ingest_scores(local_score)
+    global_score_defs = ingest_scores(global_score)
 
-    local_score_objs = [score_obj.definition() for score_obj in local_score_objs]
-    global_score_objs = [score_obj.definition() for score_obj in global_score_objs]
+    local_score_defs = [score_obj.definition for score_obj in local_score_defs]
+    global_score_defs = [score_obj.definition for score_obj in global_score_defs]
 
-    for l_score in local_score_objs:
-        if l_score.split not in data_manager_instant.get_local_splits_names():
-            raise Exception(
-                f"{l_score.split} is not provided by data manager as a "
-                "local data split."
-            )
+    for l_score in local_score_defs:
+        local_split_names = data_manager_instant.get_local_splits_names()
+        split_name, score_name = validate_score(
+            l_score, local_split_names, mode="local"
+        )
         algorithm_instance.hook_local_score(
             l_score,
-            split_name=l_score.split,
-            score_name=l_score.score_name,
+            split_name=split_name,
+            score_name=score_name,
         )
-    algorithm_instance.get_local_scores("train")
 
-    for g_score in global_score_objs:
-        if g_score.split not in data_manager_instant.get_global_splits_names():
-            raise Exception(
-                f"{g_score.split} is not provided by data manager as a"
-                "global data split."
-            )
+    for g_score in global_score_defs:
+        global_split_names = data_manager_instant.get_global_splits_names()
+        split_name, score_name = validate_score(
+            g_score, global_split_names, mode="global"
+        )
         algorithm_instance.hook_global_score(
             g_score,
-            split_name=g_score.split,
-            score_name=g_score.score_name,
+            split_name=split_name,
+            score_name=score_name,
         )
 
     report_summary = algorithm_instance.train(rounds, n_point_summary, train_split_name)

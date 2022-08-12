@@ -38,7 +38,6 @@ class FedDyn(fedavg.FedAvg):
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
-        log_freq (int): frequency of logging
         mu (float): FedDyn's :math:`\mu` parameter for local regularization
 
     .. _Federated Learning Based on Dynamic Regularization:
@@ -63,7 +62,6 @@ class FedDyn(fedavg.FedAvg):
         batch_size=32,
         test_batch_size=64,
         device="cuda",
-        log_freq=10,
         mu=0.02,
     ):
         self.mu = mu
@@ -85,7 +83,6 @@ class FedDyn(fedavg.FedAvg):
             batch_size,
             test_batch_size,
             device,
-            log_freq,
         )
 
         cloud_params = self.read_server("cloud_params")

@@ -44,7 +44,6 @@ class FedAvg(CentralFLAlgorithm):
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
-        log_freq (int): frequency of logging
 
     .. _Communication-Efficient Learning of Deep Networks from Decentralized
         Data: https://arxiv.org/abs/1602.05629
@@ -68,7 +67,6 @@ class FedAvg(CentralFLAlgorithm):
         batch_size=32,
         test_batch_size=64,
         device="cuda",
-        log_freq=10,
     ):
         super(FedAvg, self).__init__(
             data_manager,
@@ -87,7 +85,6 @@ class FedAvg(CentralFLAlgorithm):
             batch_size,
             test_batch_size,
             device,
-            log_freq,
         )
 
         # make mode and optimizer
@@ -120,6 +117,7 @@ class FedAvg(CentralFLAlgorithm):
         self,
         client_id,
         datasets,
+        round_scores,
         epochs,
         criterion,
         train_batch_size,
@@ -151,7 +149,10 @@ class FedAvg(CentralFLAlgorithm):
             lr_scheduler = lr_scheduler_class(optimizer=optimizer)
         # optimize the model locally
         step_closure_ = default_step_closure if step_closure is None else step_closure
-        train_scores = self.get_local_scores(train_split_name)
+        if train_split_name in round_scores:
+            train_scores = round_scores[train_split_name]
+        else:
+            train_scores = dict()
         num_train_samples, num_steps, diverged, = local_train(
             model,
             train_loader,
@@ -171,12 +172,13 @@ class FedAvg(CentralFLAlgorithm):
             }
         }
         # append train loss
-        metrics_dict[train_split_name][criterion.get_name()] = criterion.get_score()
+        if self.rounds % criterion.eval_freq == 0:
+            metrics_dict[train_split_name][criterion.get_name()] = criterion.get_score()
         num_samples_dict = {train_split_name: num_train_samples}
         # other splits
         for split_name, split in datasets.items():
-            if split_name != train_split_name:
-                o_scores = self.get_local_scores(split_name)
+            if split_name != train_split_name and split_name in round_scores:
+                o_scores = round_scores[split_name]
                 split_loader = DataLoader(
                     split,
                     batch_size=inference_batch_size,
@@ -192,7 +194,6 @@ class FedAvg(CentralFLAlgorithm):
                     name: score.get_score() for name, score in o_scores.items()
                 }
                 num_samples_dict[split_name] = num_samples
-
         # return optimized model parameters and number of train samples
         return dict(
             local_params=parameters_to_vector(model.parameters()),
@@ -203,7 +204,12 @@ class FedAvg(CentralFLAlgorithm):
         )
 
     def agg(
-        self, client_id, client_msg, aggregator, train_weight=None, other_weight=None
+        self,
+        client_id,
+        client_msg,
+        aggregator,
+        train_weight=None,
+        other_weight=None,
     ):
         params = client_msg["local_params"].clone().detach().data
         diverged = client_msg["diverged"]
@@ -254,6 +260,7 @@ class FedAvg(CentralFLAlgorithm):
     def report(
         self,
         dataloaders,
+        round_scores,
         metric_logger,
         device,
         optimize_reports,
@@ -267,19 +274,21 @@ class FedAvg(CentralFLAlgorithm):
                 vector_to_parameters(point.detach().clone().data, model.parameters())
 
                 for split_name, loader in dataloaders.items():
-                    scores = self.get_global_scores(split_name)
-                    _ = local_inference(
-                        model,
-                        loader,
-                        scores=scores,
-                        device=device,
-                    )
-                    split_metrics = {
-                        f"server.{point_name}.{split_name}.{score_name}": score
-                        for score_name, score in scores.items()
-                    }
-                    metrics_from_deployment = {
-                        **metrics_from_deployment,
-                        **split_metrics,
-                    }
+                    if split_name in round_scores:
+                        scores = round_scores[split_name]
+                        _ = local_inference(
+                            model,
+                            loader,
+                            scores=scores,
+                            device=device,
+                        )
+                        split_metrics = {
+                            f"server.{point_name}.{split_name}."
+                            f"{score_name}": score.get_score()
+                            for score_name, score in scores.items()
+                        }
+                        metrics_from_deployment = {
+                            **metrics_from_deployment,
+                            **split_metrics,
+                        }
         return {**metrics_from_deployment, **optimize_reports}

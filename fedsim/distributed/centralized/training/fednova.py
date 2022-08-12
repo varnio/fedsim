@@ -33,7 +33,6 @@ class FedNova(fedavg.FedAvg):
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
-        log_freq (int): frequency of logging
 
     .. _Tackling the Objective Inconsistency Problem in Heterogeneous Federated
         Optimization: https://arxiv.org/abs/2007.07481
@@ -57,7 +56,6 @@ class FedNova(fedavg.FedAvg):
         batch_size=32,
         test_batch_size=64,
         device="cuda",
-        log_freq=10,
     ):
         super(FedNova, self).__init__(
             data_manager,
@@ -76,7 +74,6 @@ class FedNova(fedavg.FedAvg):
             batch_size,
             test_batch_size,
             device,
-            log_freq,
         )
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):

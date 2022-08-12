@@ -10,17 +10,25 @@ Tensor = torch.Tensor
 
 
 class CrossEntropyLoss(scores.CrossEntropyScore):
-    r"""updatable cross entropy loss"""
+    r"""updatable cross entropy loss
+
+    Args:
+    log_freq (int, optional): how many steps gap between two logs. Defaults to 1.
+    split (str, optional): data split to evaluate on. Defaults to 'train'.
+    loss_name (str): name of the loss object.
+
+    """
 
     def __init__(
         self,
-        split,
+        log_freq,
+        split="train",
         loss_name="cross_entropy_loss",
         weight=None,
         label_smoothing=0.0,
     ) -> None:
         super().__init__(
-            eval_freq=1,
+            eval_freq=log_freq,
             split=split,
             score_name=loss_name,
             reduction="micro",

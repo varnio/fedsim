@@ -48,7 +48,6 @@ class CentralFLAlgorithm(object):
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
-        log_freq (int): frequency of logging
     """
 
     def __init__(
@@ -69,7 +68,6 @@ class CentralFLAlgorithm(object):
         batch_size,
         test_batch_size,
         device,
-        log_freq,
     ):
         self._data_manager = data_manager
         self.num_clients = num_clients
@@ -125,7 +123,6 @@ class CentralFLAlgorithm(object):
 
         self.metric_logger = metric_logger
         self.device = device
-        self.log_freq = log_freq
 
         self._server_memory: Dict[Hashable, object] = dict()
         self._client_memory: Dict[int, Dict[object]] = {
@@ -196,13 +193,11 @@ class CentralFLAlgorithm(object):
             )
 
         datasets = self._data_manager.get_local_dataset(client_id)
-        # only if round % log_freq = 0, let other datasets go through
-        if self.rounds % self.log_freq != 0:
-            train_split_name = self.get_train_split_name()
-            datasets = {train_split_name: datasets[train_split_name]}
+        round_scores = self.get_local_scores()
         client_ctx = self.send_to_server(
             client_id,
             datasets,
+            round_scores,
             self.epochs,
             self.loss_fn(),
             self.batch_size,
@@ -226,9 +221,10 @@ class CentralFLAlgorithm(object):
         del aggregator
         return reports
 
-    def _report(self, optimize_reports=None, deployment_points=None):
+    def _report(self, round_scores, optimize_reports=None, deployment_points=None):
         report_metrics = self.report(
             self.global_dataloaders,
+            round_scores,
             self.metric_logger,
             self.device,
             optimize_reports,
@@ -241,48 +237,41 @@ class CentralFLAlgorithm(object):
 
     def _train(self, rounds, num_score_report_point=None):
         score_aggregator = AppendixAggregator(max_deque_lenght=num_score_report_point)
-        for self.rounds in trange(rounds):
+        for self.rounds in trange(rounds + 1):
             self._at_round_start()
             round_aggregator = SerialAggregator()
             for client_id in self._sample_clients():
                 client_msg = self._send_to_server(client_id)
                 self._receive_from_client(client_msg, round_aggregator)
             opt_reports = self._optimize(round_aggregator)
-            if self.rounds % self.log_freq == 0:
-                deploy_poiont = self.deploy()
-                score_dict = self._report(opt_reports, deploy_poiont)
-                score_aggregator.append_all(score_dict, step=self.rounds)
+            deploy_poiont = self.deploy()
+            round_scores = self.get_global_scores()
+            score_dict = self._report(round_scores, opt_reports, deploy_poiont)
+            score_aggregator.append_all(score_dict, step=self.rounds)
             self._at_round_end(score_aggregator)
 
-        # one last report
-        if self.rounds % self.log_freq > 0:
-            deploy_poiont = self.deploy()
-            score_dict = self._report(opt_reports, deploy_poiont)
-            score_aggregator.append_all(score_dict, step=self.rounds)
         return score_aggregator.pop_all()
 
     def _at_round_start(self) -> None:
         self.at_round_start()
 
     def _at_round_end(self, score_aggregator) -> None:
-        if self.rounds % self.log_freq == 0:
-            if self.r2r_local_lr_scheduler is not None:
-                step_args = inspect.signature(
-                    self.r2r_local_lr_scheduler.step
-                ).parameters
-                if "metrics" in step_args:
-                    trigger_metric = self.r2r_local_lr_scheduler.trigger_metric
-                    self.r2r_local_lr_scheduler.step(
-                        score_aggregator.get(trigger_metric, 1)
-                    )
-                else:
-                    self.r2r_local_lr_scheduler.step()
+        if self.r2r_local_lr_scheduler is not None:
+            step_args = inspect.signature(self.r2r_local_lr_scheduler.step).parameters
+            if "metrics" in step_args:
+                trigger_metric = self.r2r_local_lr_scheduler.trigger_metric
+                self.r2r_local_lr_scheduler.step(
+                    score_aggregator.get(trigger_metric, 1)
+                )
+            else:
+                self.r2r_local_lr_scheduler.step()
         self.at_round_end(score_aggregator)
 
-    def _get_score(self, score_deck):
+    def _get_round_scores(self, score_def_deck):
         # filter out the scores that should not be present in the current round
         round_scores = dict()
-        for name, obj in score_deck.items():
+        for name, definition in score_def_deck.items():
+            obj = definition()
             if self.rounds % obj.eval_freq == 0:
                 round_scores[name] = obj
         return round_scores
@@ -329,23 +318,33 @@ class CentralFLAlgorithm(object):
     def get_train_split_name(self):
         return self._train_split_name
 
-    def hook_local_score(self, score_obj, score_name, split_name) -> None:
-        self._client_scores[split_name][score_name] = score_obj
+    def hook_local_score(self, score_def, score_name, split_name) -> None:
+        self._client_scores[split_name][score_name] = score_def
 
-    def hook_global_score(self, score_obj, score_name, split_name) -> None:
-        self._server_scores[split_name][score_name] = score_obj
+    def hook_global_score(self, score_def, score_name, split_name) -> None:
+        self._server_scores[split_name][score_name] = score_def
 
-    def get_local_scores(self, split_name) -> Dict[str, Any]:
-        score_objs = self._get_score(self._client_scores[split_name])
-        for obj in score_objs.values():
-            obj.reset()
-        return score_objs
+    def get_local_split_scores(self, split_name) -> Dict[str, Any]:
+        return self._get_round_scores(self._client_scores[split_name])
 
-    def get_global_scores(self, split_name) -> Dict[str, Any]:
-        score_objs = self._get_score(self._server_scores[split_name])
-        for obj in score_objs.values():
-            obj.reset()
-        return score_objs
+    def get_global_split_scores(self, split_name) -> Dict[str, Any]:
+        return self._get_round_scores(self._server_scores[split_name])
+
+    def get_local_scores(self) -> Dict[str, Any]:
+        scores = dict()
+        for split_name, split in self._client_scores.items():
+            split_scores = self._get_round_scores(split)
+            if len(split_scores) > 0:
+                scores[split_name] = split_scores
+        return scores
+
+    def get_global_scores(self) -> Dict[str, Any]:
+        scores = dict()
+        for split_name, split in self._server_scores.items():
+            split_scores = self._get_round_scores(split)
+            if len(split_scores) > 0:
+                scores[split_name] = split_scores
+        return scores
 
     def at_round_start(self) -> None:
         pass
@@ -383,6 +382,7 @@ class CentralFLAlgorithm(object):
         self,
         client_id: int,
         datasets: Dict[str, Iterable],
+        round_scores: Dict[str, Dict[str, Any]],
         epochs: int,
         loss_fn: nn.Module,
         train_batch_size: int,
@@ -399,6 +399,9 @@ class CentralFLAlgorithm(object):
         Args:
             client_id (int): id of the client
             datasets (Dict[str, Iterable]): this comes from Data Manager
+            round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
+                form {'split_name':{'score_name': score_def}} for global scores to
+                evaluate at the current round.
             epochs (int): number of epochs to train
             loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
             train_batch_size (int): training batch_size
@@ -459,6 +462,7 @@ class CentralFLAlgorithm(object):
     def report(
         self,
         dataloaders: Dict[str, Any],
+        round_scores: Dict[str, Dict[str, Any]],
         metric_logger: Optional[Any],
         device: str,
         optimize_reports: Mapping[Hashable, Any],
@@ -472,10 +476,13 @@ class CentralFLAlgorithm(object):
 
         Args:
             dataloaders (Any): dict of data loaders to test the global model(s)
+            round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
+                form {'split_name':{'score_name': score_def}} for global scores to
+                evaluate at the current round.
             metric_logger (Any, optional): the logging object
                 (e.g., logall.TensorboardLogger)
             device (str): 'cuda', 'cpu' or gpu number
-            optimize_reports (Mapping[Hashable, Any]): dict returned by \
+            optimize_reports (Mapping[Hashable, Any]): dict returned by
                 optimzier
             deployment_points (Mapping[Hashable, torch.Tensor], optional): \
                 output of deploy method

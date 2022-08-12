@@ -19,12 +19,13 @@ from skopt.space import Categorical
 from skopt.space import Integer
 from skopt.space import Real
 
-from fedsim import scores
 from fedsim.utils import set_seed
 
 from .utils import LogFilter
 from .utils import OptionEatAll
 from .utils import ingest_fed_context
+from .utils import ingest_scores
+from .utils import validate_score
 
 
 @click.command(
@@ -62,16 +63,15 @@ from .utils import ingest_fed_context
 @click.option(
     "--eval-metric",
     type=str,
-    default="server.avg.test_accuracy",
+    default="server.avg.test.cross_entropy_score",
     show_default=True,
     help="complete name of the metric (returned from train method of algorithm) to\
         minimize (or maximize if --maximize is passed)",
 )
 @click.option(
-    "--maximize-metric",
-    type=str,
-    is_flag=True,
-    show_default=True,
+    "--maximize/--minimize",
+    default=False,
+    show_default=False,
     help="complete name of the metric (returned from train method of algorithm) to\
         minimize or maximize",
 )
@@ -89,7 +89,7 @@ from .utils import ingest_fed_context
     type=tuple,
     cls=OptionEatAll,
     show_default=True,
-    default="BasicDataManager",
+    default=("BasicDataManager",),
     help="name of data manager.",
 )
 @click.option(
@@ -127,7 +127,7 @@ from .utils import ingest_fed_context
     "-a",
     type=tuple,
     cls=OptionEatAll,
-    default="FedAvg",
+    default=("FedAvg",),
     show_default=True,
     help="federated learning algorithm.",
 )
@@ -136,7 +136,7 @@ from .utils import ingest_fed_context
     "-m",
     type=tuple,
     cls=OptionEatAll,
-    default="mlp_mnist",
+    default=("mlp_mnist",),
     show_default=True,
     help="model architecture.",
 )
@@ -149,11 +149,12 @@ from .utils import ingest_fed_context
     help="number of local epochs.",
 )
 @click.option(
-    "--loss-fn",
-    type=str,
-    default="cross_entropy",
+    "--criterion",
+    type=tuple,
+    cls=OptionEatAll,
+    default=("CrossEntropyLoss",),
     show_default=True,
-    help="loss function to use (defined under fedsim.scores).",
+    help="loss function to use (defined under fedsim.losses).",
 )
 @click.option(
     "--batch-size",
@@ -231,13 +232,6 @@ from .utils import ingest_fed_context
     help="directory to store the logs.",
 )
 @click.option(
-    "--log-freq",
-    type=int,
-    default=50,
-    show_default=True,
-    help="gap between two reports in rounds.",
-)
-@click.option(
     "--n-point-summary",
     type=int,
     default=10,
@@ -246,26 +240,22 @@ from .utils import ingest_fed_context
         performance from.",
 )
 @click.option(
-    "--add-local-score",
-    type=str,
+    "--local-score",
+    type=tuple,
+    cls=OptionEatAll,
     multiple=True,
-    help="hooks a local score function to all local splits. choose these functions from\
-        `fedsim.scores`. It is possible to call this option multiple times.",
-)
-@click.option(
-    "--add-global-score",
-    type=str,
-    multiple=True,
-    help="hooks a global score function to all local splits. choose these functions\
+    default=(("Accuracy", "eval_freq:50", "split:train"),),
+    help="hooks a score object to a split of local datasets. Choose the score classes\
         from `fedsim.scores`. It is possible to call this option multiple times.",
 )
 @click.option(
-    "--verbosity",
-    "-v",
-    type=int,
-    default=0,
-    help="verbosity.",
-    show_default=True,
+    "--global-score",
+    type=tuple,
+    cls=OptionEatAll,
+    multiple=True,
+    default=(("CrossEntropyScore", "eval_freq:50", "split:test"),),
+    help="hooks a score object to a split of global datasets. Choose the score classes\
+        from `fedsim.scores`. It is possible to call this option multiple times.",
 )
 @click.pass_context
 def fed_tune(
@@ -275,7 +265,7 @@ def fed_tune(
     skopt_random_state: int,
     skopt_base_estimator: str,
     eval_metric: str,
-    maximize_metric: bool,
+    maximize: bool,
     rounds: int,
     data_manager: str,
     train_split_name: str,
@@ -285,7 +275,7 @@ def fed_tune(
     algorithm: str,
     model: str,
     epochs: int,
-    loss_fn: str,
+    criterion: str,
     batch_size: int,
     test_batch_size: int,
     optimizer,
@@ -296,11 +286,9 @@ def fed_tune(
     seed: Optional[float],
     device: Optional[str],
     log_dir: str,
-    log_freq: int,
     n_point_summary: int,
-    add_local_score: Iterable,
-    add_global_score: Iterable,
-    verbosity: int,
+    local_score: Iterable,
+    global_score: Iterable,
 ) -> None:
     """simulates federated learning!
 
@@ -398,12 +386,6 @@ def fed_tune(
     logger.setLevel(logging.INFO)
     logger.addHandler(log_handler)
 
-    loss_criterion = None
-    if hasattr(scores, loss_fn):
-        loss_criterion = getattr(scores, loss_fn)
-    else:
-        raise Exception(f"loss_fn {loss_fn} is not defined in fedsim.scores")
-
     # set the device if it is not already set
     if device is None:
         if torch.cuda.is_available():
@@ -415,23 +397,31 @@ def fed_tune(
         data_manager,
         algorithm,
         model,
+        criterion,
         optimizer,
         local_optimizer,
         lr_scheduler,
         local_lr_scheduler,
         r2r_local_lr_scheduler,
     )
+
+    local_score_defs = ingest_scores(local_score)
+    global_score_defs = ingest_scores(global_score)
+
+    local_score_defs = [score_obj.definition for score_obj in local_score_defs]
+    global_score_defs = [score_obj.definition for score_obj in global_score_defs]
+
     hparams = OrderedDict()
-    for obj_name, obj in cfg.items():
-        for arg_name, arg in obj.harguments.items():
-            hparams[".".join([obj_name, arg_name])] = arg
+    for def_name, defn in cfg.items():
+        for arg_name, arg in defn.harguments.items():
+            hparams[".".join([def_name, arg_name])] = arg
     if len(hparams) == 0:
         raise Exception("no hyper-params specified!")
 
     # log configuration
     compined_args = dict()
-    for obj_name, obj in cfg.items():
-        compined_args[obj_name] = {**obj.arguments, **obj.harguments}
+    for def_name, defn in cfg.items():
+        compined_args[def_name] = {**defn.arguments, **defn.harguments}
 
     log = {**ctx.params, **compined_args}
     log["device"] = device
@@ -448,6 +438,7 @@ def fed_tune(
 
     def refine_hparams(hparam_dict, obj_name):
         """filters hparams of obj_name from hparam_dict and returns as a dict.
+
         Example:
             if hparam_dict := {'algorithm.mu': 0.1, 'model.omega: 5'},
             obj_name == algorithm, then the result would be {'mu': 0.1}
@@ -462,7 +453,7 @@ def fed_tune(
 
     def update_def(hparam_dict, obj_name):
         """updates the partial definition of cfg[obj_name].definition, with
-        corresponding entries in hparam_dict
+        corresponding entries in hparam_dict.
         """
         return partial(
             cfg[obj_name].definition, **refine_hparams(hparam_dict, obj_name)
@@ -478,6 +469,7 @@ def fed_tune(
         data_manager_class = update_def(hparams_suggested, "data_manager")
         algorithm_class = update_def(hparams_suggested, "algorithm")
         model_class = update_def(hparams_suggested, "model")
+        criterion_class = update_def(hparams_suggested, "criterion")
         optimizer_class = update_def(hparams_suggested, "optimizer")
         local_optimizer_class = update_def(hparams_suggested, "local_optimizer")
         lr_scheduler_class = update_def(hparams_suggested, "lr_scheduler")
@@ -505,10 +497,10 @@ def fed_tune(
         logger.addHandler(log_handler)
 
         compined_args = dict()
-        for obj_name, obj in cfg.items():
-            compined_args[obj_name] = {
-                **obj.arguments,
-                **refine_hparams(hparams_suggested, obj_name),
+        for def_name, defn in cfg.items():
+            compined_args[def_name] = {
+                **defn.arguments,
+                **refine_hparams(hparams_suggested, def_name),
             }
 
         log = {**log, **compined_args}
@@ -529,7 +521,7 @@ def fed_tune(
             sample_rate=client_sample_rate,
             model_class=model_class,
             epochs=epochs,
-            loss_fn=loss_criterion,
+            loss_fn=criterion_class,
             optimizer_class=optimizer_class,
             local_optimizer_class=local_optimizer_class,
             lr_scheduler_class=lr_scheduler_class,
@@ -538,18 +530,29 @@ def fed_tune(
             batch_size=batch_size,
             test_batch_size=test_batch_size,
             device=device,
-            log_freq=log_freq,
         )
-        for key in data_manager_instant.get_global_splits_names():
-            algorithm_instance.hook_global_score(key, "accuracy", scores.accuracy)
-            for score in add_global_score:
-                if score != "accuracy":
-                    algorithm_instance.hook_global_score(
-                        key, score, getattr(scores, score)
-                    )
-        for key in data_manager_instant.get_local_splits_names():
-            for score in add_local_score:
-                algorithm_instance.hook_local_score(key, score, getattr(scores, score))
+
+        for l_score in local_score_defs:
+            local_split_names = data_manager_instant.get_local_splits_names()
+            split_name, score_name = validate_score(
+                l_score, local_split_names, mode="local"
+            )
+            algorithm_instance.hook_local_score(
+                l_score,
+                split_name=split_name,
+                score_name=score_name,
+            )
+
+        for g_score in global_score_defs:
+            global_split_names = data_manager_instant.get_global_splits_names()
+            split_name, score_name = validate_score(
+                g_score, global_split_names, mode="global"
+            )
+            algorithm_instance.hook_global_score(
+                g_score,
+                split_name=split_name,
+                score_name=score_name,
+            )
 
         report_summary = algorithm_instance.train(
             rounds,
@@ -565,7 +568,7 @@ def fed_tune(
         tb_logger.log_scalars(
             {f"grid.{k}": v for k, v in report_summary.items()}, step=itr
         )
-        if maximize_metric:
+        if maximize:
             metric = -metric
         optimizer.tell(suggested, metric)
 
@@ -575,7 +578,7 @@ def fed_tune(
             best_config = identity
             best_itr = itr
 
-    if maximize_metric:
+    if maximize:
         best_metric = -best_metric
     logger.info(
         f"best metric observed ({best_metric:.3f}) at iteration {best_itr}",

@@ -62,7 +62,7 @@ def get_definition(name, modules):
             if definition is not None:
                 break
     if definition is None:
-        raise Exception(f"{definition} is not defined!")
+        raise Exception(f"{name} is not defined in {modules}!")
     return definition
 
 
@@ -271,6 +271,7 @@ def ingest_fed_context(
 
 
 def ingest_scores(score_tuple):
+    score_tuple = set(score_tuple)  # to get rid of identical scores
     score_objs = []
     for score in score_tuple:
         score_name, score_args, score_hargs = decode_margs(score)
@@ -282,6 +283,34 @@ def ingest_scores(score_tuple):
             ObjectContext(partial(score_def, **score_args), score_args, score_hargs)
         )
     return score_objs
+
+
+def validate_score(score, possible_split_names, mode="local"):
+    if "split" in score.keywords:
+        split_name = score.keywords["split"]
+        if split_name not in possible_split_names:
+            raise Exception(
+                f"{split_name} is not provided by data manager as a "
+                f"{mode} data split (possible choices are {possible_split_names})."
+            )
+    elif "split" in inspect.signature(score.func).parameters.keys():
+        default_split = inspect.signature(score.func).parameters["split"].default
+        if default_split not in possible_split_names:
+            raise Exception(
+                f"default split of local score is not provide by data manager as a "
+                f"{mode} data split (possible choices are {possible_split_names})."
+            )
+        split_name = default_split
+    else:
+        raise Exception("can't find split name")
+
+    if "score_name" in score.keywords:
+        score_name = score.keywords["score_name"]
+    elif "score_name" in inspect.signature(score.func).parameters.keys():
+        default_score = inspect.signature(score.func).parameters["score_name"].default
+        score_name = default_score
+
+    return split_name, score_name
 
 
 # to use separate log files as suggested at https://stackoverflow.com/a/57774450/9784436
