@@ -29,7 +29,7 @@ class AdaBest(fedavg.FedAvg):
         sample_rate (float): rate of sampling clients
         model_class (Callable): class for constructing the model
         epochs (int): number of local epochs
-        loss_fn (Callable): loss function defining local objective
+        criterion (Callable): loss function defining local objective
         optimizer_class (Callable): server optimizer class
         local_optimizer_class (Callable): local optimization class
         lr_scheduler_class: class definition for lr scheduler of server optimizer
@@ -39,7 +39,6 @@ class AdaBest(fedavg.FedAvg):
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
-        log_freq (int): frequency of logging
         mu (float): AdaBest's :math:`\mu` parameter for local regularization
         beta (float): AdaBest's :math:`\beta` parameter for global regularization
 
@@ -56,7 +55,7 @@ class AdaBest(fedavg.FedAvg):
         sample_rate,
         model_class,
         epochs,
-        loss_fn,
+        criterion,
         optimizer_class=partial(SGD, lr=0.1, weight_decay=0.001),
         local_optimizer_class=partial(SGD, lr=1.0),
         lr_scheduler_class=None,
@@ -65,7 +64,6 @@ class AdaBest(fedavg.FedAvg):
         batch_size=32,
         test_batch_size=64,
         device="cuda",
-        log_freq=10,
         mu=0.02,
         beta=0.98,
     ):
@@ -83,7 +81,7 @@ class AdaBest(fedavg.FedAvg):
             sample_rate,
             model_class,
             epochs,
-            loss_fn,
+            criterion,
             optimizer_class,
             local_optimizer_class,
             lr_scheduler_class,
@@ -92,7 +90,6 @@ class AdaBest(fedavg.FedAvg):
             batch_size,
             test_batch_size,
             device,
-            log_freq,
         )
 
         cloud_params = self.read_server("cloud_params")
@@ -107,22 +104,25 @@ class AdaBest(fedavg.FedAvg):
         self,
         client_id,
         datasets,
+        round_scores,
         epochs,
-        loss_fn,
-        batch_size,
+        criterion,
+        train_batch_size,
+        inference_batch_size,
         optimizer_class,
         lr_scheduler_class=None,
         device="cuda",
         ctx=None,
         step_closure=None,
-        *args,
-        **kwargs,
     ):
+        train_split_name = self.get_train_split_name()
         model = ctx["model"]
         params_init = parameters_to_vector(model.parameters()).detach().clone()
         h = self.read_client(client_id, "h")
         mu_adaptive = (
-            self.mu / len(datasets["train"]) * self.read_server("average_sample")
+            self.mu
+            / len(datasets[train_split_name])
+            * self.read_server("average_sample")
         )
 
         def transform_grads_fn(model):
@@ -140,16 +140,16 @@ class AdaBest(fedavg.FedAvg):
         opt_res = super(AdaBest, self).send_to_server(
             client_id,
             datasets,
+            round_scores,
             epochs,
-            loss_fn,
-            batch_size,
+            criterion,
+            train_batch_size,
+            inference_batch_size,
             optimizer_class,
             lr_scheduler_class,
             device,
             ctx,
             step_closure=step_closure_,
-            *args,
-            **kwargs,
         )
 
         # update local h
@@ -164,8 +164,9 @@ class AdaBest(fedavg.FedAvg):
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):
         weight = 1
-        self.agg(client_id, client_msg, aggregation_results, weight=weight)
-        self.general_agg.add("avg_m", client_msg["num_samples"] / self.epochs, 1)
+        self.agg(client_id, client_msg, aggregation_results, train_weight=weight)
+        n_train = client_msg["num_samples"][self.get_train_split_name()]
+        self.general_agg.add("avg_m", n_train / self.epochs, 1)
         self.write_server("average_sample", self.general_agg.get("avg_m"))
 
     def optimize(self, aggregator):

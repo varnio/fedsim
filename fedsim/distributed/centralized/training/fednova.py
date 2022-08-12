@@ -23,7 +23,7 @@ class FedNova(fedavg.FedAvg):
         sample_rate (float): rate of sampling clients
         model_class (Callable): class for constructing the model
         epochs (int): number of local epochs
-        loss_fn (Callable): loss function defining local objective
+        criterion (Callable): loss function defining local objective
         optimizer_class (Callable): server optimizer class
         local_optimizer_class (Callable): local optimization class
         lr_scheduler_class: class definition for lr scheduler of server optimizer
@@ -33,7 +33,6 @@ class FedNova(fedavg.FedAvg):
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
-        log_freq (int): frequency of logging
 
     .. _Tackling the Objective Inconsistency Problem in Heterogeneous Federated
         Optimization: https://arxiv.org/abs/2007.07481
@@ -48,7 +47,7 @@ class FedNova(fedavg.FedAvg):
         sample_rate,
         model_class,
         epochs,
-        loss_fn,
+        criterion,
         optimizer_class=partial(SGD, lr=0.1, weight_decay=0.001),
         local_optimizer_class=partial(SGD, lr=1.0),
         lr_scheduler_class=None,
@@ -57,7 +56,6 @@ class FedNova(fedavg.FedAvg):
         batch_size=32,
         test_batch_size=64,
         device="cuda",
-        log_freq=10,
     ):
         super(FedNova, self).__init__(
             data_manager,
@@ -67,7 +65,7 @@ class FedNova(fedavg.FedAvg):
             sample_rate,
             model_class,
             epochs,
-            loss_fn,
+            criterion,
             optimizer_class,
             local_optimizer_class,
             lr_scheduler_class,
@@ -76,9 +74,10 @@ class FedNova(fedavg.FedAvg):
             batch_size,
             test_batch_size,
             device,
-            log_freq,
         )
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):
-        weight = client_msg["num_samples"] / client_msg["num_steps"]
-        self.agg(client_id, client_msg, aggregation_results, weight=weight)
+        train_split_name = self.get_train_split_name()
+        n_train = client_msg["num_samples"][train_split_name]
+        weight = n_train / client_msg["num_steps"]
+        self.agg(client_id, client_msg, aggregation_results, train_weight=weight)

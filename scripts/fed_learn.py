@@ -5,18 +5,21 @@ fed-learn cli Command
 
 import logging
 import os
+from functools import partial
 from pprint import pformat
+from typing import Iterable
 from typing import Optional
 
 import click
 import torch
 from logall import TensorboardLogger
 
-from fedsim import scores
 from fedsim.utils import set_seed
 
 from .utils import OptionEatAll
 from .utils import ingest_fed_context
+from .utils import ingest_scores
+from .utils import validate_score
 
 
 @click.command(
@@ -37,8 +40,15 @@ from .utils import ingest_fed_context
     type=tuple,
     cls=OptionEatAll,
     show_default=True,
-    default="BasicDataManager",
+    default=("BasicDataManager",),
     help="name of data manager.",
+)
+@click.option(
+    "--train-split-name",
+    type=str,
+    default="train",
+    show_default=True,
+    help="name of local split to train train on",
 )
 @click.option(
     "--n-clients",
@@ -68,7 +78,7 @@ from .utils import ingest_fed_context
     "-a",
     type=tuple,
     cls=OptionEatAll,
-    default="FedAvg",
+    default=("FedAvg",),
     show_default=True,
     help="federated learning algorithm.",
 )
@@ -77,7 +87,7 @@ from .utils import ingest_fed_context
     "-m",
     type=tuple,
     cls=OptionEatAll,
-    default="mlp_mnist",
+    default=("mlp_mnist",),
     show_default=True,
     help="model architecture.",
 )
@@ -90,11 +100,12 @@ from .utils import ingest_fed_context
     help="number of local epochs.",
 )
 @click.option(
-    "--loss-fn",
-    type=str,
-    default="cross_entropy",
+    "--criterion",
+    type=tuple,
+    cls=OptionEatAll,
+    default=("CrossEntropyLoss",),
     show_default=True,
-    help="loss function to use (defined under fedsim.scores).",
+    help="loss function to use (defined under fedsim.losses).",
 )
 @click.option(
     "--batch-size",
@@ -172,39 +183,44 @@ from .utils import ingest_fed_context
     help="directory to store the logs.",
 )
 @click.option(
-    "--log-freq",
-    type=int,
-    default=50,
-    show_default=True,
-    help="gap between two reports in rounds.",
-)
-@click.option(
     "--n-point-summary",
     type=int,
     default=10,
     show_default=True,
-    help="number of last score reports points to store and get average performance.",
+    help="number of last score report points to store and get the final average\
+        performance from.",
 )
 @click.option(
-    "--verbosity",
-    "-v",
-    type=int,
-    default=0,
-    help="verbosity.",
-    show_default=True,
+    "--local-score",
+    type=tuple,
+    cls=OptionEatAll,
+    multiple=True,
+    default=(("Accuracy", "eval_freq:50", "split:train"),),
+    help="hooks a score object to a split of local datasets. Choose the score classes\
+        from `fedsim.scores`. It is possible to call this option multiple times.",
+)
+@click.option(
+    "--global-score",
+    type=tuple,
+    cls=OptionEatAll,
+    multiple=True,
+    default=(("CrossEntropyScore", "eval_freq:50", "split:test"),),
+    help="hooks a score object to a split of global datasets. Choose the score classes\
+        from `fedsim.scores`. It is possible to call this option multiple times.",
 )
 @click.pass_context
 def fed_learn(
     ctx: click.core.Context,
     rounds: int,
     data_manager: str,
+    train_split_name: str,
     n_clients: int,
     client_sample_scheme: str,
     client_sample_rate: float,
     algorithm: str,
     model: str,
     epochs: int,
-    loss_fn: str,
+    criterion: str,
     batch_size: int,
     test_batch_size: int,
     optimizer,
@@ -215,9 +231,9 @@ def fed_learn(
     seed: Optional[float],
     device: Optional[str],
     log_dir: str,
-    log_freq: int,
     n_point_summary: int,
-    verbosity: int,
+    local_score: Iterable,
+    global_score: Iterable,
 ) -> None:
     """simulates federated learning!
 
@@ -314,12 +330,6 @@ def fed_learn(
     logger.setLevel(logging.INFO)
     logger.addHandler(log_handler)
 
-    loss_criterion = None
-    if hasattr(scores, loss_fn):
-        loss_criterion = getattr(scores, loss_fn)
-    else:
-        raise Exception(f"loss_fn {loss_fn} is not defined in fedsim.scores")
-
     # set the device if it is not already set
     if device is None:
         if torch.cuda.is_available():
@@ -331,6 +341,7 @@ def fed_learn(
         data_manager,
         algorithm,
         model,
+        criterion,
         optimizer,
         local_optimizer,
         lr_scheduler,
@@ -339,7 +350,7 @@ def fed_learn(
     )
 
     # log configuration
-    args_dict = {obj_name: obj.arguments for obj_name, obj in cfg.items()}
+    args_dict = {def_name: defn.arguments for def_name, defn in cfg.items()}
     log = {**ctx.params, **args_dict}
     log["device"] = device
     log["log_dir"] = log_dir
@@ -349,16 +360,20 @@ def fed_learn(
     if seed is not None:
         set_seed(seed, device)
 
+    # set the train split as the split of criterion (loss)
+    criterion_def = partial(cfg["criterion"].definition, split=train_split_name)
+
     data_manager_instant = cfg["data_manager"].definition()
 
     algorithm_instance = cfg["algorithm"].definition(
         data_manager=data_manager_instant,
+        metric_logger=tb_logger,
         num_clients=n_clients,
         sample_scheme=client_sample_scheme,
         sample_rate=client_sample_rate,
         model_class=cfg["model"].definition,
         epochs=epochs,
-        loss_fn=loss_criterion,
+        loss_fn=criterion_def,
         optimizer_class=cfg["optimizer"].definition,
         local_optimizer_class=cfg["local_optimizer"].definition,
         lr_scheduler_class=cfg["lr_scheduler"].definition,
@@ -366,15 +381,38 @@ def fed_learn(
         r2r_local_lr_scheduler_class=cfg["r2r_local_lr_scheduler"].definition,
         batch_size=batch_size,
         test_batch_size=test_batch_size,
-        metric_logger=tb_logger,
         device=device,
-        log_freq=log_freq,
     )
-    algorithm_instance.hook_global_score_function("test", "accuracy", scores.accuracy)
-    for key in data_manager_instant.get_local_splits_names():
-        algorithm_instance.hook_local_score_function(key, "accuracy", scores.accuracy)
 
-    report_summary = algorithm_instance.train(rounds, n_point_summary)
+    local_score_defs = ingest_scores(local_score)
+    global_score_defs = ingest_scores(global_score)
+
+    local_score_defs = [score_obj.definition for score_obj in local_score_defs]
+    global_score_defs = [score_obj.definition for score_obj in global_score_defs]
+
+    for l_score in local_score_defs:
+        local_split_names = data_manager_instant.get_local_splits_names()
+        split_name, score_name = validate_score(
+            l_score, local_split_names, mode="local"
+        )
+        algorithm_instance.hook_local_score(
+            l_score,
+            split_name=split_name,
+            score_name=score_name,
+        )
+
+    for g_score in global_score_defs:
+        global_split_names = data_manager_instant.get_global_splits_names()
+        split_name, score_name = validate_score(
+            g_score, global_split_names, mode="global"
+        )
+        algorithm_instance.hook_global_score(
+            g_score,
+            split_name=split_name,
+            score_name=score_name,
+        )
+
+    report_summary = algorithm_instance.train(rounds, n_point_summary, train_split_name)
     logger.info(f"average of the last {n_point_summary} reports")
     logger.info(report_summary)
     tb_logger.flush()

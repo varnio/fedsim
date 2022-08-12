@@ -34,7 +34,7 @@ class FedAvg(CentralFLAlgorithm):
         sample_rate (float): rate of sampling clients
         model_class (Callable): class for constructing the model
         epochs (int): number of local epochs
-        loss_fn (Callable): loss function defining local objective
+        criterion (Callable): loss function defining local objective
         optimizer_class (Callable): server optimizer class
         local_optimizer_class (Callable): local optimization class
         lr_scheduler_class: class definition for lr scheduler of server optimizer
@@ -44,7 +44,6 @@ class FedAvg(CentralFLAlgorithm):
         batch_size (int): local trianing batch size
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
-        log_freq (int): frequency of logging
 
     .. _Communication-Efficient Learning of Deep Networks from Decentralized
         Data: https://arxiv.org/abs/1602.05629
@@ -59,7 +58,7 @@ class FedAvg(CentralFLAlgorithm):
         sample_rate,
         model_class,
         epochs,
-        loss_fn,
+        criterion,
         optimizer_class=partial(SGD, lr=0.1, weight_decay=0.001),
         local_optimizer_class=partial(SGD, lr=1.0),
         lr_scheduler_class=None,
@@ -68,7 +67,6 @@ class FedAvg(CentralFLAlgorithm):
         batch_size=32,
         test_batch_size=64,
         device="cuda",
-        log_freq=10,
     ):
         super(FedAvg, self).__init__(
             data_manager,
@@ -78,7 +76,7 @@ class FedAvg(CentralFLAlgorithm):
             sample_rate,
             model_class,
             epochs,
-            loss_fn,
+            criterion,
             optimizer_class,
             local_optimizer_class,
             lr_scheduler_class,
@@ -87,7 +85,6 @@ class FedAvg(CentralFLAlgorithm):
             batch_size,
             test_batch_size,
             device,
-            log_freq,
         )
 
         # make mode and optimizer
@@ -120,27 +117,29 @@ class FedAvg(CentralFLAlgorithm):
         self,
         client_id,
         datasets,
+        round_scores,
         epochs,
-        loss_fn,
-        batch_size,
+        criterion,
+        train_batch_size,
+        inference_batch_size,
         optimizer_class,
         lr_scheduler_class=None,
         device="cuda",
         ctx=None,
         step_closure=None,
-        *args,
-        **kwargs,
     ):
+        train_split_name = self.get_train_split_name()
         # create a random sampler with replacement so that
         # stochasticity is maximiazed and privacy is not compromized
         sampler = RandomSampler(
-            datasets["train"],
+            datasets[train_split_name],
             replacement=True,
-            num_samples=math.ceil(len(datasets["train"]) / batch_size) * batch_size,
+            num_samples=math.ceil(len(datasets[train_split_name]) / train_batch_size)
+            * train_batch_size,
         )
         # # create train data loader
         train_loader = DataLoader(
-            datasets["train"], batch_size=batch_size, sampler=sampler
+            datasets[train_split_name], batch_size=train_batch_size, sampler=sampler
         )
 
         model = ctx["model"]
@@ -150,87 +149,93 @@ class FedAvg(CentralFLAlgorithm):
             lr_scheduler = lr_scheduler_class(optimizer=optimizer)
         # optimize the model locally
         step_closure_ = default_step_closure if step_closure is None else step_closure
-        opt_result = local_train(
+        if train_split_name in round_scores:
+            train_scores = round_scores[train_split_name]
+        else:
+            train_scores = dict()
+        num_train_samples, num_steps, diverged, = local_train(
             model,
             train_loader,
             epochs,
             0,
-            loss_fn,
+            criterion,
             optimizer,
             lr_scheduler,
             device,
             step_closure_,
-            metric_fn_dict={
-                f"train_{key}": score
-                for key, score in self.get_local_score_functions("train").items()
-            },
+            scores=train_scores,
         )
-        (
-            num_train_samples,
-            num_steps,
-            diverged,
-            loss,
-            metrics,
-        ) = opt_result
-        # local test
-        if "test" in datasets:
-            test_loader = DataLoader(
-                datasets["test"],
-                batch_size=batch_size,
-                shuffle=False,
-            )
-            test_metrics, num_test_samples = local_inference(
-                model,
-                test_loader,
-                metric_fn_dict={
-                    f"test_{key}": score
-                    for key, score in self.get_local_score_functions("test").items()
-                },
-                device=device,
-            )
-        else:
-            test_metrics = dict()
-            num_test_samples = 0
-
+        # get average train scores
+        metrics_dict = {
+            train_split_name: {
+                name: score.get_score() for name, score in train_scores.items()
+            }
+        }
+        # append train loss
+        if self.rounds % criterion.eval_freq == 0:
+            metrics_dict[train_split_name][criterion.get_name()] = criterion.get_score()
+        num_samples_dict = {train_split_name: num_train_samples}
+        # other splits
+        for split_name, split in datasets.items():
+            if split_name != train_split_name and split_name in round_scores:
+                o_scores = round_scores[split_name]
+                split_loader = DataLoader(
+                    split,
+                    batch_size=inference_batch_size,
+                    shuffle=False,
+                )
+                num_samples = local_inference(
+                    model,
+                    split_loader,
+                    scores=o_scores,
+                    device=device,
+                )
+                metrics_dict[split_name] = {
+                    name: score.get_score() for name, score in o_scores.items()
+                }
+                num_samples_dict[split_name] = num_samples
         # return optimized model parameters and number of train samples
         return dict(
             local_params=parameters_to_vector(model.parameters()),
-            num_samples=num_train_samples,
             num_steps=num_steps,
             diverged=diverged,
-            train_loss=loss,
-            metrics=metrics,
-            num_test_samples=num_test_samples,
-            test_metrics=test_metrics,
+            num_samples=num_samples_dict,
+            metrics=metrics_dict,
         )
 
-    def agg(self, client_id, client_msg, aggregator, weight=1):
+    def agg(
+        self,
+        client_id,
+        client_msg,
+        aggregator,
+        train_weight=None,
+        other_weight=None,
+    ):
         params = client_msg["local_params"].clone().detach().data
         diverged = client_msg["diverged"]
-        loss = client_msg["train_loss"]
         metrics = client_msg["metrics"]
-        test_metrics = client_msg["test_metrics"]
-        n_ts_samples = client_msg["num_test_samples"]
+        n_samples = client_msg["num_samples"]
 
         if diverged:
             print("client {} diverged".format(client_id))
             print("exiting ...")
             sys.exit(1)
+        if train_weight is None:
+            train_weight = n_samples[self.get_train_split_name()]
 
-        aggregator.add("local_params", params, weight)
-        aggregator.add("clients.train_loss", loss, weight)
-        for key, metric in metrics.items():
-            aggregator.add("clients.{}".format(key), metric, weight)
-        for key, metric in test_metrics.items():
-            aggregator.add("clients.{}".format(key), metric, n_ts_samples)
+        if train_weight > 0:
+            aggregator.add("local_params", params, train_weight)
+            for split_name, metrics in metrics.items():
+                if other_weight is None:
+                    other_weight = n_samples[split_name]
+                for key, metric in metrics.items():
+                    aggregator.add(f"clients.{split_name}.{key}", metric, other_weight)
 
         # purge client info
         del client_msg
 
     def receive_from_client(self, client_id, client_msg, aggregation_results):
-        weight = client_msg["num_samples"]
-        if weight > 0:
-            self.agg(client_id, client_msg, aggregation_results, weight=weight)
+        self.agg(client_id, client_msg, aggregation_results)
 
     def optimize(self, aggregator):
         if "local_params" in aggregator:
@@ -255,6 +260,7 @@ class FedAvg(CentralFLAlgorithm):
     def report(
         self,
         dataloaders,
+        round_scores,
         metric_logger,
         device,
         optimize_reports,
@@ -268,16 +274,21 @@ class FedAvg(CentralFLAlgorithm):
                 vector_to_parameters(point.detach().clone().data, model.parameters())
 
                 for split_name, loader in dataloaders.items():
-                    metrics, _ = local_inference(
-                        model,
-                        loader,
-                        metric_fn_dict={
-                            f"server.{point_name}.{split_name}_{key}": score
-                            for key, score in self.get_global_score_functions(
-                                split_name
-                            ).items()
-                        },
-                        device=device,
-                    )
-                    metrics_from_deployment = {**metrics_from_deployment, **metrics}
+                    if split_name in round_scores:
+                        scores = round_scores[split_name]
+                        _ = local_inference(
+                            model,
+                            loader,
+                            scores=scores,
+                            device=device,
+                        )
+                        split_metrics = {
+                            f"server.{point_name}.{split_name}."
+                            f"{score_name}": score.get_score()
+                            for score_name, score in scores.items()
+                        }
+                        metrics_from_deployment = {
+                            **metrics_from_deployment,
+                            **split_metrics,
+                        }
         return {**metrics_from_deployment, **optimize_reports}

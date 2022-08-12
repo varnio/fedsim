@@ -81,9 +81,9 @@ Here is a demo:
         metric_logger=sw,
         device="cuda",
     )
-    alg.hook_global_score_function("test", "accuracy", accuracy)
+    alg.hook_global_score("test", "accuracy", accuracy)
     for key in dm.get_local_splits_names():
-        alg.hook_local_score_function(key, "accuracy", accuracy)
+        alg.hook_local_score(key, "accuracy", accuracy)
 
     report_summary = alg.train(rounds=1)
 
@@ -451,10 +451,10 @@ The following command tunes :math:`\mu` and :math:`\beta` for AdaBest algorithm.
 
     fedsim-cli fed-tune --epochs 1 --n-clients 2 --client-sample-rate 0.5 -a AdaBest mu:Real:0-0.1 beta:Real:0.3-1 --maximize-metric --n-iters 20
 
-    .. note::
-        * To define a float range to tune use `Real` keyword as the argument value (e.g., `mu:Real:0-0.1`)
-        * To define an integer range to tune use `Integer` keyword as the argument value (e.g., `arg1:Integer:2-15`)
-        * To define a categorical range to tune use `Categorical` keyword as the argument value (e.g., `arg2:Categorical:uniform-normal-special`)
+.. note::
+    * To define a float range to tune use `Real` keyword as the argument value (e.g., `mu:Real:0-0.1`)
+    * To define an integer range to tune use `Integer` keyword as the argument value (e.g., `arg1:Integer:2-15`)
+    * To define a categorical range to tune use `Categorical` keyword as the argument value (e.g., `arg2:Categorical:uniform-normal-special`)
 
 In the following command, CIFAR100 is split over 1000 partitions from which 100 are used in the FL setup. From those 100, 20 clietns are selected at random at each round for training.
 The partitioning setup is non-iid with Dirichlet distribution factor :math:`\alpha=0.03`. The model architecture is cnn_cifar100.

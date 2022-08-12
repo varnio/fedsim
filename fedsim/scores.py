@@ -2,67 +2,242 @@ r"""
 Fedsim Scores
 -------------
 """
-from sklearn import metrics as sk_metrics
-from torch.nn import functional as F
+import torch
+
+Tensor = torch.Tensor
 
 
-def _get_sk_metric(name: str, **kwargs):
-    return lambda input, target, reduction="mean": getattr(sk_metrics, name)(
-        y_true=target, y_pred=input, normalize=(reduction == "mean"), **kwargs
-    )
+class Score(object):
+    r"""Score base class.
+
+    Args:
+        eval_freq (int, optional): how many steps gap between two evaluations.
+            Defaults to 1.
+        split (str, optional): data split to evaluate on . Defaults to 'test'.
+        score_name (str): name of the score object
+        reduction (str): Specifies the reduction to apply to the output:
+            ``'micro'`` | ``'macro'``. ``'micro'``: as if mini-batches are
+            concatenated. ``'macro'``: mean of score of each mini-batch
+            (update). Default: ``'micro'``
+    """
+
+    def __init__(
+        self,
+        eval_freq: int = 1,
+        split="test",
+        score_name="",
+        reduction="micro",
+    ) -> None:
+        if eval_freq < 1:
+            raise Exception(f"invalid eval_freq ({eval_freq}) given to {score_name}")
+        self.eval_freq = eval_freq
+        self.split = split
+        self.score_name = score_name
+        self.reduction = reduction
+
+    def get_name(self) -> str:
+        r"""gives the name of the score
+
+        Returns:
+            str: score name
+        """
+        return self.score_name
+
+    def __call__(self, input, target):
+        r"""updates the score based on a mini-batch of input and target
+
+        Args:
+            input (Tensor) : Predicted unnormalized scores (often referred to as\
+                logits); see Shape section below for supported shapes.
+            target (Tensor) : Ground truth class indices or class probabilities;
+                see Shape section below for supported shapes.
+
+        Raises:
+            NotImplementedError: This abstract method should be implemented by child
+                classes
+        """
+        raise NotImplementedError
+
+    def get_score(self) -> float:
+        r"""returns the score
+
+        Raises:
+            NotImplementedError: This abstract method should be implemented by child
+                classes
+
+        Returns:
+            float: the score
+        """
+        raise NotImplementedError
+
+    def reset(self) -> None:
+        """resets the internal buffers, makes it ready to start collecting
+
+        Raises:
+            NotImplementedError: This abstract method should be implemented by child
+                classes
+        """
+        raise NotImplementedError
 
 
-accuracy = _get_sk_metric("accuracy_score")
-balanced_accuracy = _get_sk_metric("balanced_accuracy_score")
-top_k_accuracy = _get_sk_metric("top_k_accuracy_score")
-average_precision = _get_sk_metric("average_precision_score")
-neg_brier_score = _get_sk_metric("brier_score_loss")
-f1_micro = _get_sk_metric("f1_score", average="micro")
-f1_macro = _get_sk_metric("f1_score", average="macro")
-f1_weighted = _get_sk_metric("f1_score", average="weighted")
-f1_samples = _get_sk_metric("f1_score", average="samples")
-neg_log_loss = _get_sk_metric("log_loss")
+class Accuracy(Score):
+    r"""updatable accuracy score
 
-precision_micro = _get_sk_metric("precision_score", average="micro")
-precision_macro = _get_sk_metric("precision_score", average="macro")
-precision_weighted = _get_sk_metric("precision_score", average="weighted")
-precision_samples = _get_sk_metric("precision_score", average="samples")
+    Args:
+        eval_freq (int, optional): how many steps gap between two evaluations.
+            Defaults to 1.
+        split (str, optional): data split to evaluate on . Defaults to 'test'.
+        score_name (str): name of the score object
+        reduction (str): Specifies the reduction to apply to the output:
+            ``'micro'`` | ``'macro'``. ``'micro'``: as if mini-batches are
+            concatenated. ``'macro'``: mean of accuracy of each mini-batch
+            (update). Default: ``'micro'``
+    """
 
-recall_micro = _get_sk_metric("recall_score", average="micro")
-recall_macro = _get_sk_metric("recall_score", average="macro")
-recall_weighted = _get_sk_metric("recall_score", average="weighted")
-recall_samples = _get_sk_metric("recall_score", average="samples")
+    def __init__(
+        self,
+        eval_freq: int = 1,
+        split="test",
+        score_name="accuracy",
+        reduction: str = "micro",
+    ) -> None:
+        super().__init__(eval_freq, split, score_name, reduction)
+        self._sum = 0
+        self._weight = 0
 
-jaccard_micro = _get_sk_metric("jaccard_score", average="micro")
-jaccard_macro = _get_sk_metric("jaccard_score", average="macro")
-jaccard_weighted = _get_sk_metric("jaccard_score", average="weighted")
-jaccard_samples = _get_sk_metric("jaccard_score", average="samples")
+    def __call__(self, input, target) -> Tensor:
+        r"""updates the accuracy score on a mini-batch detached from the computational
+        graph. It also returns the current batch score without detaching from the graph.
 
-# roc_auc for binary classification,
-roc_auc_micro = _get_sk_metric("roc_auc_score", average="micro")
-roc_auc_macro = _get_sk_metric("roc_auc_score", average="macro")
-roc_auc_weighted = _get_sk_metric("roc_auc_score", average="weighted")
-roc_auc_samples = _get_sk_metric("roc_auc_score", average="samples")
+        Args:
+            input (Tensor) : Predicted unnormalized scores (often referred to as\
+                logits); see Shape section below for supported shapes.
+            target (Tensor) : Ground truth class indices or class probabilities;
+                see Shape section below for supported shapes.
 
-# roc_auc for multi-class classification,
-roc_auc_ovr_micro = _get_sk_metric("roc_auc_score", multi_class="ovr", average="micro")
-roc_auc_ovr_macro = _get_sk_metric("roc_auc_score", multi_class="ovr", average="macro")
-roc_auc_ovr_weighted = _get_sk_metric(
-    "roc_auc_score", multi_class="ovr", average="weighted"
-)
-roc_auc_ovr_samples = _get_sk_metric(
-    "roc_auc_score", multi_class="ovr", average="samples"
-)
+        Shape:
 
-roc_auc_ovo_micro = _get_sk_metric("roc_auc_score", multi_class="ovo", average="micro")
-roc_auc_ovo_macro = _get_sk_metric("roc_auc_score", multi_class="ovo", average="macro")
-roc_auc_ovo_weighted = _get_sk_metric(
-    "roc_auc_score", multi_class="ovo", average="weighted"
-)
-roc_auc_ovo_samples = _get_sk_metric(
-    "roc_auc_score", multi_class="ovo", average="samples"
-)
-# loss functions
-l1_loss = F.l1_loss
+            - Input: Shape :math:`(N, C)`.
+            - Target: shape :math:`(N)` where each
+                value should be between :math:`[0, C)`.
 
-cross_entropy = F.cross_entropy
+            where:
+
+            .. math::
+                \begin{aligned}
+                    C ={} & \text{number of classes} \\
+                    N ={} & \text{batch size} \\
+                \end{aligned}
+
+        Returns:
+            Tensor: accuracy score of current batch
+
+
+        """
+        if not (target.shape[0] == input.shape[0]):
+            raise Exception(
+                f"size mismatch between input {input.shape[0]} and\
+                {target.shape[0]}"
+            )
+        cur_sum = (input.argmax(dim=1) == target).sum()
+        if self.reduction == "micro":
+            self._sum += cur_sum.item()
+            self._weight += input.shape[0]
+        elif self.reduction == "macro":
+            self._sum += cur_sum.item() / input.shape[0]
+            self._weight += 1
+        return cur_sum / input.shape[0]
+
+    def get_score(self) -> float:
+        if self._weight < 1:
+            return 0
+        return self._sum / self._weight
+
+    def reset(self) -> None:
+        self._sum = 0
+        self._weight = 0
+
+
+class CrossEntropyScore(Score):
+    r"""updatable cross entropy score
+
+    Args:
+        eval_freq (int, optional): how many steps gap between two evaluations.
+            Defaults to 1.
+        split (str, optional): data split to evaluate on . Defaults to 'test'.
+        score_name (str): name of the score object
+        reduction (str): Specifies the reduction to apply to the output:
+        ``'micro'`` | ``'macro'``. ``'micro'``: as if mini-batches are
+        concatenated. ``'macro'``: mean of cross entropy of each mini-batch
+        (update). Default: ``'micro'``
+    """
+
+    def __init__(
+        self,
+        eval_freq: int = 1,
+        split="test",
+        score_name="cross_entropy_score",
+        weight=None,
+        reduction: str = "micro",
+        label_smoothing: float = 0.0,
+    ) -> None:
+        super().__init__(eval_freq, split, score_name, reduction)
+        self._base_class = torch.nn.CrossEntropyLoss(
+            weight=weight, label_smoothing=label_smoothing, reduction="sum"
+        )
+        self._sum = 0
+        self._weight = 0
+
+    def __call__(self, input, target) -> Tensor:
+        r"""updates the cross entropy score on a mini-batch detached from the
+        computational graph. It also returns the current batch score without detaching
+        from the graph.
+
+        Args:
+
+            input (Tensor) : Predicted unnormalized scores (often referred to as\
+                logits); see Shape section below for supported shapes.
+            target (Tensor) : Ground truth class indices or class probabilities;
+                see Shape section below for supported shapes.
+
+        Shape:
+
+            - Input: shape :math:`(C)`, :math:`(N, C)`.
+            - Target: shape :math:`()`, :math:`(N)` where each
+                value should be between :math:`[0, C)`.
+
+            where:
+
+            .. math::
+                \begin{aligned}
+                    C ={} & \text{number of classes} \\
+                    N ={} & \text{batch size} \\
+                \end{aligned}
+
+        Returns:
+            Tensor: cross entropy score of current batch
+
+
+        """
+        if not (target.shape[0] == input.shape[0]):
+            raise Exception(
+                f"size mismatch between input {input.shape[0]} and" f"{target.shape[0]}"
+            )
+        cur_sum = self._base_class(input, target)
+
+        if self.reduction == "micro":
+            self._sum += cur_sum.item()
+            self._weight += input.shape[0]
+        elif self.reduction == "macro":
+            self._sum += cur_sum.item() / input.shape[0]
+            self._weight += 1
+        return cur_sum / input.shape[0]
+
+    def get_score(self) -> float:
+        if self._weight < 1:
+            return 0
+        return self._sum / self._weight
+
+    def reset(self) -> None:
+        self._sum = 0
+        self._weight = 0

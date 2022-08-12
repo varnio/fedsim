@@ -1,16 +1,9 @@
 """
 Local Training
----------------
+--------------
 
 Training for local client
 """
-
-from functools import partial
-
-import torch
-
-from fedsim.utils import add_dict_to_dict
-from fedsim.utils import apply_on_dict
 
 from .step_closures import default_step_closure
 
@@ -20,17 +13,13 @@ def local_train(
     train_data_loader,
     epochs,
     steps,
-    loss_fn,
+    criterion,
     optimizer,
     lr_scheduler=None,
     device="cpu",
     step_closure=default_step_closure,
-    metric_fn_dict=None,
+    scores=None,
     max_grad_norm=1000,
-    link_fn=partial(
-        torch.argmax,
-        dim=1,
-    ),
     **step_ctx,
 ):
 
@@ -45,7 +34,6 @@ def local_train(
 
     all_loss = 0
     num_train_samples = 0
-    metrics = None
 
     if train_data_loader is not None:
         # iteration over epochs
@@ -57,15 +45,14 @@ def local_train(
             for x, y in train_data_loader:
                 # send the mini-batch to device
                 # calculate the local objective's loss
-                loss, batch_metrics = step_closure(
+                loss = step_closure(
                     x,
                     y,
                     model,
-                    loss_fn,
+                    criterion,
                     optimizer,
-                    metric_fn_dict,
+                    scores,
                     max_grad_norm,
-                    link_fn=link_fn,
                     device=device,
                     **step_ctx,
                 )
@@ -73,7 +60,6 @@ def local_train(
                     del loss
                     diverged = True
                     break
-                metrics = add_dict_to_dict(batch_metrics, metrics)
 
                 # update control variables
                 epoch_step_cnt += 1
@@ -83,16 +69,8 @@ def local_train(
                 if lr_scheduler is not None:
                     lr_scheduler.step()
 
-        # add average metrics over epochs
-        normalized_metrics = apply_on_dict(
-            metrics, lambda _, x: x / num_steps, return_as_dict=True
-        )
-        avg_loss = all_loss / num_steps
-
     return (
         num_train_samples,
         num_steps,
         diverged,
-        avg_loss,
-        normalized_metrics,
     )

@@ -1,4 +1,5 @@
 import math
+from functools import partial
 
 from logall import TensorboardLogger
 
@@ -8,15 +9,24 @@ from fedsim.distributed.centralized import FedDyn
 from fedsim.distributed.centralized import FedNova
 from fedsim.distributed.centralized import FedProx
 from fedsim.distributed.data_management import BasicDataManager
+from fedsim.losses import CrossEntropyLoss
 from fedsim.models.mcmahan_nets import cnn_cifar100
-from fedsim.scores import accuracy
-from fedsim.scores import cross_entropy
+from fedsim.scores import Accuracy
 
 
 def alg_hook(alg, dm):
-    alg.hook_global_score_function("test", "accuracy", accuracy)
     for key in dm.get_local_splits_names():
-        alg.hook_local_score_function(key, "accuracy", accuracy)
+        alg.hook_local_score(
+            partial(Accuracy, eval_freq=100),
+            split_name=key,
+            score_name="accuracy",
+        )
+    for key in dm.get_global_splits_names():
+        alg.hook_global_score(
+            partial(Accuracy, eval_freq=100),
+            split_name=key,
+            score_name="accuracy",
+        )
 
 
 def acc_check(alg):
@@ -28,7 +38,7 @@ def acc_check(alg):
 
 
 def test_algs():
-    n_clients = 1000
+    n_clients = 5000
     dm = BasicDataManager("./data", "cifar100", n_clients)
     sw = TensorboardLogger(path=None)
 
@@ -39,7 +49,7 @@ def test_algs():
         sample_rate=1.0,
         model_class=cnn_cifar100,
         epochs=1,
-        loss_fn=cross_entropy,
+        criterion=partial(CrossEntropyLoss, log_freq=100),
         batch_size=32,
         metric_logger=sw,
         device="cpu",
