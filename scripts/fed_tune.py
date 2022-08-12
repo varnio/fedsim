@@ -541,19 +541,15 @@ def fed_tune(
             log_freq=log_freq,
         )
         for key in data_manager_instant.get_global_splits_names():
-            algorithm_instance.hook_global_score_function(
-                key, "accuracy", scores.accuracy
-            )
+            algorithm_instance.hook_global_score(key, "accuracy", scores.accuracy)
             for score in add_global_score:
                 if score != "accuracy":
-                    algorithm_instance.hook_global_score_function(
+                    algorithm_instance.hook_global_score(
                         key, score, getattr(scores, score)
                     )
         for key in data_manager_instant.get_local_splits_names():
             for score in add_local_score:
-                algorithm_instance.hook_local_score_function(
-                    key, score, getattr(scores, score)
-                )
+                algorithm_instance.hook_local_score(key, score, getattr(scores, score))
 
         report_summary = algorithm_instance.train(
             rounds,

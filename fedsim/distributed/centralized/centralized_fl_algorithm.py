@@ -204,7 +204,7 @@ class CentralFLAlgorithm(object):
             client_id,
             datasets,
             self.epochs,
-            self.loss_fn,
+            self.loss_fn(),
             self.batch_size,
             self.test_batch_size,
             local_optimizer_class,
@@ -279,6 +279,14 @@ class CentralFLAlgorithm(object):
                     self.r2r_local_lr_scheduler.step()
         self.at_round_end(score_aggregator)
 
+    def _get_score(self, score_deck):
+        # filter out the scores that should not be present in the current round
+        round_scores = dict()
+        for name, obj in score_deck.items():
+            if self.rounds % obj.eval_freq == 0:
+                round_scores[name] = obj
+        return round_scores
+
     # API functions
 
     def train(
@@ -321,17 +329,23 @@ class CentralFLAlgorithm(object):
     def get_train_split_name(self):
         return self._train_split_name
 
-    def hook_local_score_function(self, split_name, score_name, score_fn) -> None:
-        self._client_scores[split_name][score_name] = score_fn
+    def hook_local_score(self, score_obj, score_name, split_name) -> None:
+        self._client_scores[split_name][score_name] = score_obj
 
-    def hook_global_score_function(self, split_name, score_name, score_fn) -> None:
-        self._server_scores[split_name][score_name] = score_fn
+    def hook_global_score(self, score_obj, score_name, split_name) -> None:
+        self._server_scores[split_name][score_name] = score_obj
 
-    def get_local_score_functions(self, split_name) -> Dict[str, Any]:
-        return self._client_scores[split_name]
+    def get_local_scores(self, split_name) -> Dict[str, Any]:
+        score_objs = self._get_score(self._client_scores[split_name])
+        for obj in score_objs.values():
+            obj.reset()
+        return score_objs
 
-    def get_global_score_functions(self, split_name) -> Dict[str, Any]:
-        return self._server_scores[split_name]
+    def get_global_scores(self, split_name) -> Dict[str, Any]:
+        score_objs = self._get_score(self._server_scores[split_name])
+        for obj in score_objs.values():
+            obj.reset()
+        return score_objs
 
     def at_round_start(self) -> None:
         pass

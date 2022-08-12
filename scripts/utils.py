@@ -146,6 +146,7 @@ def ingest_fed_context(
     data_manager,
     algorithm,
     model,
+    criterion,
     optimizer,
     local_optimizer,
     lr_scheduler,
@@ -156,6 +157,7 @@ def ingest_fed_context(
     data_manager, data_manager_args, data_manager_hargs = decode_margs(data_manager)
     algorithm, algorithm_args, algorithm_hargs = decode_margs(algorithm)
     model, model_args, model_hargs = decode_margs(model)
+    criterion, criterion_args, criterion_hargs = decode_margs(criterion)
     optimizer, optimizer_args, optimizer_hargs = decode_margs(optimizer)
     local_optimizer, local_optimizer_args, local_optimizer_hargs = decode_margs(
         local_optimizer
@@ -186,6 +188,10 @@ def ingest_fed_context(
     model_class = get_definition(
         name=model,
         modules="fedsim.models",
+    )
+    criterion_class = get_definition(
+        name=criterion,
+        modules="fedsim.losses",
     )
     optimizer_class = get_definition(
         name=optimizer,
@@ -222,6 +228,7 @@ def ingest_fed_context(
     data_manager_class = partial(data_manager_class, **data_manager_args)
     algorithm_class = partial(algorithm_class, **algorithm_args)
     model_class = partial(model_class, **model_args)
+    criterion_class = partial(criterion_class, **criterion_args)
     optimizer_class = partial(optimizer_class, **optimizer_args)
     local_optimizer_class = partial(local_optimizer_class, **local_optimizer_args)
     lr_scheduler_class = partial(lr_scheduler_class, **lr_scheduler_args)
@@ -241,6 +248,7 @@ def ingest_fed_context(
         ),
         algorithm=ObjectContext(algorithm_class, algorithm_args, algorithm_hargs),
         model=ObjectContext(model_class, model_args, model_hargs),
+        criterion=ObjectContext(criterion_class, criterion_args, criterion_hargs),
         optimizer=ObjectContext(optimizer_class, optimizer_args, optimizer_hargs),
         local_optimizer=ObjectContext(
             local_optimizer_class, local_optimizer_args, local_optimizer_hargs
@@ -260,6 +268,20 @@ def ingest_fed_context(
         ),
     )
     return cfg
+
+
+def ingest_scores(score_tuple):
+    score_objs = []
+    for score in score_tuple:
+        score_name, score_args, score_hargs = decode_margs(score)
+        score_def = get_definition(
+            name=score_name,
+            modules="fedsim.scores",
+        )
+        score_objs.append(
+            ObjectContext(partial(score_def, **score_args), score_args, score_hargs)
+        )
+    return score_objs
 
 
 # to use separate log files as suggested at https://stackoverflow.com/a/57774450/9784436

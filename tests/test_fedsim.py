@@ -14,9 +14,9 @@ from fedsim.scores import cross_entropy
 
 
 def alg_hook(alg, dm):
-    alg.hook_global_score_function("test", "accuracy", accuracy)
+    alg.hook_global_score("test", "accuracy", accuracy)
     for key in dm.get_local_splits_names():
-        alg.hook_local_score_function(key, "accuracy", accuracy)
+        alg.hook_local_score(key, "accuracy", accuracy)
 
 
 def acc_check(alg):

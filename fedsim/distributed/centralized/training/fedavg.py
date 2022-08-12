@@ -121,7 +121,7 @@ class FedAvg(CentralFLAlgorithm):
         client_id,
         datasets,
         epochs,
-        loss_fn,
+        criterion,
         train_batch_size,
         inference_batch_size,
         optimizer_class,
@@ -151,51 +151,46 @@ class FedAvg(CentralFLAlgorithm):
             lr_scheduler = lr_scheduler_class(optimizer=optimizer)
         # optimize the model locally
         step_closure_ = default_step_closure if step_closure is None else step_closure
-        opt_result = local_train(
+        train_scores = self.get_local_scores(train_split_name)
+        num_train_samples, num_steps, diverged, = local_train(
             model,
             train_loader,
             epochs,
             0,
-            loss_fn,
+            criterion,
             optimizer,
             lr_scheduler,
             device,
             step_closure_,
-            metric_fn_dict={
-                f"{key}": score
-                for key, score in self.get_local_score_functions(
-                    train_split_name
-                ).items()
-            },
+            scores=train_scores,
         )
-        (
-            num_train_samples,
-            num_steps,
-            diverged,
-            train_metrics,
-        ) = opt_result
-
-        metrics_dict = {f"{train_split_name}": train_metrics}
-        num_samples_dict = {f"{train_split_name}": num_train_samples}
+        # get average train scores
+        metrics_dict = {
+            train_split_name: {
+                name: score.get_score() for name, score in train_scores.items()
+            }
+        }
+        # append train loss
+        metrics_dict[train_split_name][criterion.get_name()] = criterion.get_score()
+        num_samples_dict = {train_split_name: num_train_samples}
         # other splits
-        # only if round % log_freq is 0 datasets contains other splits
         for split_name, split in datasets.items():
             if split_name != train_split_name:
+                o_scores = self.get_local_scores(split_name)
                 split_loader = DataLoader(
                     split,
                     batch_size=inference_batch_size,
                     shuffle=False,
                 )
-                metrics, num_samples = local_inference(
+                num_samples = local_inference(
                     model,
                     split_loader,
-                    metric_fn_dict={
-                        f"{split_name}_{key}": score
-                        for key, score in self.get_local_score_functions("test").items()
-                    },
+                    scores=o_scores,
                     device=device,
                 )
-                metrics_dict[split_name] = metrics
+                metrics_dict[split_name] = {
+                    name: score.get_score() for name, score in o_scores.items()
+                }
                 num_samples_dict[split_name] = num_samples
 
         # return optimized model parameters and number of train samples
@@ -228,7 +223,7 @@ class FedAvg(CentralFLAlgorithm):
                 if other_weight is None:
                     other_weight = n_samples[split_name]
                 for key, metric in metrics.items():
-                    aggregator.add(f"clients.{split_name}_{key}", metric, other_weight)
+                    aggregator.add(f"clients.{split_name}.{key}", metric, other_weight)
 
         # purge client info
         del client_msg
@@ -272,16 +267,19 @@ class FedAvg(CentralFLAlgorithm):
                 vector_to_parameters(point.detach().clone().data, model.parameters())
 
                 for split_name, loader in dataloaders.items():
-                    metrics, _ = local_inference(
+                    scores = self.get_global_scores(split_name)
+                    _ = local_inference(
                         model,
                         loader,
-                        metric_fn_dict={
-                            f"server.{point_name}.{split_name}_{key}": score
-                            for key, score in self.get_global_score_functions(
-                                split_name
-                            ).items()
-                        },
+                        scores=scores,
                         device=device,
                     )
-                    metrics_from_deployment = {**metrics_from_deployment, **metrics}
+                    split_metrics = {
+                        f"server.{point_name}.{split_name}.{score_name}": score
+                        for score_name, score in scores.items()
+                    }
+                    metrics_from_deployment = {
+                        **metrics_from_deployment,
+                        **split_metrics,
+                    }
         return {**metrics_from_deployment, **optimize_reports}

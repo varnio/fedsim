@@ -81,9 +81,9 @@ Here is a demo:
         metric_logger=sw,
         device="cuda",
     )
-    alg.hook_global_score_function("test", "accuracy", accuracy)
+    alg.hook_global_score("test", "accuracy", accuracy)
     for key in dm.get_local_splits_names():
-        alg.hook_local_score_function(key, "accuracy", accuracy)
+        alg.hook_local_score(key, "accuracy", accuracy)
 
     report_summary = alg.train(rounds=1)
 
