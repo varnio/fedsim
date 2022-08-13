@@ -17,13 +17,13 @@ from fedsim.scores import Accuracy
 def alg_hook(alg, dm):
     for key in dm.get_local_splits_names():
         alg.hook_local_score(
-            partial(Accuracy, eval_freq=100),
+            partial(Accuracy, log_freq=100),
             split_name=key,
             score_name="accuracy",
         )
     for key in dm.get_global_splits_names():
         alg.hook_global_score(
-            partial(Accuracy, eval_freq=100),
+            partial(Accuracy, log_freq=100),
             split_name=key,
             score_name="accuracy",
         )

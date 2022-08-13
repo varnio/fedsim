@@ -195,7 +195,7 @@ from .utils import validate_score
     type=tuple,
     cls=OptionEatAll,
     multiple=True,
-    default=(("Accuracy", "eval_freq:50", "split:train"),),
+    default=(("Accuracy", "log_freq:50", "split:train"),),
     help="hooks a score object to a split of local datasets. Choose the score classes\
         from `fedsim.scores`. It is possible to call this option multiple times.",
 )
@@ -204,7 +204,7 @@ from .utils import validate_score
     type=tuple,
     cls=OptionEatAll,
     multiple=True,
-    default=(("CrossEntropyScore", "eval_freq:50", "split:test"),),
+    default=(("CrossEntropyScore", "log_freq:50", "split:test"),),
     help="hooks a score object to a split of global datasets. Choose the score classes\
         from `fedsim.scores`. It is possible to call this option multiple times.",
 )
@@ -373,7 +373,7 @@ def fed_learn(
         sample_rate=client_sample_rate,
         model_class=cfg["model"].definition,
         epochs=epochs,
-        loss_fn=criterion_def,
+        criterion=criterion_def,
         optimizer_class=cfg["optimizer"].definition,
         local_optimizer_class=cfg["local_optimizer"].definition,
         lr_scheduler_class=cfg["lr_scheduler"].definition,

@@ -28,7 +28,7 @@ class CrossEntropyLoss(scores.CrossEntropyScore):
         label_smoothing=0.0,
     ) -> None:
         super().__init__(
-            eval_freq=log_freq,
+            log_freq=log_freq,
             split=split,
             score_name=loss_name,
             reduction="micro",

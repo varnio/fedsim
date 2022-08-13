@@ -94,9 +94,9 @@ class CentralFLAlgorithm(object):
         self.epochs = epochs
 
         if isinstance(criterion, str) and hasattr(scores, criterion):
-            self.loss_fn = getattr(scores, criterion)
+            self.criterion = getattr(scores, criterion)
         else:
-            self.loss_fn = criterion
+            self.criterion = criterion
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
         self.optimizer_class = optimizer_class
@@ -199,7 +199,7 @@ class CentralFLAlgorithm(object):
             datasets,
             round_scores,
             self.epochs,
-            self.loss_fn(),
+            self.criterion(),
             self.batch_size,
             self.test_batch_size,
             local_optimizer_class,
@@ -272,7 +272,7 @@ class CentralFLAlgorithm(object):
         round_scores = dict()
         for name, definition in score_def_deck.items():
             obj = definition()
-            if self.rounds % obj.eval_freq == 0:
+            if self.rounds % obj.log_freq == 0:
                 round_scores[name] = obj
         return round_scores
 
@@ -364,6 +364,8 @@ class CentralFLAlgorithm(object):
 
     def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
         """returns context to send to the client corresponding to client_id.
+
+        .. warning::
             Do not send shared objects like server model if you made any
             before you deepcopy it.
 
@@ -384,7 +386,7 @@ class CentralFLAlgorithm(object):
         datasets: Dict[str, Iterable],
         round_scores: Dict[str, Dict[str, Any]],
         epochs: int,
-        loss_fn: nn.Module,
+        criterion: nn.Module,
         train_batch_size: int,
         inference_batch_size: int,
         optimizer_class: Callable,
@@ -403,7 +405,7 @@ class CentralFLAlgorithm(object):
                 form {'split_name':{'score_name': score_def}} for global scores to
                 evaluate at the current round.
             epochs (int): number of epochs to train
-            loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
+            criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
             train_batch_size (int): training batch_size
             inference_batch_size (int): inference batch_size
             optimizer_class (float): class for constructing the local optimizer
