@@ -21,7 +21,7 @@ class CrossEntropyLoss(scores.CrossEntropyScore):
 
     def __init__(
         self,
-        log_freq,
+        log_freq=10,
         split="train",
         loss_name="cross_entropy_loss",
         weight=None,
