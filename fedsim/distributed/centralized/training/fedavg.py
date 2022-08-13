@@ -172,7 +172,7 @@ class FedAvg(CentralFLAlgorithm):
             }
         }
         # append train loss
-        if self.rounds % criterion.eval_freq == 0:
+        if self.rounds % criterion.log_freq == 0:
             metrics_dict[train_split_name][criterion.get_name()] = criterion.get_score()
         num_samples_dict = {train_split_name: num_train_samples}
         # other splits

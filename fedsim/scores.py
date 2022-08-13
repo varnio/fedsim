@@ -11,7 +11,7 @@ class Score(object):
     r"""Score base class.
 
     Args:
-        eval_freq (int, optional): how many steps gap between two evaluations.
+        log_freq (int, optional): how many steps gap between two evaluations.
             Defaults to 1.
         split (str, optional): data split to evaluate on . Defaults to 'test'.
         score_name (str): name of the score object
@@ -23,14 +23,14 @@ class Score(object):
 
     def __init__(
         self,
-        eval_freq: int = 1,
+        log_freq: int = 1,
         split="test",
         score_name="",
         reduction="micro",
     ) -> None:
-        if eval_freq < 1:
-            raise Exception(f"invalid eval_freq ({eval_freq}) given to {score_name}")
-        self.eval_freq = eval_freq
+        if log_freq < 1:
+            raise Exception(f"invalid log_freq ({log_freq}) given to {score_name}")
+        self.log_freq = log_freq
         self.split = split
         self.score_name = score_name
         self.reduction = reduction
@@ -84,7 +84,7 @@ class Accuracy(Score):
     r"""updatable accuracy score
 
     Args:
-        eval_freq (int, optional): how many steps gap between two evaluations.
+        log_freq (int, optional): how many steps gap between two evaluations.
             Defaults to 1.
         split (str, optional): data split to evaluate on . Defaults to 'test'.
         score_name (str): name of the score object
@@ -96,12 +96,12 @@ class Accuracy(Score):
 
     def __init__(
         self,
-        eval_freq: int = 1,
+        log_freq: int = 1,
         split="test",
         score_name="accuracy",
         reduction: str = "micro",
     ) -> None:
-        super().__init__(eval_freq, split, score_name, reduction)
+        super().__init__(log_freq, split, score_name, reduction)
         self._sum = 0
         self._weight = 0
 
@@ -162,7 +162,7 @@ class CrossEntropyScore(Score):
     r"""updatable cross entropy score
 
     Args:
-        eval_freq (int, optional): how many steps gap between two evaluations.
+        log_freq (int, optional): how many steps gap between two evaluations.
             Defaults to 1.
         split (str, optional): data split to evaluate on . Defaults to 'test'.
         score_name (str): name of the score object
@@ -174,14 +174,14 @@ class CrossEntropyScore(Score):
 
     def __init__(
         self,
-        eval_freq: int = 1,
+        log_freq: int = 1,
         split="test",
         score_name="cross_entropy_score",
         weight=None,
         reduction: str = "micro",
         label_smoothing: float = 0.0,
     ) -> None:
-        super().__init__(eval_freq, split, score_name, reduction)
+        super().__init__(log_freq, split, score_name, reduction)
         self._base_class = torch.nn.CrossEntropyLoss(
             weight=weight, label_smoothing=label_smoothing, reduction="sum"
         )

@@ -60,9 +60,8 @@ Here is a demo:
     from fedsim.distributed.centralized.training import FedAvg
     from fedsim.distributed.data_management import BasicDataManager
     from fedsim.models.mcmahan_nets import cnn_cifar100
-    from fedsim.scores import cross_entropy
-    from fedsim.scores import accuracy
-
+    from fedsim.losses import CrossEntropyLoss
+    from fedsim.scores import Accuracy
 
     n_clients = 1000
 
@@ -76,15 +75,21 @@ Here is a demo:
         sample_rate=0.01,
         model_class=cnn_cifar100,
         epochs=5,
-        loss_fn=cross_entropy,
+        criterion=partial(CrossEntropyLoss, log_freq=100),
         batch_size=32,
         metric_logger=sw,
         device="cuda",
     )
-    alg.hook_global_score("test", "accuracy", accuracy)
-    for key in dm.get_local_splits_names():
-        alg.hook_local_score(key, "accuracy", accuracy)
-
+    alg.hook_local_score(
+        partial(Accuracy, log_freq=50),
+        split_name='train,
+        score_name="accuracy",
+    )
+    alg.hook_global_score(
+        partial(Accuracy, log_freq=40),
+        split_name='test,
+        score_name="accuracy",
+    )
     report_summary = alg.train(rounds=1)
 
 
@@ -191,18 +196,17 @@ Any custome DataManager class should inherit from ``fedsim.distributed.centraliz
 
     class CustomFLAlgorithm(CentralFLAlgorithm):
         def __init__(
-            self, data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_class,
-            epochs, loss_fn, optimizer_class, local_optimizer_class, batch_size, test_batch_size,
-            lr_scheduler_class, local_lr_scheduler_class, r2r_local_lr_scheduler_class, device,
-            log_freq, other_arg, ...
+            data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_class, epochs, criterion,
+            optimizer_class, local_optimizer_class, lr_scheduler_class=None, local_lr_scheduler_class,
+            r2r_local_lr_scheduler_class=None, batch_size=32, test_batch_size=64, device="cuda", other_arg, ...
         ):
             self.other_arg = other_arg
+            ...
 
             super(CustomFLAlgorithm, self).__init__(
-                data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_class,
-                epochs, loss_fn, optimizer_class, local_optimizer_class, batch_size, test_batch_size,
-                lr_scheduler_class, local_lr_scheduler_class, r2r_local_lr_scheduler_class, device,
-                log_freq,
+                data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_class, epochs, criterion,
+                optimizer_class, local_optimizer_class, lr_scheduler_class=None, local_lr_scheduler_class,
+                r2r_local_lr_scheduler_class=None, batch_size=32, test_batch_size=64, device="cuda",
             )
             # make mode and optimizer
             model = self.get_model_class()().to(self.device)
@@ -219,7 +223,9 @@ Any custome DataManager class should inherit from ``fedsim.distributed.centraliz
             ...
 
         def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
-            """ returns context to send to the client corresponding to client_id.
+            """ returns context to send to the client corresponding to the client_id.
+
+            .. warning::
                 Do not send shared objects like server model if you made any
                 before you deepcopy it.
 
@@ -232,33 +238,34 @@ Any custome DataManager class should inherit from ``fedsim.distributed.centraliz
             Returns:
                 Mapping[Hashable, Any]: the context to be sent in form of a Mapping
             """
-            raise NotImplementedError
+            ...
 
-        def send_to_server(self, client_id: int, datasets: Dict[str, Iterable], epochs: int,
-            loss_fn: nn.Module, batch_size: int, optimizer_class: Callable,
+        def send_to_server(self, client_id: int, datasets: Dict[str, Iterable],
+            round_scores: Dict[str, Dict[str, fedsim.scores.Score]], epochs: int, criterion: nn.Module,
+            train_batch_size: int, inference_batch_size: int, optimizer_class: Callable,
             lr_scheduler_class: Optional[Callable] = None, device: Union[int, str] = "cuda",
-            ctx: Optional[Dict[Hashable, Any]] = None
-        ) -> Mapping[str, Any]:
+            ctx: Optional[Dict[Hashable, Any]] = None) -> Mapping[str, Any]:
             """client operation on the recieved information.
 
             Args:
                 client_id (int): id of the client
                 datasets (Dict[str, Iterable]): this comes from Data Manager
+                round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
+                    form {'split_name':{'score_name': score_def}} for global scores to
+                    evaluate at the current round.
                 epochs (int): number of epochs to train
-                loss_fn (nn.Module): either 'ce' (for cross-entropy) or 'mse'
-                batch_size (int): training batch_size
+                criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
+                train_batch_size (int): training batch_size
+                inference_batch_size (int): inference batch_size
                 optimizer_class (float): class for constructing the local optimizer
                 lr_scheduler_class (float): class for constructing the local lr scheduler
                 device (Union[int, str], optional): Defaults to 'cuda'.
                 ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
 
-            Raises:
-                NotImplementedError: abstract class to be implemented by child
-
             Returns:
                 Mapping[str, Any]: client context to be sent to the server
             """
-            raise NotImplementedError
+            ...
 
 
         def receive_from_client(self, client_id: int, client_msg: Mapping[Hashable, Any], aggregator: Any):
@@ -269,8 +276,6 @@ Any custome DataManager class should inherit from ``fedsim.distributed.centraliz
                 client_msg (Mapping[Hashable, Any]): client context that is sent
                 aggregator (Any): aggregator instance to collect info
 
-            Raises:
-                NotImplementedError: abstract class to be implemented by child
             """
             raise NotImplementedError
 
@@ -280,26 +285,20 @@ Any custome DataManager class should inherit from ``fedsim.distributed.centraliz
             Args:
                 aggregator (Any): Aggregator instance
 
-            Raises:
-                NotImplementedError: abstract class to be implemented by child
-
             Returns:
                 Mapping[Hashable, Any]: context to be reported
             """
-            raise NotImplementedError
+            ...
 
         def deploy(self) -> Optional[Mapping[Hashable, Any]]:
             """ return Mapping of name -> parameters_set to test the model
 
-            Raises:
-                NotImplementedError: abstract class to be implemented by child
             """
             raise NotImplementedError
 
-        def report(
-            self, dataloaders, metric_logger: Any, device: str, optimize_reports: Mapping[Hashable, Any],
-            deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None
-        ) -> None:
+        def report(self, dataloaders, round_scores: Dict[str, Dict[str, Any]], metric_logger: Any,
+            device: str, optimize_reports: Mapping[Hashable, Any],
+            deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None) -> None:
             """test on global data and report info
 
             Args:
@@ -309,10 +308,9 @@ Any custome DataManager class should inherit from ``fedsim.distributed.centraliz
                 optimize_reports (Mapping[Hashable, Any]): dict returned by optimzier
                 deployment_points (Mapping[Hashable, torch.Tensor], optional): output of deploy method
 
-            Raises:
-                NotImplementedError: abstract class to be implemented by child
             """
-            raise NotImplementedError
+            ...
+
 
 Integration with fedsim-cli (CentralFLAlgorithm)
 ------------------------------------------------
