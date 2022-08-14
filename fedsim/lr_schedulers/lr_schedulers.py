@@ -139,7 +139,7 @@ class ReduceLROnPlateau(object):
     def __init__(
         self,
         init_lr,
-        trigger_metric="clients.train_loss",
+        trigger_metric="clients.train.loss",
         mode="min",
         factor=0.1,
         patience=10,
@@ -271,7 +271,7 @@ class StepLRWithRestartOnPlateau(ReduceLROnPlateau):
         self,
         init_lr,
         step_size,
-        trigger_metric="clients.train_loss",
+        trigger_metric="clients.train.loss",
         mode="min",
         factor=0.1,
         patience=10,
