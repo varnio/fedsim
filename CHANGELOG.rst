@@ -1,3 +1,9 @@
+0.5.0 (2022-08-15)
+------------------
+
+* completed lr schedulers and generalized them for all levels
+* changed some argument names and default values
+
 0.4.1 (2022-08-12)
 ------------------
 
