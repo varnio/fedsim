@@ -7,6 +7,7 @@ Used to schedule the initial learning rate of the local learning rate at each ro
 """
 
 import math
+from typing import Dict
 
 from torch._six import inf
 
@@ -16,6 +17,7 @@ class LRScheduler(object):
         self.base_lr = init_lr
         self._cur_lr = init_lr
         self._step_count = 0
+        self.verbose = verbose
 
     def step(self, *args, **kwargs):
         raise NotImplementedError
@@ -139,7 +141,7 @@ class ReduceLROnPlateau(object):
     def __init__(
         self,
         init_lr,
-        trigger_metric="clients.train.loss",
+        trigger_metric="clients.train.cross_entropy_loss",
         mode="min",
         factor=0.1,
         patience=10,
@@ -184,6 +186,8 @@ class ReduceLROnPlateau(object):
         self.num_bad_epochs = 0
 
     def step(self, metrics):
+        if isinstance(metrics, Dict):
+            metrics = metrics[self.trigger_metric]
         # convert `metrics` to float, in case it's a zero-dim Tensor
         current = float(metrics)
         epoch = self.last_epoch + 1
@@ -271,7 +275,7 @@ class StepLRWithRestartOnPlateau(ReduceLROnPlateau):
         self,
         init_lr,
         step_size,
-        trigger_metric="clients.train.loss",
+        trigger_metric="clients.train.cross_entropy_loss",
         mode="min",
         factor=0.1,
         patience=10,
@@ -298,6 +302,8 @@ class StepLRWithRestartOnPlateau(ReduceLROnPlateau):
         self.step_size = step_size
 
     def step(self, metrics):
+        if isinstance(metrics, Dict):
+            metrics = metrics[self.trigger_metric]
         # convert `metrics` to float, in case it's a zero-dim Tensor
         current = float(metrics)
         epoch = self.last_epoch + 1
@@ -337,7 +343,7 @@ class CosineAnnealingWithRestartOnPlateau(ReduceLROnPlateau):
         self,
         init_lr,
         T_0,
-        trigger_metric="clients.train_loss",
+        trigger_metric="clients.train.cross_entropy_loss",
         mode="min",
         factor=0.1,
         patience=10,
@@ -364,6 +370,8 @@ class CosineAnnealingWithRestartOnPlateau(ReduceLROnPlateau):
         self.T_0 = T_0
 
     def step(self, metrics):
+        if isinstance(metrics, Dict):
+            metrics = metrics[self.trigger_metric]
         # convert `metrics` to float, in case it's a zero-dim Tensor
         current = float(metrics)
         epoch = self.last_epoch + 1
