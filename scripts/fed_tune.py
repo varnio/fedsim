@@ -466,15 +466,15 @@ def fed_tune(
     for itr in range(n_iters):
         suggested = optimizer.ask()
         hparams_suggested = {k: v for k, v in zip(hparams.keys(), suggested)}
-        data_manager_class = update_def(hparams_suggested, "data_manager")
-        algorithm_class = update_def(hparams_suggested, "algorithm")
-        model_class = update_def(hparams_suggested, "model")
-        criterion_class = update_def(hparams_suggested, "criterion")
-        optimizer_class = update_def(hparams_suggested, "optimizer")
-        local_optimizer_class = update_def(hparams_suggested, "local_optimizer")
-        lr_scheduler_class = update_def(hparams_suggested, "lr_scheduler")
-        local_lr_scheduler_class = update_def(hparams_suggested, "local_lr_scheduler")
-        r2r_local_lr_scheduler_class = update_def(
+        data_manager_def = update_def(hparams_suggested, "data_manager")
+        algorithm_def = update_def(hparams_suggested, "algorithm")
+        model_def = update_def(hparams_suggested, "model")
+        criterion_def = update_def(hparams_suggested, "criterion")
+        optimizer_def = update_def(hparams_suggested, "optimizer")
+        local_optimizer_def = update_def(hparams_suggested, "local_optimizer")
+        lr_scheduler_def = update_def(hparams_suggested, "lr_scheduler")
+        local_lr_scheduler_def = update_def(hparams_suggested, "local_lr_scheduler")
+        r2r_local_lr_scheduler_def = update_def(
             hparams_suggested, "r2r_local_lr_scheduler"
         )
         # logging
@@ -511,22 +511,22 @@ def fed_tune(
         if seed is not None:
             set_seed(seed, device)
 
-        data_manager_instant = data_manager_class()
+        data_manager_instant = data_manager_def()
 
-        algorithm_instance = algorithm_class(
+        algorithm_instance = algorithm_def(
             data_manager=data_manager_instant,
             metric_logger=tb_logger_child,
             num_clients=n_clients,
             sample_scheme=client_sample_scheme,
             sample_rate=client_sample_rate,
-            model_class=model_class,
+            model_def=model_def,
             epochs=epochs,
-            criterion=criterion_class,
-            optimizer_class=optimizer_class,
-            local_optimizer_class=local_optimizer_class,
-            lr_scheduler_class=lr_scheduler_class,
-            local_lr_scheduler_class=local_lr_scheduler_class,
-            r2r_local_lr_scheduler_class=r2r_local_lr_scheduler_class,
+            criterion=criterion_def,
+            optimizer_def=optimizer_def,
+            local_optimizer_def=local_optimizer_def,
+            lr_scheduler_def=lr_scheduler_def,
+            local_lr_scheduler_def=local_lr_scheduler_def,
+            r2r_local_lr_scheduler_def=r2r_local_lr_scheduler_def,
             batch_size=batch_size,
             test_batch_size=test_batch_size,
             device=device,

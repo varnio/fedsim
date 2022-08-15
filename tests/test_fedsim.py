@@ -41,18 +41,19 @@ def test_algs():
     n_clients = 5000
     dm = BasicDataManager("./data", "cifar100", n_clients)
     sw = TensorboardLogger(path=None)
-
+    # device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     common_cfg = dict(
         data_manager=dm,
         num_clients=2,
         sample_scheme="uniform",
         sample_rate=1.0,
-        model_class=cnn_cifar100,
+        model_def=cnn_cifar100,
         epochs=1,
-        criterion=partial(CrossEntropyLoss, log_freq=100),
+        criterion_def=partial(CrossEntropyLoss, log_freq=100),
         batch_size=32,
         metric_logger=sw,
-        device="cpu",
+        device=device,
     )
     # test fedavg
     alg = FedAvg(**common_cfg)

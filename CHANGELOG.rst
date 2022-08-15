@@ -1,8 +1,14 @@
+0.5.0 (2022-08-15)
+------------------
+
+* completed lr schedulers and generalized them for all levels
+* changed some argument names and default values
+
 0.4.1 (2022-08-12)
 ------------------
 
 * fixed bugs with mismatched loss_fn argument name in cli commands
-* changed all `'eval_freq'` arguemnts to unified `'log_req'`
+* changed all ``eval_freq`` arguemnts to unified ``log_req``
 
 0.4.0 (2022-08-12)
 ------------------

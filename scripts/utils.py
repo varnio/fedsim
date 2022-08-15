@@ -46,6 +46,8 @@ def parse_class_from_file(s: str) -> object:
 
 
 def get_definition(name, modules):
+    if name is None:
+        return None
     if not isinstance(modules, list):
         modules = [
             modules,
@@ -111,6 +113,8 @@ class OptionEatAll(click.Option):
 
 
 def decode_margs(obj_and_args: Tuple):
+    if obj_and_args is None:
+        return None, None, None
     obj_and_args = list(obj_and_args)
     # local definition
     if any([len(i) > 1 for i in obj_and_args]):
@@ -174,95 +178,104 @@ def ingest_fed_context(
         r2r_local_lr_scheduler_hargs,
     ) = decode_margs(r2r_local_lr_scheduler)
     # find class defs
-    data_manager_class = get_definition(
+    data_manager_def = get_definition(
         name=data_manager,
         modules="fedsim.distributed.data_management",
     )
-    algorithm_class = get_definition(
+    algorithm_def = get_definition(
         name=algorithm,
         modules=[
             "fedsim.distributed.centralized.training",
             "fedsim.distributed.decentralized.training",
         ],
     )
-    model_class = get_definition(
+    model_def = get_definition(
         name=model,
         modules="fedsim.models",
     )
-    criterion_class = get_definition(
+    criterion_def = get_definition(
         name=criterion,
         modules="fedsim.losses",
     )
-    optimizer_class = get_definition(
+    optimizer_def = get_definition(
         name=optimizer,
         modules="torch.optim",
     )
-    local_optimizer_class = get_definition(
+    local_optimizer_def = get_definition(
         name=local_optimizer,
         modules="torch.optim",
     )
-    lr_scheduler_class = get_definition(
+    lr_scheduler_def = get_definition(
         name=lr_scheduler,
-        modules="torch.optim.lr_scheduler",
+        modules="fedsim.lr_schedulers",
     )
-    local_lr_scheduler_class = get_definition(
+    local_lr_scheduler_def = get_definition(
         name=local_lr_scheduler,
-        modules="torch.optim.lr_scheduler",
+        modules="fedsim.lr_schedulers",
     )
-    r2r_local_lr_scheduler_class = get_definition(
+    r2r_local_lr_scheduler_def = get_definition(
         name=r2r_local_lr_scheduler,
         modules="fedsim.lr_schedulers",
     )
     # raise if algorithm parent signature is overwritten (allow only hparam args)
-    grandpa = inspect.getmro(algorithm_class)[-2]
+    grandpa = inspect.getmro(algorithm_def)[-2]
     grandpa_args = set(inspect.signature(grandpa).parameters.keys())
     for alg_arg in algorithm_args:
         if alg_arg in grandpa_args:
             raise Exception(
                 f"Not allowed to change parameters of {grandpa} which is "
-                f"the parent of algorithm class {algorithm_class}."
+                f"the parent of algorithm class {algorithm_def}."
                 "Check other cli options"
             )
 
     # partially customize defs
-    data_manager_class = partial(data_manager_class, **data_manager_args)
-    algorithm_class = partial(algorithm_class, **algorithm_args)
-    model_class = partial(model_class, **model_args)
-    criterion_class = partial(criterion_class, **criterion_args)
-    optimizer_class = partial(optimizer_class, **optimizer_args)
-    local_optimizer_class = partial(local_optimizer_class, **local_optimizer_args)
-    lr_scheduler_class = partial(lr_scheduler_class, **lr_scheduler_args)
-    local_lr_scheduler_class = partial(
-        local_lr_scheduler_class,
-        **local_lr_scheduler_args,
-    )
-    r2r_local_lr_scheduler_class = partial(
-        r2r_local_lr_scheduler_class,
-        **r2r_local_lr_scheduler_args,
-    )
+    if data_manager_def is not None:
+        data_manager_def = partial(data_manager_def, **data_manager_args)
+    if algorithm_def is not None:
+        algorithm_def = partial(algorithm_def, **algorithm_args)
+    if model_def is not None:
+        model_def = partial(model_def, **model_args)
+    if criterion_def is not None:
+        criterion_def = partial(criterion_def, **criterion_args)
+    if optimizer_def is not None:
+        optimizer_def = partial(optimizer_def, **optimizer_args)
+    if local_optimizer_def is not None:
+        local_optimizer_def = partial(local_optimizer_def, **local_optimizer_args)
+    if lr_scheduler_def is not None:
+        lr_scheduler_def = partial(lr_scheduler_def, **lr_scheduler_args)
+    if local_lr_scheduler_def is not None:
+        local_lr_scheduler_def = partial(
+            local_lr_scheduler_def,
+            **local_lr_scheduler_args,
+        )
+    if r2r_local_lr_scheduler_def is not None:
+        r2r_local_lr_scheduler_def = partial(
+            r2r_local_lr_scheduler_def,
+            **r2r_local_lr_scheduler_args,
+        )
 
     # pack and return as dict
     cfg = OrderedDict(
         data_manager=ObjectContext(
-            data_manager_class, data_manager_args, data_manager_hargs
+            data_manager_def, data_manager_args, data_manager_hargs
         ),
-        algorithm=ObjectContext(algorithm_class, algorithm_args, algorithm_hargs),
-        model=ObjectContext(model_class, model_args, model_hargs),
-        criterion=ObjectContext(criterion_class, criterion_args, criterion_hargs),
-        optimizer=ObjectContext(optimizer_class, optimizer_args, optimizer_hargs),
+        algorithm=ObjectContext(algorithm_def, algorithm_args, algorithm_hargs),
+        model=ObjectContext(model_def, model_args, model_hargs),
+        criterion=ObjectContext(criterion_def, criterion_args, criterion_hargs),
+        optimizer=ObjectContext(optimizer_def, optimizer_args, optimizer_hargs),
         local_optimizer=ObjectContext(
-            local_optimizer_class, local_optimizer_args, local_optimizer_hargs
+            local_optimizer_def, local_optimizer_args, local_optimizer_hargs
         ),
         lr_scheduler=ObjectContext(
-            lr_scheduler_class, lr_scheduler_args, lr_scheduler_hargs
+            lr_scheduler_def, lr_scheduler_args, lr_scheduler_hargs
         ),
         local_lr_scheduler=ObjectContext(
-            local_lr_scheduler_class,
+            local_lr_scheduler_def,
             local_lr_scheduler_args,
             local_lr_scheduler_hargs,
         ),
         r2r_local_lr_scheduler=ObjectContext(
-            r2r_local_lr_scheduler_class,
+            r2r_local_lr_scheduler_def,
             r2r_local_lr_scheduler_args,
             r2r_local_lr_scheduler_hargs,
         ),

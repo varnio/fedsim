@@ -2,6 +2,7 @@ r"""
 FedDyn
 -------
 """
+import inspect
 from functools import partial
 
 import torch
@@ -21,24 +22,36 @@ class FedDyn(fedavg.FedAvg):
     on Dynamic Regularization`_.
 
     Args:
-        data_manager (Callable): data manager
-        metric_logger (Callable): a logall.Logger instance
+        data_manager (``distributed.data_management.DataManager``): data manager
+        metric_logger (``logall.Logger``): metric logger for tracking.
         num_clients (int): number of clients
-        sample_scheme (str): mode of sampling clients
-        sample_rate (float): rate of sampling clients
-        model_class (Callable): class for constructing the model
-        epochs (int): number of local epochs
-        criterion (Callable): loss function defining local objective
-        optimizer_class (Callable): server optimizer class
-        local_optimizer_class (Callable): local optimization class
-        lr_scheduler_class: class definition for lr scheduler of server optimizer
-        local_lr_scheduler_class: class definition for lr scheduler of local optimizer
-        r2r_local_lr_scheduler_class: class definition to schedule lr delivered to
-            clients at each round (init lr of the client optimizer)
-        batch_size (int): local trianing batch size
+        sample_scheme (``str``): mode of sampling clients. Options are ``'uniform'``
+            and ``'sequential'``
+        sample_rate (``float``): rate of sampling clients
+        model_def (``torch.Module``): definition of for constructing the model
+        epochs (``int``): number of local epochs
+        criterion_def (``Callable``): loss function defining local objective
+        optimizer_def (``Callable``): derfintion of server optimizer
+        local_optimizer_def (``Callable``): defintoin of local optimizer
+        lr_scheduler_def (``Callable``): definition of lr scheduler of server optimizer.
+        local_lr_scheduler_def (``Callable``): definition of lr scheduler of local
+            optimizer
+        r2r_local_lr_scheduler_def (``Callable``): definition to schedule lr that is
+            delivered to the clients at each round (deterimined init lr of the
+            client optimizer)
+        batch_size (int): batch size of the local trianing
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
-        mu (float): FedDyn's :math:`\mu` parameter for local regularization
+        alpha (float): FedDyn's :math:`\alpha` hyper-parameter for local regularization
+
+    .. note::
+        definition of
+        * learning rate schedulers, could be any of the ones defined at
+        ``fedsim.lr_schedulers``.
+        * optimizers, could be any ``torch.optim.Optimizer``.
+        * model, could be any ``torch.Module``.
+        * criterion, could be any ``fedsim.losses``.
+
 
     .. _Federated Learning Based on Dynamic Regularization:
         https://openreview.net/forum?id=B7v4QMR6Z9w
@@ -51,20 +64,20 @@ class FedDyn(fedavg.FedAvg):
         num_clients,
         sample_scheme,
         sample_rate,
-        model_class,
+        model_def,
         epochs,
-        criterion,
-        optimizer_class=partial(SGD, lr=0.1, weight_decay=0.001),
-        local_optimizer_class=partial(SGD, lr=1.0),
-        lr_scheduler_class=None,
-        local_lr_scheduler_class=None,
-        r2r_local_lr_scheduler_class=None,
+        criterion_def,
+        optimizer_def=partial(SGD, lr=0.1, weight_decay=0.001),
+        local_optimizer_def=partial(SGD, lr=1.0),
+        lr_scheduler_def=None,
+        local_lr_scheduler_def=None,
+        r2r_local_lr_scheduler_def=None,
         batch_size=32,
         test_batch_size=64,
         device="cuda",
-        mu=0.02,
+        alpha=0.02,
     ):
-        self.mu = mu
+        self.alpha = alpha
 
         super(FedDyn, self).__init__(
             data_manager,
@@ -72,14 +85,14 @@ class FedDyn(fedavg.FedAvg):
             num_clients,
             sample_scheme,
             sample_rate,
-            model_class,
+            model_def,
             epochs,
-            criterion,
-            optimizer_class,
-            local_optimizer_class,
-            lr_scheduler_class,
-            local_lr_scheduler_class,
-            r2r_local_lr_scheduler_class,
+            criterion_def,
+            optimizer_def,
+            local_optimizer_def,
+            lr_scheduler_def,
+            local_lr_scheduler_def,
+            r2r_local_lr_scheduler_def,
             batch_size,
             test_batch_size,
             device,
@@ -103,8 +116,8 @@ class FedDyn(fedavg.FedAvg):
         criterion,
         train_batch_size,
         inference_batch_size,
-        optimizer_class,
-        lr_scheduler_class=None,
+        optimizer_def,
+        lr_scheduler_def=None,
         device="cuda",
         ctx=None,
         step_closure=None,
@@ -113,8 +126,8 @@ class FedDyn(fedavg.FedAvg):
         model = ctx["model"]
         params_init = parameters_to_vector(model.parameters()).detach().clone()
         h = self.read_client(client_id, "h")
-        mu_adaptive = (
-            self.mu
+        alpha_adaptive = (
+            self.alpha
             / len(datasets[train_split_name])
             * self.read_server("average_sample")
         )
@@ -123,7 +136,7 @@ class FedDyn(fedavg.FedAvg):
             params = parameters_to_vector(model.parameters())
             grad_additive = 0.5 * (params - params_init) - h
             grad_additive_list = vector_to_parameters_like(
-                mu_adaptive * grad_additive, model.parameters()
+                alpha_adaptive * grad_additive, model.parameters()
             )
 
             for p, g_a in zip(model.parameters(), grad_additive_list):
@@ -140,8 +153,8 @@ class FedDyn(fedavg.FedAvg):
             criterion,
             train_batch_size,
             inference_batch_size,
-            optimizer_class,
-            lr_scheduler_class,
+            optimizer_def,
+            lr_scheduler_def,
             device,
             ctx,
             step_closure=step_closure_,
@@ -177,7 +190,12 @@ class FedDyn(fedavg.FedAvg):
             cloud_params.grad = modified_pseudo_grads
             optimizer.step()
             if lr_scheduler is not None:
-                lr_scheduler.step()
+                step_args = inspect.signature(lr_scheduler.step).parameters
+                if "metrics" in step_args:
+                    trigger_metric = lr_scheduler.trigger_metric
+                    lr_scheduler.step(aggregator.get(trigger_metric))
+                else:
+                    lr_scheduler.step()
             self.write_server("avg_params", param_avg.detach().clone())
             self.write_server("h", h.data)
             # purge aggregated results

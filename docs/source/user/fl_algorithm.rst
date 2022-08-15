@@ -16,25 +16,25 @@ A Simple Custom CentralFLAlgorithm
 
     class CustomFLAlgorithm(CentralFLAlgorithm):
         def __init__(
-            data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_class, epochs, criterion,
-            optimizer_class, local_optimizer_class, lr_scheduler_class=None, local_lr_scheduler_class,
-            r2r_local_lr_scheduler_class=None, batch_size=32, test_batch_size=64, device="cuda", other_arg, ...
+            data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_def, epochs, criterion,
+            optimizer_def, local_optimizer_def, lr_scheduler_def=None, local_lr_scheduler_def,
+            r2r_local_lr_scheduler_def=None, batch_size=32, test_batch_size=64, device="cuda", other_arg, ...
         ):
             self.other_arg = other_arg
             ...
 
             super(CustomFLAlgorithm, self).__init__(
-                data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_class, epochs, criterion,
-                optimizer_class, local_optimizer_class, lr_scheduler_class=None, local_lr_scheduler_class,
-                r2r_local_lr_scheduler_class=None, batch_size=32, test_batch_size=64, device="cuda",
+                data_manager, metric_logger, num_clients, sample_scheme, sample_rate, model_def, epochs, criterion,
+                optimizer_def, local_optimizer_def, lr_scheduler_def=None, local_lr_scheduler_def,
+                r2r_local_lr_scheduler_def=None, batch_size=32, test_batch_size=64, device="cuda",
             )
             # make mode and optimizer
-            model = self.get_model_class()().to(self.device)
+            model = self.get_model_def()().to(self.device)
             params = deepcopy(parameters_to_vector(model.parameters()).clone().detach())
-            optimizer = optimizer_class(params=[params])
+            optimizer = optimizer_def(params=[params])
             lr_scheduler = None
-            if lr_scheduler_class is not None:
-                lr_scheduler = lr_scheduler_class(optimizer)
+            if lr_scheduler_def is not None:
+                lr_scheduler = lr_scheduler_def(optimizer)
             # write model and optimizer to server
             self.write_server("model", model)
             self.write_server("cloud_params", params)
@@ -62,8 +62,8 @@ A Simple Custom CentralFLAlgorithm
 
         def send_to_server(self, client_id: int, datasets: Dict[str, Iterable],
             round_scores: Dict[str, Dict[str, fedsim.scores.Score]], epochs: int, criterion: nn.Module,
-            train_batch_size: int, inference_batch_size: int, optimizer_class: Callable,
-            lr_scheduler_class: Optional[Callable] = None, device: Union[int, str] = "cuda",
+            train_batch_size: int, inference_batch_size: int, optimizer_def: Callable,
+            lr_scheduler_def: Optional[Callable] = None, device: Union[int, str] = "cuda",
             ctx: Optional[Dict[Hashable, Any]] = None) -> Mapping[str, Any]:
             """client operation on the recieved information.
 
@@ -73,12 +73,12 @@ A Simple Custom CentralFLAlgorithm
                 round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
                     form {'split_name':{'score_name': score_def}} for global scores to
                     evaluate at the current round.
-                epochs (int): number of epochs to train
+                epochs (``int``): number of epochs to train
                 criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
                 train_batch_size (int): training batch_size
                 inference_batch_size (int): inference batch_size
-                optimizer_class (float): class for constructing the local optimizer
-                lr_scheduler_class (float): class for constructing the local lr scheduler
+                optimizer_def (float): class for constructing the local optimizer
+                lr_scheduler_def (float): class for constructing the local lr scheduler
                 device (Union[int, str], optional): Defaults to 'cuda'.
                 ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
 

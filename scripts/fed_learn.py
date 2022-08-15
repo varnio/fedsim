@@ -157,7 +157,7 @@ from .utils import validate_score
     "--r2r-local-lr-scheduler",
     type=tuple,
     cls=OptionEatAll,
-    default=("StepLR", "step_size:1", "gamma:0.999"),
+    default=("StepLR", "step_size:1", "gamma:1"),
     show_default=True,
     help="lr scheduler for round to round local optimization",
 )
@@ -336,7 +336,6 @@ def fed_learn(
             device = "cuda"
         else:
             device = "cpu"
-
     cfg = ingest_fed_context(
         data_manager,
         algorithm,
@@ -371,14 +370,14 @@ def fed_learn(
         num_clients=n_clients,
         sample_scheme=client_sample_scheme,
         sample_rate=client_sample_rate,
-        model_class=cfg["model"].definition,
+        model_def=cfg["model"].definition,
         epochs=epochs,
-        criterion=criterion_def,
-        optimizer_class=cfg["optimizer"].definition,
-        local_optimizer_class=cfg["local_optimizer"].definition,
-        lr_scheduler_class=cfg["lr_scheduler"].definition,
-        local_lr_scheduler_class=cfg["local_lr_scheduler"].definition,
-        r2r_local_lr_scheduler_class=cfg["r2r_local_lr_scheduler"].definition,
+        criterion_def=criterion_def,
+        optimizer_def=cfg["optimizer"].definition,
+        local_optimizer_def=cfg["local_optimizer"].definition,
+        lr_scheduler_def=cfg["lr_scheduler"].definition,
+        local_lr_scheduler_def=cfg["local_lr_scheduler"].definition,
+        r2r_local_lr_scheduler_def=cfg["r2r_local_lr_scheduler"].definition,
         batch_size=batch_size,
         test_batch_size=test_batch_size,
         device=device,

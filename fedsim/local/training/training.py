@@ -4,6 +4,7 @@ Local Training
 
 Training for local client
 """
+import inspect
 
 from .step_closures import default_step_closure
 
@@ -67,7 +68,18 @@ def local_train(
                 num_train_samples += y.shape[0]
                 all_loss += loss.item()
                 if lr_scheduler is not None:
-                    lr_scheduler.step()
+                    step_args = inspect.signature(lr_scheduler.step).parameters
+                    if "metrics" in step_args:
+                        comb_scores = {**scores, **{criterion.get_name(): criterion}}
+                        trigger_metric = lr_scheduler.trigger_metric
+                        if trigger_metric not in comb_scores:
+                            raise Exception(
+                                f"{trigger_metric} not in local scores. "
+                                f"Possible options are {comb_scores.keys()}"
+                            )
+                        lr_scheduler.step(comb_scores[trigger_metric].get_score())
+                    else:
+                        lr_scheduler.step()
 
     return (
         num_train_samples,
