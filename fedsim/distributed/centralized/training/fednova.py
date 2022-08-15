@@ -16,24 +16,34 @@ class FedNova(fedavg.FedAvg):
     Inconsistency Problem in Heterogeneous Federated Optimization`_.
 
     Args:
-        data_manager (Callable): data manager
-        metric_logger (Callable): a logall.Logger instance
+        data_manager (``distributed.data_management.DataManager``): data manager
+        metric_logger (``logall.Logger``): metric logger for tracking.
         num_clients (int): number of clients
-        sample_scheme (str): mode of sampling clients
-        sample_rate (float): rate of sampling clients
-        model_class (Callable): class for constructing the model
-        epochs (int): number of local epochs
-        criterion (Callable): loss function defining local objective
-        optimizer_class (Callable): server optimizer class
-        local_optimizer_class (Callable): local optimization class
-        lr_scheduler_class: class definition for lr scheduler of server optimizer
-        local_lr_scheduler_class: class definition for lr scheduler of local optimizer
-        r2r_local_lr_scheduler_class: class definition to schedule lr delivered to
-            clients at each round (init lr of the client optimizer)
-        batch_size (int): local trianing batch size
+        sample_scheme (``str``): mode of sampling clients. Options are ``'uniform'``
+            and ``'sequential'``
+        sample_rate (``float``): rate of sampling clients
+        model_def (``torch.Module``): definition of for constructing the model
+        epochs (``int``): number of local epochs
+        criterion_def (``Callable``): loss function defining local objective
+        optimizer_def (``Callable``): derfintion of server optimizer
+        local_optimizer_def (``Callable``): defintoin of local optimizer
+        lr_scheduler_def (``Callable``): definition of lr scheduler of server optimizer.
+        local_lr_scheduler_def (``Callable``): definition of lr scheduler of local
+            optimizer
+        r2r_local_lr_scheduler_def (``Callable``): definition to schedule lr that is
+            delivered to the clients at each round (deterimined init lr of the
+            client optimizer)
+        batch_size (int): batch size of the local trianing
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
 
+    .. note::
+        definition of
+        * learning rate schedulers, could be any of the ones defined at
+        ``fedsim.lr_schedulers``.
+        * optimizers, could be any ``torch.optim.Optimizer``.
+        * model, could be any ``torch.Module``.
+        * criterion, could be any ``fedsim.losses``.
     .. _Tackling the Objective Inconsistency Problem in Heterogeneous Federated
         Optimization: https://arxiv.org/abs/2007.07481
     """
@@ -45,14 +55,14 @@ class FedNova(fedavg.FedAvg):
         num_clients,
         sample_scheme,
         sample_rate,
-        model_class,
+        model_def,
         epochs,
-        criterion,
-        optimizer_class=partial(SGD, lr=0.1, weight_decay=0.001),
-        local_optimizer_class=partial(SGD, lr=1.0),
-        lr_scheduler_class=None,
-        local_lr_scheduler_class=None,
-        r2r_local_lr_scheduler_class=None,
+        criterion_def,
+        optimizer_def=partial(SGD, lr=0.1, weight_decay=0.001),
+        local_optimizer_def=partial(SGD, lr=1.0),
+        lr_scheduler_def=None,
+        local_lr_scheduler_def=None,
+        r2r_local_lr_scheduler_def=None,
         batch_size=32,
         test_batch_size=64,
         device="cuda",
@@ -63,14 +73,14 @@ class FedNova(fedavg.FedAvg):
             num_clients,
             sample_scheme,
             sample_rate,
-            model_class,
+            model_def,
             epochs,
-            criterion,
-            optimizer_class,
-            local_optimizer_class,
-            lr_scheduler_class,
-            local_lr_scheduler_class,
-            r2r_local_lr_scheduler_class,
+            criterion_def,
+            optimizer_def,
+            local_optimizer_def,
+            lr_scheduler_def,
+            local_lr_scheduler_def,
+            r2r_local_lr_scheduler_def,
             batch_size,
             test_batch_size,
             device,

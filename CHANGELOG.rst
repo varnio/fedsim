@@ -2,7 +2,7 @@
 ------------------
 
 * fixed bugs with mismatched loss_fn argument name in cli commands
-* changed all `'eval_freq'` arguemnts to unified `'log_req'`
+* changed all ``eval_freq`` arguemnts to unified ``log_req``
 
 0.4.0 (2022-08-12)
 ------------------

@@ -7,4 +7,4 @@ def test_reduce_lr_on_plateau():
     lr_sch = ReduceLROnPlateau(init_lr, factor=0.1, patience=patience, verbose=True)
     for i in range(patience + 2):
         lr_sch.step(100 + i)
-    assert lr_sch.get_lr()
+    assert lr_sch.get_the_last_lr()

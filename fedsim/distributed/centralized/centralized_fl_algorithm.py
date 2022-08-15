@@ -31,23 +31,35 @@ class CentralFLAlgorithm(object):
     r"""Base class for centralized FL algorithm.
 
     Args:
-        data_manager (Callable): data manager
-        metric_logger (Callable): a logall.Logger instance
-        num_clients (int): number of clients
-        sample_scheme (str): mode of sampling clients
-        sample_rate (float): rate of sampling clients
-        model_class (Callable): class for constructing the model
-        epochs (int): number of local epochs
-        criterion (Callable): loss function defining local objective
-        optimizer_class (Callable): server optimizer class
-        local_optimizer_class (Callable): local optimization class
-        lr_scheduler_class: class definition for lr scheduler of server optimizer
-        local_lr_scheduler_class: class definition for lr scheduler of local optimizer
-        r2r_local_lr_scheduler_class: class definition to schedule lr delivered to
-            clients at each round (init lr of the client optimizer)
-        batch_size (int): local trianing batch size
-        test_batch_size (int): inference time batch size
-        device (str): cpu, cuda, or gpu number
+            data_manager (``distributed.data_management.DataManager``): data manager
+            metric_logger (``logall.Logger``): metric logger for tracking.
+            num_clients (int): number of clients
+            sample_scheme (``str``): mode of sampling clients. Options are ``'uniform'``
+                and ``'sequential'``
+            sample_rate (``float``): rate of sampling clients
+            model_def (``torch.Module``): definition of for constructing the model
+            epochs (``int``): number of local epochs
+            criterion_def (``Callable``): loss function defining local objective
+            optimizer_def (``Callable``): derfintion of server optimizer
+            local_optimizer_def (``Callable``): defintoin of local optimizer
+            lr_scheduler_def (``Callable``): definition of lr scheduler of server
+                optimizer.
+            local_lr_scheduler_def (``Callable``): definition of lr scheduler of local
+                optimizer
+            r2r_local_lr_scheduler_def (``Callable``): definition to schedule lr that is
+                delivered to the clients at each round (deterimined init lr of the
+                client optimizer)
+            batch_size (int): batch size of the local trianing
+            test_batch_size (int): inference time batch size
+            device (str): cpu, cuda, or gpu number
+
+        .. note::
+            definition of
+            * learning rate schedulers, could be any of the ones defined at
+            ``fedsim.lr_schedulers``.
+            * optimizers, could be any ``torch.optim.Optimizer``.
+            * model, could be any ``torch.Module``.
+            * criterion, could be any ``fedsim.losses``.
     """
 
     def __init__(
@@ -57,14 +69,14 @@ class CentralFLAlgorithm(object):
         num_clients,
         sample_scheme,
         sample_rate,
-        model_class,
+        model_def,
         epochs,
-        criterion,
-        optimizer_class,
-        local_optimizer_class,
-        lr_scheduler_class,
-        local_lr_scheduler_class,
-        r2r_local_lr_scheduler_class,
+        criterion_def,
+        optimizer_def,
+        local_optimizer_def,
+        lr_scheduler_def,
+        local_lr_scheduler_def,
+        r2r_local_lr_scheduler_def,
         batch_size,
         test_batch_size,
         device,
@@ -79,45 +91,44 @@ class CentralFLAlgorithm(object):
                     sample_rate, num_clients
                 )
             )
-        # support functools.partial as model_class
-        if hasattr(model_class, "func"):
-            model_class_ = getattr(model_class, "func")
+        # support functools.partial as model_def
+        if hasattr(model_def, "func"):
+            model_def_ = getattr(model_def, "func")
         else:
-            model_class_ = model_class
+            model_def_ = model_def
 
-        if isinstance(model_class_, str):
-            self.model_class = get_from_module("fedsim.models", model_class)
-        elif issubclass(model_class_, nn.Module):
-            self.model_class = model_class
+        if isinstance(model_def_, str):
+            self.model_def = get_from_module("fedsim.models", model_def)
+        elif issubclass(model_def_, nn.Module):
+            self.model_def = model_def
         else:
             raise Exception("incompatiple model!")
         self.epochs = epochs
 
-        if isinstance(criterion, str) and hasattr(scores, criterion):
-            self.criterion = getattr(scores, criterion)
+        if isinstance(criterion_def, str) and hasattr(scores, criterion_def):
+            self.criterion_def = getattr(scores, criterion_def)
         else:
-            self.criterion = criterion
+            self.criterion_def = criterion_def
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
-        self.optimizer_class = optimizer_class
-        self.local_optimizer_class = local_optimizer_class
-        self.lr_scheduler_class = lr_scheduler_class
-        self.local_lr_scheduler_class = local_lr_scheduler_class
+        self.optimizer_def = optimizer_def
+        self.local_optimizer_def = local_optimizer_def
+        self.lr_scheduler_def = lr_scheduler_def
+        self.local_lr_scheduler_def = local_lr_scheduler_def
         self._train_split_name = "train"
 
-        if r2r_local_lr_scheduler_class is not None:
+        if r2r_local_lr_scheduler_def is not None:
             # get local lr to build r2r scheduler
 
             # if partial is used
-            if hasattr(local_optimizer_class, "keywords"):
-                clr = local_optimizer_class.keywords["lr"]
+            if hasattr(local_optimizer_def, "keywords"):
+                clr = local_optimizer_def.keywords["lr"]
             # if lr is argumetn
-            elif "lr" in inspect.signature(local_optimizer_class).parameters.keys():
-                clr = inspect.signature(local_optimizer_class).parameters["lr"].default
+            elif "lr" in inspect.signature(local_optimizer_def).parameters.keys():
+                clr = inspect.signature(local_optimizer_def).parameters["lr"].default
             else:
                 raise Exception("lr not found in local optimizer class")
-
-            self.r2r_local_lr_scheduler = r2r_local_lr_scheduler_class(init_lr=clr)
+            self.r2r_local_lr_scheduler = r2r_local_lr_scheduler_def(init_lr=clr)
         else:
             self.r2r_local_lr_scheduler = None
 
@@ -186,10 +197,11 @@ class CentralFLAlgorithm(object):
 
     def _send_to_server(self, client_id):
         if self.r2r_local_lr_scheduler is None:
-            local_optimizer_class = self.local_optimizer_class
+            local_optimizer_def = self.local_optimizer_def
         else:
-            local_optimizer_class = partial(
-                self.local_optimizer_class, lr=self.r2r_local_lr_scheduler.get_lr()
+            local_optimizer_def = partial(
+                self.local_optimizer_def,
+                lr=self.r2r_local_lr_scheduler.get_the_last_lr()[0],
             )
 
         datasets = self._data_manager.get_local_dataset(client_id)
@@ -199,11 +211,11 @@ class CentralFLAlgorithm(object):
             datasets,
             round_scores,
             self.epochs,
-            self.criterion(),
+            self.criterion_def(),
             self.batch_size,
             self.test_batch_size,
-            local_optimizer_class,
-            self.lr_scheduler_class,
+            local_optimizer_def,
+            self.local_lr_scheduler_def,
             self.device,
             ctx=self._send_to_client(client_id),
         )
@@ -312,8 +324,8 @@ class CentralFLAlgorithm(object):
         self._train_split_name = default_split_name
         return ans
 
-    def get_model_class(self):
-        return self.model_class
+    def get_model_def(self):
+        return self.model_def
 
     def get_train_split_name(self):
         return self._train_split_name
@@ -389,8 +401,8 @@ class CentralFLAlgorithm(object):
         criterion: nn.Module,
         train_batch_size: int,
         inference_batch_size: int,
-        optimizer_class: Callable,
-        lr_scheduler_class: Optional[Callable] = None,
+        optimizer_def: Callable,
+        lr_scheduler_def: Optional[Callable] = None,
         device: Union[int, str] = "cuda",
         ctx: Optional[Dict[Hashable, Any]] = None,
         *args,
@@ -404,12 +416,12 @@ class CentralFLAlgorithm(object):
             round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
                 form {'split_name':{'score_name': score_def}} for global scores to
                 evaluate at the current round.
-            epochs (int): number of epochs to train
+            epochs (``int``): number of epochs to train
             criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
             train_batch_size (int): training batch_size
             inference_batch_size (int): inference batch_size
-            optimizer_class (float): class for constructing the local optimizer
-            lr_scheduler_class (float): class for constructing the local lr scheduler
+            optimizer_def (float): class for constructing the local optimizer
+            lr_scheduler_def (float): class for constructing the local lr scheduler
             device (Union[int, str], optional): Defaults to 'cuda'.
             ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
 
