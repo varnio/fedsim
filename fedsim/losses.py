@@ -1,6 +1,7 @@
 r"""
 Fedsim Losses
 -------------
+
 """
 import torch
 
@@ -12,10 +13,13 @@ Tensor = torch.Tensor
 class CrossEntropyLoss(scores.CrossEntropyScore):
     r"""updatable cross entropy loss
 
+    .. automethod:: __call__
+
     Args:
-    log_freq (int, optional): how many steps gap between two logs. Defaults to 1.
-    split (str, optional): data split to evaluate on. Defaults to 'train'.
-    loss_name (str): name of the loss object.
+
+        log_freq (int, optional): how many steps gap between two logs. Defaults to 1.
+        split (str, optional): data split to evaluate on. Defaults to 'train'.
+        loss_name (str): name of the loss object.
 
     """
 
