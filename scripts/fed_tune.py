@@ -19,6 +19,7 @@ from skopt.space import Categorical
 from skopt.space import Integer
 from skopt.space import Real
 
+from fedsim import __version__ as fedsim_version
 from fedsim.utils import set_seed
 
 from .utils import LogFilter
@@ -421,11 +422,11 @@ def fed_tune(
     # log configuration
     compined_args = dict()
     for def_name, defn in cfg.items():
-        compined_args[def_name] = {**defn.arguments, **defn.harguments}
-
+        compined_args[def_name] = {defn.name: {**defn.arguments, **defn.harguments}}
     log = {**ctx.params, **compined_args}
     log["device"] = device
     log["log_dir"] = log_dir
+    log["fedsim_version"] = fedsim_version
     logger.info("configuration: \n" + pformat(log), extra={"flow": "parent"})
     logger.info("hyper-params: \n" + pformat(dict(hparams)), extra={"flow": "parent"})
     # make hparam opt
@@ -499,12 +500,14 @@ def fed_tune(
         compined_args = dict()
         for def_name, defn in cfg.items():
             compined_args[def_name] = {
-                **defn.arguments,
-                **refine_hparams(hparams_suggested, def_name),
+                defn.name: {
+                    **defn.arguments,
+                    **refine_hparams(hparams_suggested, def_name),
+                }
             }
-
         log = {**log, **compined_args}
         log["log_dir"] = log_dir
+        log["fedsim_version"] = fedsim_version
         logger.info("configuration: \n" + pformat(log), extra={"flow": identity})
 
         # set the seed of random generators
