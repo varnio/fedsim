@@ -3,7 +3,7 @@
 FedSim
 ------
 
-Comprehensive but Flexible Federated Learning Simulator!
+Comprehensive and flexible Federated Learning Simulator!
 
 """
 
