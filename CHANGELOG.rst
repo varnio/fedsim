@@ -1,3 +1,12 @@
+0.6.0 (2022-08-16)
+------------------
+
+* changed the name of cli directory
+* added cli tests
+* added support for pytorch original lr schedulers
+* improved docs
+* added version option to fedsim-cli
+
 0.5.0 (2022-08-15)
 ------------------
 

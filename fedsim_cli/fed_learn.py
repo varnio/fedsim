@@ -14,6 +14,7 @@ import click
 import torch
 from logall import TensorboardLogger
 
+from fedsim import __version__ as fedsim_version
 from fedsim.utils import set_seed
 
 from .utils import OptionEatAll
@@ -349,11 +350,15 @@ def fed_learn(
     )
 
     # log configuration
-    args_dict = {def_name: defn.arguments for def_name, defn in cfg.items()}
+    args_dict = {
+        def_name: {defn.name: defn.arguments} for def_name, defn in cfg.items()
+    }
     log = {**ctx.params, **args_dict}
     log["device"] = device
     log["log_dir"] = log_dir
+    log["fedsim_version"] = fedsim_version
     logger.info("arguments: \n" + pformat(log))
+    tb_logger.get_logger_object().add_text("config", f"{log}")
 
     # set the seed of random generators
     if seed is not None:
@@ -415,3 +420,7 @@ def fed_learn(
     logger.info(f"average of the last {n_point_summary} reports")
     logger.info(report_summary)
     tb_logger.flush()
+
+
+if __name__ == "__main__":
+    fed_learn()

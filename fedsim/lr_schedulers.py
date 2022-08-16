@@ -1,8 +1,13 @@
 r"""
-Round to Round Learning Rate Schedulers
----------------------------------------
+Learning Rate Schedulers
+------------------------
 
 This module provides the learning rate schedulers for fedsim.
+
+
+.. warning::
+        The arguments ``init_lr`` and ``optimizer`` are mutually exclusive for these lr
+        schedulers; meaning that only one of them must have a value (that is not None).
 
 """
 from functools import partial
@@ -10,6 +15,19 @@ from functools import partial
 import torch
 from torch.optim import SGD
 from torch.optim import lr_scheduler
+
+
+def extend_docstring(func):
+    def dec(obj):
+        obj.__doc__ = func.__doc__.replace(
+            "Args:\n        optimizer (Optimizer): Wrapped optimizer.",
+            "Args:\n        init_lr (float, optional): initial learning rate."
+            "Default: ``None``\n        optimizer (Optimizer, optional): Wrapped"
+            "optimizer. Default: ``None`` ",
+        )
+        return obj
+
+    return dec
 
 
 def get_scheduler(name, init_lr=None, optimizer=None, **kwargs):
@@ -68,54 +86,67 @@ def get_scheduler(name, init_lr=None, optimizer=None, **kwargs):
     return scheduler
 
 
+@extend_docstring(torch.optim.lr_scheduler.LambdaLR)
 def LambdaLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("LambdaLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.MultiplicativeLR)
 def MultiplicativeLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("MultiplicativeLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.StepLR)
 def StepLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("StepLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.ConstantLR)
 def ConstantLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("ConstantLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.LinearLR)
 def LinearLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("LinearLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.ExponentialLR)
 def ExponentialLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("ExponentialLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.CosineAnnealingLR)
 def CosineAnnealingLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("CosineAnnealingLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.ChainedScheduler)
 def ChainedScheduler(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("ChainedScheduler", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.SequentialLR)
 def SequentialLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("SequentialLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.CyclicLR)
 def CyclicLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("CyclicLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.OneCycleLR)
 def OneCycleLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("OneCycleLR", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.CosineAnnealingWarmRestarts)
 def CosineAnnealingWarmRestarts(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("CosineAnnealingWarmRestarts", init_lr, optimizer, **kwargs)
 
 
+@extend_docstring(torch.optim.lr_scheduler.ReduceLROnPlateau)
 def ReduceLROnPlateau(
     init_lr=None,
     optimizer=None,

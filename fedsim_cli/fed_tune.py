@@ -19,6 +19,7 @@ from skopt.space import Categorical
 from skopt.space import Integer
 from skopt.space import Real
 
+from fedsim import __version__ as fedsim_version
 from fedsim.utils import set_seed
 
 from .utils import LogFilter
@@ -421,13 +422,14 @@ def fed_tune(
     # log configuration
     compined_args = dict()
     for def_name, defn in cfg.items():
-        compined_args[def_name] = {**defn.arguments, **defn.harguments}
-
+        compined_args[def_name] = {defn.name: {**defn.arguments, **defn.harguments}}
     log = {**ctx.params, **compined_args}
     log["device"] = device
     log["log_dir"] = log_dir
+    log["fedsim_version"] = fedsim_version
     logger.info("configuration: \n" + pformat(log), extra={"flow": "parent"})
     logger.info("hyper-params: \n" + pformat(dict(hparams)), extra={"flow": "parent"})
+    tb_logger.get_logger_object().add_text(" grid config", f"{log}")
     # make hparam opt
     optimizer = Optimizer(
         dimensions=hparams.values(),
@@ -499,14 +501,16 @@ def fed_tune(
         compined_args = dict()
         for def_name, defn in cfg.items():
             compined_args[def_name] = {
-                **defn.arguments,
-                **refine_hparams(hparams_suggested, def_name),
+                defn.name: {
+                    **defn.arguments,
+                    **refine_hparams(hparams_suggested, def_name),
+                }
             }
-
         log = {**log, **compined_args}
         log["log_dir"] = log_dir
+        log["fedsim_version"] = fedsim_version
         logger.info("configuration: \n" + pformat(log), extra={"flow": identity})
-
+        tb_logger_child.get_logger_object().add_text("instance config", f"{log}")
         # set the seed of random generators
         if seed is not None:
             set_seed(seed, device)
@@ -584,7 +588,9 @@ def fed_tune(
         f"best metric observed ({best_metric:.3f}) at iteration {best_itr}",
         extra={"flow": "parent"},
     )
+    best_conf_fmt = best_config.replace("__", "=").replace("&", ",")
     logger.info(
-        f"best config {best_config.replace('__', '=').replace('&',',')}",
+        f"best config {best_conf_fmt}",
         extra={"flow": "parent"},
     )
+    tb_logger.get_logger_object().add_text("best config", f"{best_conf_fmt}")

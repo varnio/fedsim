@@ -24,6 +24,7 @@ space_list = [Real, Integer, Categorical]
 
 
 class ObjectContext(NamedTuple):
+    name: str
     definition: str
     arguments: str
     harguments: skopt.space.Space
@@ -257,24 +258,35 @@ def ingest_fed_context(
     # pack and return as dict
     cfg = OrderedDict(
         data_manager=ObjectContext(
-            data_manager_def, data_manager_args, data_manager_hargs
+            data_manager, data_manager_def, data_manager_args, data_manager_hargs
         ),
-        algorithm=ObjectContext(algorithm_def, algorithm_args, algorithm_hargs),
-        model=ObjectContext(model_def, model_args, model_hargs),
-        criterion=ObjectContext(criterion_def, criterion_args, criterion_hargs),
-        optimizer=ObjectContext(optimizer_def, optimizer_args, optimizer_hargs),
+        algorithm=ObjectContext(
+            algorithm, algorithm_def, algorithm_args, algorithm_hargs
+        ),
+        model=ObjectContext(model, model_def, model_args, model_hargs),
+        criterion=ObjectContext(
+            criterion, criterion_def, criterion_args, criterion_hargs
+        ),
+        optimizer=ObjectContext(
+            optimizer, optimizer_def, optimizer_args, optimizer_hargs
+        ),
         local_optimizer=ObjectContext(
-            local_optimizer_def, local_optimizer_args, local_optimizer_hargs
+            local_optimizer,
+            local_optimizer_def,
+            local_optimizer_args,
+            local_optimizer_hargs,
         ),
         lr_scheduler=ObjectContext(
-            lr_scheduler_def, lr_scheduler_args, lr_scheduler_hargs
+            lr_scheduler, lr_scheduler_def, lr_scheduler_args, lr_scheduler_hargs
         ),
         local_lr_scheduler=ObjectContext(
+            local_lr_scheduler,
             local_lr_scheduler_def,
             local_lr_scheduler_args,
             local_lr_scheduler_hargs,
         ),
         r2r_local_lr_scheduler=ObjectContext(
+            r2r_local_lr_scheduler,
             r2r_local_lr_scheduler_def,
             r2r_local_lr_scheduler_args,
             r2r_local_lr_scheduler_hargs,
@@ -293,7 +305,9 @@ def ingest_scores(score_tuple):
             modules="fedsim.scores",
         )
         score_objs.append(
-            ObjectContext(partial(score_def, **score_args), score_args, score_hargs)
+            ObjectContext(
+                score_name, partial(score_def, **score_args), score_args, score_hargs
+            )
         )
     return score_objs
 

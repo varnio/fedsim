@@ -53,13 +53,17 @@ class CentralFLAlgorithm(object):
             test_batch_size (int): inference time batch size
             device (str): cpu, cuda, or gpu number
 
-        .. note::
-            definition of
-            * learning rate schedulers, could be any of the ones defined at
-            ``fedsim.lr_schedulers``.
-            * optimizers, could be any ``torch.optim.Optimizer``.
-            * model, could be any ``torch.Module``.
-            * criterion, could be any ``fedsim.losses``.
+    .. note::
+        definition of
+        * learning rate schedulers, could be any of the ones defined at
+        ``fedsim.lr_schedulers``.
+        * optimizers, could be any ``torch.optim.Optimizer``.
+        * model, could be any ``torch.Module``.
+        * criterion, could be any ``fedsim.losses``.
+
+    Architecture:
+
+        .. image:: ../_static/fedlearn.svg
     """
 
     def __init__(
