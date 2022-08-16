@@ -10,6 +10,8 @@ Tensor = torch.Tensor
 class Score(object):
     r"""Score base class.
 
+    .. automethod:: __call__
+
     Args:
         log_freq (int, optional): how many steps gap between two evaluations.
             Defaults to 1.
@@ -82,6 +84,8 @@ class Score(object):
 
 class Accuracy(Score):
     r"""updatable accuracy score
+
+    .. automethod:: __call__
 
     Args:
         log_freq (int, optional): how many steps gap between two evaluations.
@@ -160,6 +164,8 @@ class Accuracy(Score):
 
 class CrossEntropyScore(Score):
     r"""updatable cross entropy score
+
+    .. automethod:: __call__
 
     Args:
         log_freq (int, optional): how many steps gap between two evaluations.
