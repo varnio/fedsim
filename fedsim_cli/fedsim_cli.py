@@ -26,5 +26,9 @@ cli.add_command(fed_learn)
 cli.add_command(fed_tune)
 
 
-if __name__ == "__main__":
+def main():
     cli()
+
+
+if __name__ == "__main__":
+    main()

@@ -419,3 +419,7 @@ def fed_learn(
     logger.info(f"average of the last {n_point_summary} reports")
     logger.info(report_summary)
     tb_logger.flush()
+
+
+if __name__ == "__main__":
+    fed_learn()

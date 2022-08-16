@@ -21,7 +21,7 @@ src = "fedsim/__init__.py"
 search = '__version__ = "{current_version}"'
 
 [[file]]
-src = "scripts/__init__.py"
+src = "fedsim_cli/__init__.py"
 search = '__version__ = "{current_version}"'
 
 

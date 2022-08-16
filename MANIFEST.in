@@ -1,6 +1,6 @@
 graft docs
 graft fedsim
-graft scripts
+graft fedsim_cli
 graft ci
 graft tests
 

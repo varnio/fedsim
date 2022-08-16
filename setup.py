@@ -36,7 +36,8 @@ setup(
     url="https://github.com/varnio/fedsim",
     packages=find_packages(),
     package_dir={"": "."},
-    py_modules=[splitext(basename(path))[0] for path in glob("fedsim/*.py")],
+    py_modules=[splitext(basename(path))[0] for path in glob("fedsim/*.py")]
+    + [splitext(basename(path))[0] for path in glob("fedsim_cli/*.py")],
     include_package_data=True,
     zip_safe=False,
     classifiers=[
@@ -96,7 +97,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "fedsim-cli = scripts.fedsim_cli:cli",
+            "fedsim-cli = fedsim_cli.fedsim_cli:cli",
         ],
     },
 )
