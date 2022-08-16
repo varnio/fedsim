@@ -521,7 +521,7 @@ def fed_tune(
             sample_rate=client_sample_rate,
             model_def=model_def,
             epochs=epochs,
-            criterion=criterion_def,
+            criterion_def=criterion_def,
             optimizer_def=optimizer_def,
             local_optimizer_def=local_optimizer_def,
             lr_scheduler_def=lr_scheduler_def,

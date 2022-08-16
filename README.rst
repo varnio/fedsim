@@ -35,7 +35,7 @@ FedSim
     :target: https://gitter.im/varnio/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
 
 
-FedSim is a Generic Federated Learning Simulator. It aims to provide the researchers with an easy to develope/maintain simulator for Federated Learning.
+FedSim is a comprehensive but flexible Federated Learning Simulator! It aims to provide the researchers with an easy to develope/maintain simulator for Federated Learning.
 See documentation at `here <https://fedsim.varnio.com/en/latest/>`_!
 
 
@@ -75,7 +75,7 @@ Here is a demo:
         sample_rate=0.01,
         model_def=cnn_cifar100,
         epochs=5,
-        criterion=partial(CrossEntropyLoss, log_freq=100),
+        criterion_def=partial(CrossEntropyLoss, log_freq=100),
         batch_size=32,
         metric_logger=sw,
         device="cuda",
@@ -423,11 +423,16 @@ Learning Rate Schedulers
 
 `fedsim-cli fed-learn` accepts 3 scheduler objects.
 
-* **lr-scheduler:** learning rate scheduler for server optimizer. It accepts a pytorch lr scheduler.
-* **local-lr-scheduler:** learning rate scheduler for client optimizer. It accepts a pytorch lr scheduler.
-* **r2r-local-lr-scheduler:** schedules the initial learning rate that is delivered to the clients of each round. It accepts any class inherited from `fedsim.lr_schedulers.LRScheduler`.
+* **lr-scheduler:** learning rate scheduler for server optimizer.
+* **local-lr-scheduler:** learning rate scheduler for client optimizer.
+* **r2r-local-lr-scheduler:** schedules the initial learning rate that is delivered to the clients of each round.
 
 These arguments are passed to instances of the centralized FL algorithms.
+
+.. note::
+    Choose learning rate schedulers from ``fedsim.lr_schedulers`` documented at `Lr Schedulers Page`_.
+
+.. _Lr Schedulers Page: https://fedsim.varnio.com/en/latest/reference/fedsim.lr_schedulers.html
 
 
 
