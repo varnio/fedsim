@@ -358,6 +358,7 @@ def fed_learn(
     log["log_dir"] = log_dir
     log["fedsim_version"] = fedsim_version
     logger.info("arguments: \n" + pformat(log))
+    tb_logger.get_logger_object().add_text("config", f"{log}")
 
     # set the seed of random generators
     if seed is not None:

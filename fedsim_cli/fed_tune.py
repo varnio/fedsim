@@ -429,6 +429,7 @@ def fed_tune(
     log["fedsim_version"] = fedsim_version
     logger.info("configuration: \n" + pformat(log), extra={"flow": "parent"})
     logger.info("hyper-params: \n" + pformat(dict(hparams)), extra={"flow": "parent"})
+    tb_logger.get_logger_object().add_text(" grid config", f"{log}")
     # make hparam opt
     optimizer = Optimizer(
         dimensions=hparams.values(),
@@ -509,7 +510,7 @@ def fed_tune(
         log["log_dir"] = log_dir
         log["fedsim_version"] = fedsim_version
         logger.info("configuration: \n" + pformat(log), extra={"flow": identity})
-
+        tb_logger_child.get_logger_object().add_text("instance config", f"{log}")
         # set the seed of random generators
         if seed is not None:
             set_seed(seed, device)
@@ -587,7 +588,9 @@ def fed_tune(
         f"best metric observed ({best_metric:.3f}) at iteration {best_itr}",
         extra={"flow": "parent"},
     )
+    best_conf_fmt = best_config.replace("__", "=").replace("&", ",")
     logger.info(
-        f"best config {best_config.replace('__', '=').replace('&',',')}",
+        f"best config {best_conf_fmt}",
         extra={"flow": "parent"},
     )
+    tb_logger.get_logger_object().add_text("best config", f"{best_conf_fmt}")
