@@ -21,7 +21,20 @@ def test_fedtune():
     runner = CliRunner()
     result = runner.invoke(
         fed_tune,
-        "-r 0 --epochs 0 --local-optimizer SGD lr:Real:0-1 --device cpu --n-iters 0 "
-        "--skopt-n-initial-points",
+        [
+            "-r",
+            "0",
+            "--epochs",
+            "0",
+            "--local-optimizer",
+            "SGD",
+            "lr:Real:0-1",
+            "--device",
+            "cpu",
+            "--n-iters",
+            "2",
+            "--skopt-n-initial-points",
+            "2",
+        ],
     )
     assert result.exit_code == 0
