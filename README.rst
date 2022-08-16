@@ -189,6 +189,13 @@ CentralFLAlgorithm
 
 Any custome DataManager class should inherit from ``fedsim.distributed.centralized.CentralFLAlgorithm`` (or its children) and implement its abstract methods. For example:
 
+Architecture
+------------
+
+.. image:: ../_static/fedlearn.svg
+
+Example
+-------
 .. code-block:: python
 
     from typing import Optional, Hashable, Mapping, Dict, Any
