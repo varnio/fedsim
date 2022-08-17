@@ -168,7 +168,7 @@
        <g id="id10">
         <rect class="BoundingBox" stroke="none" fill="none" x="7247" y="14763" width="5107" height="1457"/>
         <path fill="none" stroke="rgb(52,101,164)" stroke-width="106" stroke-linejoin="round" d="M 9800,16166 L 7300,16166 7300,14816 12300,14816 12300,16166 9800,16166 Z"/>
-        <text class="SVGTextShape"><tspan class="TextParagraph" font-family="Latin Modern Math" font-size="494px" font-weight="400"><tspan class="TextPosition" x="7641" y="15394"><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre">r2r local lrscheduler</tspan><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre"> </tspan></tspan><tspan class="TextPosition" x="9476" y="15889"><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre">def</tspan></tspan></tspan></text>
+        <text class="SVGTextShape"><tspan class="TextParagraph" font-family="Latin Modern Math" font-size="494px" font-weight="400"><tspan class="TextPosition" x="8649" y="15394"><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre">r2r local lr </tspan></tspan><tspan class="TextPosition" x="8386" y="15889"><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre">scheduler</tspan><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre"> def</tspan></tspan></tspan></text>
        </g>
       </g>
       <g class="com.sun.star.drawing.CustomShape">

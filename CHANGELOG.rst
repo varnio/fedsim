@@ -1,3 +1,9 @@
+0.6.1 (2022-08-17)
+------------------
+
+* fixed bug in ``partition_global_data`` of ``BasicDataManager``
+* some changes in default values for better log storage and aggregation
+
 0.6.0 (2022-08-16)
 ------------------
 
@@ -34,7 +40,7 @@
 0.3.0 (2022-08-09)
 ------------------
 
-* added fine-tunning to cli, `fed-tune`
+* added fine-tuning to cli, `fed-tune`
 * cleaner cli
 * made optimizers and schedulers user definable
 * improved logging

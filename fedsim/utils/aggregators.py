@@ -20,10 +20,13 @@ class SerialAggregator(object):
         else:
             return value * weight, weight
 
-    def add(self, key, value, weight=0):
+    def add(self, key, value, weight=None):
         new_v, new_w = self._get_pair(value, weight)
         sum_v, cur_w = self._members.get(key, (0, 0))
-        self._members[key] = (sum_v + new_v, cur_w + new_w)
+        if (sum_v is None) or (new_v is None):
+            self._members[key] = (sum_v + new_v, None)
+        else:
+            self._members[key] = (sum_v + new_v, cur_w + new_w)
 
     def get(self, key):
         if key not in self._members:
