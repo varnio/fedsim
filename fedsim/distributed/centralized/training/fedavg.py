@@ -287,10 +287,15 @@ class FedAvg(CentralFLAlgorithm):
     ):
         model = self.read_server("model")
         metrics_from_deployment = dict()
+        # TODO: reporting norm and similar metrics should be implemented
+        # through hooks (hook probe perhaps)
+        norm_report_freq = 50
+        norm_reports = dict()
         if deployment_points is not None:
             for point_name, point in deployment_points.items():
                 # copy cloud params to cloud model to send to the client
-                vector_to_parameters(point.detach().clone().data, model.parameters())
+                point_vec = point.detach().clone().data
+                vector_to_parameters(point_vec, model.parameters())
 
                 for split_name, loader in dataloaders.items():
                     if split_name in round_scores:
@@ -310,4 +315,8 @@ class FedAvg(CentralFLAlgorithm):
                             **metrics_from_deployment,
                             **split_metrics,
                         }
-        return {**metrics_from_deployment, **optimize_reports}
+            if self.rounds % norm_report_freq == 0:
+                norm_reports[
+                    f"server.{point_name}.param.norm"
+                ] = point_vec.norm().item()
+        return {**metrics_from_deployment, **optimize_reports, **norm_reports}
