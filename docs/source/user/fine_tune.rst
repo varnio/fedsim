@@ -1,9 +1,9 @@
 
-************
-Fine Tunning
-************
+***********
+Fine Tuning
+***********
 
-The cli includes a fine-tunning tool. `fedsim-cli fed-tune` uses Bayesian optimization
+The cli includes a fine-tuning tool. `fedsim-cli fed-tune` uses Bayesian optimization
 provided by `skopt` to tune the hyper-parameters. Besides `skopt` argumetns, it accepts
 all arguments that could be used by `fedsim-cli fed-learn`. The arguments values could
 be defined as search spaces.

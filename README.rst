@@ -105,7 +105,7 @@ For help with cli check here:
 DataManager
 ===========
 
-Any custome DataManager class should inherit from ``fedsim.data_manager.data_manager.DataManager`` (or its children) and implement its abstract methods. For example:
+Any custom DataManager class should inherit from ``fedsim.data_manager.data_manager.DataManager`` (or its children) and implement its abstract methods. For example:
 
 .. code-block:: python
 
@@ -156,7 +156,7 @@ Any custome DataManager class should inherit from ``fedsim.data_manager.data_man
 Integration with fedsim-cli (DataManager)
 -----------------------------------------
 
-To automatically include your custom data-manager by the provided cli tool, you can place your class in a python file and pass its path to `-a` or `--data-manager` option (without .py) followed by column and name of the data-manager.
+To automatically include your custom data-manager by the provided cli tool, you can place your class in a python file and pass its path to `-d` or `--data-manager` option (without .py) followed by colon and name of the data-manager.
 For example, if you have data-manager `DataManager` stored in `foo/bar/my_custom_dm.py`, you can pass `--data-manager foo/bar/my_custom_dm:DataManager`.
 
 .. note::
@@ -187,7 +187,7 @@ It supports the popular partitioning schemes (iid, Dirichlet distribution, unbal
 CentralFLAlgorithm
 ==================
 
-Any custome DataManager class should inherit from ``fedsim.distributed.centralized.CentralFLAlgorithm`` (or its children) and implement its abstract methods. For example:
+Any custom CentralFLAlgorithm class should inherit from ``fedsim.distributed.centralized.CentralFLAlgorithm`` (or its children) and implement its abstract methods. For example:
 
 Architecture
 ------------
@@ -322,7 +322,7 @@ Example
 Integration with fedsim-cli (CentralFLAlgorithm)
 ------------------------------------------------
 
-To automatically include your custom algorithm by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--algorithm` option (without .py) followed by column and name of the algorithm.
+To automatically include your custom algorithm by the provided cli tool, you can place your class in a python and pass its path to `-a` or `--algorithm` option (without .py) followed by colon and name of the algorithm.
 For example, if you have algorithm `CustomFLAlgorithm` stored in a `foo/bar/my_custom_alg.py`, you can pass `--algorithm foo/bar/my_custom_alg:CustomFLAlgorithm`.
 
 .. note::
@@ -409,7 +409,7 @@ To use them import ``fedsim.model.mcmahan_nets``.
 Integration with fedsim-cli
 ---------------------------
 
-To automatically include your custom model by the provided cli tool, you can place your class in a python and pass its path to `-m` or `--model` option (without .py) followed by column and name of the model.
+To automatically include your custom model by the provided cli tool, you can place your class in a python and pass its path to `-m` or `--model` option (without .py) followed by colon and name of the model.
 For example, if you have model `CustomModel` stored in a `foo/bar/my_custom_model.py`, you can pass `--model foo/bar/my_custom_alg:CustomModel`.
 
 .. note::
