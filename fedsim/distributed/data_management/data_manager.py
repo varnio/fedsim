@@ -105,7 +105,7 @@ class DataManager(object):
             with open(os.path.join(self.save_dir, name + "_global.pkl"), "rb") as rfile:
                 self._global_parition_indices = pickle.load(rfile)
         else:
-            self._global_parition_indices = self.partition_global_data(self.local_data)
+            self._global_parition_indices = self.partition_global_data(self.global_data)
             # save on disk for later usage
 
             # create directories if not existing
