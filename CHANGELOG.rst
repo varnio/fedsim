@@ -1,3 +1,9 @@
+0.6.1 (2022-08-17)
+------------------
+
+* fixed bug in ``partition_global_data`` of ``BasicDataManager``
+* some changes in default values for better log storage and aggregation
+
 0.6.0 (2022-08-16)
 ------------------
 
