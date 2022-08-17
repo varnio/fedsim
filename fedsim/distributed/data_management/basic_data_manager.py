@@ -53,7 +53,7 @@ class BasicDataManager(DataManager):
         label_balance=1.0,
         local_test_portion=0.0,
         seed=10,
-        save_dir="patitions",
+        save_dir="partitions",
     ):
         self.dataset_name = dataset
         self.num_partitions = num_partitions
