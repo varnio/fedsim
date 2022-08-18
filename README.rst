@@ -318,6 +318,19 @@ Example
             """
             ...
 
+.. warning::
+    In the example code above, if values of 'cloud_params' need to be set after they are passed to the optimzier, one should not do
+
+    .. code-block:: python
+
+        self.write_server('cloud_params', modified_params)
+
+    Instead their value can be modified as in
+
+    .. code-block:: python
+
+        self.read_server('cloud_params').data = modified_params
+
 
 Integration with fedsim-cli (CentralFLAlgorithm)
 ------------------------------------------------
@@ -441,6 +454,57 @@ These arguments are passed to instances of the centralized FL algorithms.
 
 .. _Lr Schedulers Page: https://fedsim.varnio.com/en/latest/reference/fedsim.lr_schedulers.html
 
+
+Below is an example of extending `CosineAnnealingWarmRestarts` to make a custom learning rate scheduler to be ingested in fedsim:
+
+.. code-block:: python
+
+    import torch
+    from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+    from torch.optim import SGD
+
+
+    class CustomLRScheduler(CosineAnnealingWarmRestarts):
+        def __init__(
+            self,
+            init_lr=None,
+            optimizer=None,
+            T_0=2000,
+            T_mult=1,
+            eta_min=0,
+            last_epoch=-1,
+            additional_arg=0.5,
+            verbose=False,
+        ) -> None:
+            self.additional_arg = additional_arg
+            self.init_lr = init_lr
+
+            # validate if only one of is either init_lr is provided or optimizer
+            if not ((init_lr is None) ^ (optimizer is None)):
+                raise Exception("either init_lr should be None or optimizer")
+
+            # if optimizer is not provided, make a dummy optimizer with init_lr
+            is_optim_none = optimizer is None
+            if is_optim_none:
+                dummy_params = [
+                    torch.tensor([1.0, 1.0], requires_grad=True),
+                ]
+                optimizer = SGD(params=dummy_params, lr=init_lr)
+                optimizer.step()
+            # construct parent
+            super().__init__(
+                optimizer,
+                T_0=T_0,
+                T_mult=T_mult,
+                eta_min=eta_min,
+                last_epoch=last_epoch,
+                verbose=verbose,
+            )
+
+        # define get_the_last_lr method, that returns the last learning rate
+        def get_the_last_lr(self):
+            return self._last_lr
+        ...
 
 
 fedsim-cli examples
