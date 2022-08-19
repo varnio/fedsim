@@ -121,9 +121,9 @@ def CosineAnnealingLR(init_lr=None, optimizer=None, **kwargs):
     return get_scheduler("CosineAnnealingLR", init_lr, optimizer, **kwargs)
 
 
-@extend_docstring(torch.optim.lr_scheduler.ChainedScheduler)
-def ChainedScheduler(init_lr=None, optimizer=None, **kwargs):
-    return get_scheduler("ChainedScheduler", init_lr, optimizer, **kwargs)
+# @extend_docstring(torch.optim.lr_scheduler.ChainedScheduler)
+# def ChainedScheduler(init_lr=None, optimizer=None, **kwargs):
+#     return get_scheduler("ChainedScheduler", init_lr, optimizer, **kwargs)
 
 
 @extend_docstring(torch.optim.lr_scheduler.SequentialLR)
