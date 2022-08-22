@@ -208,15 +208,15 @@ def ingest_fed_context(
     )
     lr_scheduler_def = get_definition(
         name=lr_scheduler,
-        modules="fedsim.lr_schedulers",
+        modules="torch.optim.lr_scheduler",
     )
     local_lr_scheduler_def = get_definition(
         name=local_lr_scheduler,
-        modules="fedsim.lr_schedulers",
+        modules="torch.optim.lr_scheduler",
     )
     r2r_local_lr_scheduler_def = get_definition(
         name=r2r_local_lr_scheduler,
-        modules="fedsim.lr_schedulers",
+        modules="torch.optim.lr_scheduler",
     )
     # raise if algorithm parent signature is overwritten (allow only hparam args)
     grandpa = inspect.getmro(algorithm_def)[-2]

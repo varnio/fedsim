@@ -40,7 +40,9 @@ class FedNova(fedavg.FedAvg):
     .. note::
         definition of
         * learning rate schedulers, could be any of the ones defined at
-        ``fedsim.lr_schedulers``.
+        ``* learning rate schedulers, could be any of the ones defined at
+        ``torch.optim.lr_scheduler`` or any other that implements step and get_last_lr
+        methods._schedulers``.
         * optimizers, could be any ``torch.optim.Optimizer``.
         * model, could be any ``torch.Module``.
         * criterion, could be any ``fedsim.losses``.

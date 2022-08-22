@@ -56,7 +56,8 @@ class CentralFLAlgorithm(object):
     .. note::
         definition of
         * learning rate schedulers, could be any of the ones defined at
-        ``fedsim.lr_schedulers``.
+        ``torch.optim.lr_scheduler`` or any other that implements step and get_last_lr
+        methods.
         * optimizers, could be any ``torch.optim.Optimizer``.
         * model, could be any ``torch.Module``.
         * criterion, could be any ``fedsim.losses``.
@@ -132,7 +133,21 @@ class CentralFLAlgorithm(object):
                 clr = inspect.signature(local_optimizer_def).parameters["lr"].default
             else:
                 raise Exception("lr not found in local optimizer class")
-            self.r2r_local_lr_scheduler = r2r_local_lr_scheduler_def(init_lr=clr)
+            # make a dummy optimizer so to directly use pytorch lr schedulers
+            dummy_params = [
+                torch.tensor([1.0, 1.0], requires_grad=True),
+            ]
+            dummy_optimizer = torch.optim.SGD(params=dummy_params, lr=clr)
+            r2r_scheduler = r2r_local_lr_scheduler_def(dummy_optimizer)
+
+            def last_private_lr(sch):
+                return sch._last_lr
+
+            if not hasattr(r2r_scheduler, "get_last_lr"):
+                r2r_scheduler.get_last_lr = partial(last_private_lr, r2r_scheduler)
+
+            self.r2r_local_lr_scheduler = r2r_scheduler
+            dummy_optimizer.step()
         else:
             self.r2r_local_lr_scheduler = None
 
@@ -205,7 +220,7 @@ class CentralFLAlgorithm(object):
         else:
             local_optimizer_def = partial(
                 self.local_optimizer_def,
-                lr=self.r2r_local_lr_scheduler.get_the_last_lr()[0],
+                lr=self.r2r_local_lr_scheduler.get_last_lr()[0],
             )
 
         datasets = self._data_manager.get_local_dataset(client_id)

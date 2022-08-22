@@ -450,62 +450,13 @@ Learning Rate Schedulers
 These arguments are passed to instances of the centralized FL algorithms.
 
 .. note::
-    Choose learning rate schedulers from ``fedsim.lr_schedulers`` documented at `Lr Schedulers Page`_.
+    Choose learning rate schedulers from ``torch.optim.lr_scheduler`` documented at `Lr Schedulers Page`_ or define a learning rate scheduler class that has the common methods (``step``, ``get_last_lr``, etc.).
 
-.. _Lr Schedulers Page: https://fedsim.varnio.com/en/latest/reference/fedsim.lr_schedulers.html
+.. _Lr Schedulers Page: https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#CosineAnnealingWarmRestarts
 
-
-Below is an example of extending `CosineAnnealingWarmRestarts` to make a custom learning rate scheduler to be ingested in fedsim:
-
-.. code-block:: python
-
-    import torch
-    from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
-    from torch.optim import SGD
-
-
-    class CustomLRScheduler(CosineAnnealingWarmRestarts):
-        def __init__(
-            self,
-            init_lr=None,
-            optimizer=None,
-            T_0=2000,
-            T_mult=1,
-            eta_min=0,
-            last_epoch=-1,
-            additional_arg=0.5,
-            verbose=False,
-        ) -> None:
-            self.additional_arg = additional_arg
-            self.init_lr = init_lr
-
-            # validate if only one of is either init_lr is provided or optimizer
-            if not ((init_lr is None) ^ (optimizer is None)):
-                raise Exception("either init_lr should be None or optimizer")
-
-            # if optimizer is not provided, make a dummy optimizer with init_lr
-            is_optim_none = optimizer is None
-            if is_optim_none:
-                dummy_params = [
-                    torch.tensor([1.0, 1.0], requires_grad=True),
-                ]
-                optimizer = SGD(params=dummy_params, lr=init_lr)
-                optimizer.step()
-            # construct parent
-            super().__init__(
-                optimizer,
-                T_0=T_0,
-                T_mult=T_mult,
-                eta_min=eta_min,
-                last_epoch=last_epoch,
-                verbose=verbose,
-            )
-
-        # define get_the_last_lr method, that returns the last learning rate
-        def get_the_last_lr(self):
-            return self._last_lr
-        ...
-
+.. note::
+    For now ``fedsim-cli`` does not support the learning rate schedulers that require another object in their constructor (such as ``LambdaLR``) or a dynamic value in their step function (``ReduceLROnPlateau``).
+    To implement one with similar functionality, you can implement one and assign it to ``self.r2r_local_lr_scheduler`` inside the constructor of your custom algorithm (after calling super).
 
 fedsim-cli examples
 ===================
