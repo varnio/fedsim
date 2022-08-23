@@ -13,5 +13,4 @@
         fedsim.utils
 
         fedsim.losses
-        fedsim.lr_schedulers
         fedsim.scores
