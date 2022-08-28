@@ -39,13 +39,13 @@ class FedNova(fedavg.FedAvg):
 
     .. note::
         definition of
-        * learning rate schedulers, could be any of the ones defined at
-        ``* learning rate schedulers, could be any of the ones defined at
-        ``torch.optim.lr_scheduler`` or any other that implements step and get_last_lr
-        methods._schedulers``.
-        * optimizers, could be any ``torch.optim.Optimizer``.
-        * model, could be any ``torch.Module``.
-        * criterion, could be any ``fedsim.losses``.
+            * learning rate schedulers, could be any of the ones defined at
+                ``torch.optim.lr_scheduler`` or any other that implements step and
+                get_last_lr methods._schedulers``.
+            * optimizers, could be any ``torch.optim.Optimizer``.
+            * model, could be any ``torch.Module``.
+            * criterion, could be any ``fedsim.losses``.
+
     .. _Tackling the Objective Inconsistency Problem in Heterogeneous Federated
         Optimization: https://arxiv.org/abs/2007.07481
     """
