@@ -318,6 +318,19 @@ Example
             """
             ...
 
+.. warning::
+    In the example code above, if values of 'cloud_params' need to be set after they are passed to the optimzier, one should not do
+
+    .. code-block:: python
+
+        self.write_server('cloud_params', modified_params)
+
+    Instead their value can be modified as in
+
+    .. code-block:: python
+
+        self.read_server('cloud_params').data = modified_params
+
 
 Integration with fedsim-cli (CentralFLAlgorithm)
 ------------------------------------------------
@@ -437,11 +450,13 @@ Learning Rate Schedulers
 These arguments are passed to instances of the centralized FL algorithms.
 
 .. note::
-    Choose learning rate schedulers from ``fedsim.lr_schedulers`` documented at `Lr Schedulers Page`_.
+    Choose learning rate schedulers from ``torch.optim.lr_scheduler`` documented at `Lr Schedulers Page`_ or define a learning rate scheduler class that has the common methods (``step``, ``get_last_lr``, etc.).
 
-.. _Lr Schedulers Page: https://fedsim.varnio.com/en/latest/reference/fedsim.lr_schedulers.html
+.. _Lr Schedulers Page: https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#CosineAnnealingWarmRestarts
 
-
+.. note::
+    For now ``fedsim-cli`` does not support the learning rate schedulers that require another object in their constructor (such as ``LambdaLR``) or a dynamic value in their step function (``ReduceLROnPlateau``).
+    To implement one with similar functionality, you can implement one and assign it to ``self.r2r_local_lr_scheduler`` inside the constructor of your custom algorithm (after calling super).
 
 fedsim-cli examples
 ===================
@@ -452,28 +467,19 @@ Local training batch size is 50.
 
 .. code-block:: bash
 
-    fedsim-cli fed-learn -a AdaBest mu:0.02 beta:0.96 -m cnn_cifar100 -d BasicDataManager dataset:cifar100 num_partitions:1000 -r 1001 -n 200 --local-optimizer SGD lr:0.05 weight_decay:0.001 --batch-size 50 --client-sample-rate 0.01
+    fedsim-cli fed-learn -a AdaBest mu:0.02 beta:0.96 -m cnn_cifar100 -d BasicDataManager dataset:cifar100 num_partitions:1000 -r 1001 -n 200 --local-optimizer SGD lr:0.05 weight_decay:0.001 --batch-size 50 --client-sample-rate 0.01 --global-score Accuracy log_freq:100 split:test --global-score Accuracy score_name:high_freq_acc log_freq:10 split:test
 
-The following command tunes :math:`\mu` and :math:`\beta` for AdaBest algorithm. It uses Gaussian Process to maximize the average of the last 10 reported test accuracy scores.
-:math:`\mu` is tuned for float numbers (Real) between 0 and 0.1 and :math:`\beta` is tuned for float numbers between 0.1 and 1. Notice that only 2 clients are defined while the data manager by default is splitting the data over 500 partitions.
+The following command tunes :math:`\alpha` for FedDyn algorithm. It uses Gaussian Process to maximize the average of the last 10 (by default, change with ``--n-point-summary`` option) values of `server.avg.test.cross_entropy_score`.
+:math:`\alpha` is tuned for float numbers (marked with ``Real`` based on ``skopt`` converntion) between 0 and 0.3. Additionally, learning rate of the local optimizer is tuned between 0.04 to 0.14.
 
 .. code-block:: bash
 
-    fedsim-cli fed-tune --epochs 1 --n-clients 2 --client-sample-rate 0.5 -a AdaBest mu:Real:0-0.1 beta:Real:0.3-1 --maximize-metric --n-iters 20
+    fedsim-cli fed-tune --maximize --eval-metric server.avg.test.cross_entropy_score --n-iters 20 --skopt-random-state 10 --criterion CrossEntropyLoss log_freq:10 -n 1000 -m cnn_cifar100 --batch-size 50 --test-batch-size 75 --global-score Accuracy log_freq:100 split:test --global-score CrossEntropyScore log_freq:100 split:test --epochs 5 --local-optimizer SGD weight_decay:0.001 lr:Real:0.04-0.14 -r 4000 -a FedDyn alpha:Real:0-0.3
 
 .. note::
     * To define a float range to tune use `Real` keyword as the argument value (e.g., `mu:Real:0-0.1`)
     * To define an integer range to tune use `Integer` keyword as the argument value (e.g., `arg1:Integer:2-15`)
     * To define a categorical range to tune use `Categorical` keyword as the argument value (e.g., `arg2:Categorical:uniform-normal-special`)
-
-In the following command, CIFAR100 is split over 1000 partitions from which 100 are used in the FL setup. From those 100, 20 clietns are selected at random at each round for training.
-The partitioning setup is non-iid with Dirichlet distribution factor :math:`\alpha=0.03`. The model architecture is cnn_cifar100.
-Training goes for 10000 rounds and at each round initial local learning rate is determined by CosineAnnealing with period of 10 report points (which is equal to 500 rounds when reports are stored each 50 rounds as default).
-The patience for `CosineAnnealingWithRestartOnPlateau` is set to 5 report points (250 rounds). In case patience is not violated at any point, learning rate is restarted to the initial values.
-
-.. code-block:: bash
-
-    fedsim-cli fed-learn -d BasicDataManager num_partitions:1000 seed:0 dataset:cifar100 rule:dir label_balance:0.03 -m cnn_cifar100 --rounds 10000 -n 100 --client-sample-rate 0.2 --r2r-local-lr-scheduler CosineAnnealingWithRestartOnPlateau verbose:True T_0:10 patience:5
 
 Side Notes
 ==========
