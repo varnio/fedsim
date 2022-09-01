@@ -287,7 +287,7 @@ class BasicDataManager(DataManager):
         if self.sample_balance == 0:
             identifiers.append("balanced")
         else:
-            identifiers.append("unbalanced")
+            identifiers.append(f"unbalanced_{self.sample_balance}")
         if self.local_test_portion > 0:
             identifiers.append("ts_{}".format(self.local_test_portion))
         return identifiers
