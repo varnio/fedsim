@@ -1,3 +1,9 @@
+0.6.2 (2022-08-31)
+------------------
+
+* fixed some errors in docstring of central FL algorithms
+* add sample balance param to to identifiers of data manager
+
 0.6.1 (2022-08-17)
 ------------------
 
