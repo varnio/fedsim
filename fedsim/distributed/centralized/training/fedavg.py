@@ -316,8 +316,8 @@ class FedAvg(CentralFLAlgorithm):
                             **metrics_from_deployment,
                             **split_metrics,
                         }
-            if self.rounds % norm_report_freq == 0:
-                norm_reports[
-                    f"server.{point_name}.param.norm"
-                ] = point_vec.norm().item()
+                    if self.rounds % norm_report_freq == 0:
+                        norm_reports[
+                            f"server.{point_name}.param.norm"
+                        ] = point_vec.norm().item()
         return {**metrics_from_deployment, **optimize_reports, **norm_reports}
