@@ -511,11 +511,12 @@ def fed_tune(
         log["fedsim_version"] = fedsim_version
         logger.info("configuration: \n" + pformat(log), extra={"flow": identity})
         tb_logger_child.get_logger_object().add_text("instance config", f"{log}")
+
+        data_manager_instant = data_manager_def()
+
         # set the seed of random generators
         if seed is not None:
             set_seed(seed, device)
-
-        data_manager_instant = data_manager_def()
 
         algorithm_instance = algorithm_def(
             data_manager=data_manager_instant,
