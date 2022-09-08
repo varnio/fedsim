@@ -19,3 +19,9 @@ class ModelReconstructor(torch.nn.Module):
         if self.connection_fn is not None:
             features = self.connection_fn(features)
         return self.classifier(features)
+
+
+def get_output_size(in_size, pad, kernel, stride):
+    if pad == "same":
+        return in_size
+    return ((in_size + 2 * pad - kernel) // stride) + 1
