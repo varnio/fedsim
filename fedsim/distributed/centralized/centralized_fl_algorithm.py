@@ -27,6 +27,161 @@ from ...utils.aggregators import AppendixAggregator
 from ...utils.aggregators import SerialAggregator
 
 
+def _at_round_start_unimplemented(self) -> None:
+    """to inject code at the beginning of rounds in training loop"""
+    pass
+
+
+def _at_round_end_unimplemented(self, score_aggregator: AppendixAggregator) -> None:
+    """to inject code at the end of rounds in training loop
+
+    Args:
+        score_aggregator (AppendixAggregator): contains the aggregated scores
+    """
+    pass
+
+
+def _send_to_client_unimplemented(self, client_id: int) -> Mapping[Hashable, Any]:
+    """returns context to send to the client corresponding to client_id.
+
+    .. warning::
+        Do not send shared objects like server model if you made any
+        before you deepcopy it.
+
+    Args:
+        client_id (int): id of the receiving client
+
+    Raises:
+        NotImplementedError: abstract class to be implemented by child
+
+    Returns:
+        Mapping[Hashable, Any]: the context to be sent in form of a Mapping
+    """
+    raise NotImplementedError(
+        f"Algorithm [{type(self).__name__}] is missing the"
+        f'required "send_to_client" function'
+    )
+
+
+def _send_to_server_unimplemented(
+    self,
+    client_id: int,
+    datasets: Dict[str, Iterable],
+    round_scores: Dict[str, Dict[str, Any]],
+    epochs: int,
+    criterion: nn.Module,
+    train_batch_size: int,
+    inference_batch_size: int,
+    optimizer_def: Callable,
+    lr_scheduler_def: Optional[Callable] = None,
+    device: Union[int, str] = "cuda",
+    ctx: Optional[Dict[Hashable, Any]] = None,
+    *args,
+    **kwargs,
+) -> Mapping[str, Any]:
+    """client operation on the recieved information.
+
+    Args:
+        client_id (int): id of the client
+        datasets (Dict[str, Iterable]): this comes from Data Manager
+        round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
+            form {'split_name':{'score_name': score_def}} for global scores to
+            evaluate at the current round.
+        epochs (``int``): number of epochs to train
+        criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
+        train_batch_size (int): training batch_size
+        inference_batch_size (int): inference batch_size
+        optimizer_def (float): class for constructing the local optimizer
+        lr_scheduler_def (float): class for constructing the local lr scheduler
+        device (Union[int, str], optional): Defaults to 'cuda'.
+        ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
+
+    Raises:
+        NotImplementedError: abstract class to be implemented by child
+
+    Returns:
+        Mapping[str, Any]: client context to be sent to the server
+    """
+    raise NotImplementedError
+
+
+def _receive_from_client_unimplemented(
+    self,
+    client_id: int,
+    client_msg: Mapping[Hashable, Any],
+    aggregator,
+):
+    """receive and aggregate info from selected clients
+
+    Args:
+        client_id (int): id of the sender (client)
+        client_msg (Mapping[Hashable, Any]): client context that is sent
+        aggregator (SerialAggregator): aggregator instance to collect info
+
+    Raises:
+        NotImplementedError: abstract class to be implemented by child
+    """
+    raise NotImplementedError
+
+
+def _optimize_unimplemented(self, aggregator) -> Mapping[Hashable, Any]:
+    """optimize server mdoel(s) and return metrics to be reported
+
+    Args:
+        aggregator (SerialAggregator): Aggregator instance
+
+    Raises:
+        NotImplementedError: abstract class to be implemented by child
+
+    Returns:
+        Mapping[Hashable, Any]: context to be reported
+    """
+    raise NotImplementedError
+
+
+def _deploy_unimplemented(self) -> Optional[Mapping[Hashable, Any]]:
+    """return Mapping of name -> parameters_set to test the model
+
+    Raises:
+        NotImplementedError: abstract class to be implemented by child
+    """
+    raise NotImplementedError
+
+
+def _report_unimplemented(
+    self,
+    dataloaders: Dict[str, Any],
+    round_scores: Dict[str, Dict[str, Any]],
+    metric_logger: Optional[Any],
+    device: str,
+    optimize_reports: Mapping[Hashable, Any],
+    deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
+) -> Dict[str, Union[int, float]]:
+    """test on global data and report info. If a flatten dict of
+    str:Union[int,float] is returned from this function the content is
+    automatically logged using the metric logger (e.g., logall.TensorboardLogger).
+    metric_logger is also passed as an input argument for extra
+    logging operations (non scalar).
+
+    Args:
+        dataloaders (Any): dict of data loaders to test the global model(s)
+        round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
+            form {'split_name':{'score_name': score_def}} for global scores to
+            evaluate at the current round.
+        metric_logger (Any, optional): the logging object
+            (e.g., logall.TensorboardLogger)
+        device (str): 'cuda', 'cpu' or gpu number
+        optimize_reports (Mapping[Hashable, Any]): dict returned by
+            optimzier
+        deployment_points (Mapping[Hashable, torch.Tensor], optional): \
+            output of deploy method
+
+    Raises:
+        NotImplementedError: abstract class to be implemented by child
+    """
+    raise NotImplementedError
+
+
 class CentralFLAlgorithm(object):
     r"""Base class for centralized FL algorithm.
 
@@ -180,20 +335,72 @@ class CentralFLAlgorithm(object):
         }
 
     def write_server(self, key, obj):
+        """stores an object on server's memory
+
+        Args:
+            key (Hashable): object key for future access
+            obj (Any): object itself
+        """
         self._server_memory[key] = obj
 
     def write_client(self, client_id, key, obj):
+        """stores an object on client's memory
+
+        Args:
+            client_id (int): client id
+            key (Hashable): object key for future access
+            obj (Any): object itself
+        """
         self._client_memory[client_id][key] = obj
 
     def read_server(self, key):
+        """read from server memory
+
+        Args:
+            key (Hashable): key of the object on server memory
+
+        Returns:
+            Any: Object. If key does not exist None is returned.
+        """
         return self._server_memory[key] if key in self._server_memory else None
 
     def read_client(self, client_id, key):
+        """read from client memory
+
+        Args:
+            client_id (int): client id to access
+            key (Hashable): key of the object on server memory
+
+        Returns:
+            Any: Object. If key does not exist None is returned.
+        """
         if client_id >= self.num_clients:
             raise Exception("invalid client id {} >= {}".format(id, self.num_clients))
         if key in self._client_memory[client_id]:
             return self._client_memory[client_id][key]
         return None
+
+    def get_server_keys(self):
+        """Fetches the keys of the objects written to the server so far.
+
+        Returns:
+            Iterable: keys of the objects writter to the server.
+        """
+        return self._server_memory.keys()
+
+    def get_client_keys(self, client_id):
+        """Fetches the keys of the objects written to the server so far.
+
+        Args:
+            client_id (int): client id to access
+
+        Returns:
+            Iterable: keys of the objects writter to the server.
+
+        """
+        if client_id >= self.num_clients:
+            raise Exception("invalid client id {} >= {}".format(id, self.num_clients))
+        return self._client_memory[client_id].keys()
 
     def _sample_clients(self):
         if self.sample_scheme == "uniform":
@@ -377,150 +584,15 @@ class CentralFLAlgorithm(object):
                 scores[split_name] = split_scores
         return scores
 
-    def at_round_start(self) -> None:
-        pass
-
-    def at_round_end(self, score_aggregator: AppendixAggregator) -> None:
-        """to inject code at the end of rounds in training loop
-
-        Args:
-            score_aggregator (AppendixAggregator): contains the aggregated scores
-        """
-        pass
-
     # we do not do type hinting, however, the hints for abstract
     # methods are provided to help clarity for users
-
     # abstract functions
-
-    def send_to_client(self, client_id: int) -> Mapping[Hashable, Any]:
-        """returns context to send to the client corresponding to client_id.
-
-        .. warning::
-            Do not send shared objects like server model if you made any
-            before you deepcopy it.
-
-        Args:
-            client_id (int): id of the receiving client
-
-        Raises:
-            NotImplementedError: abstract class to be implemented by child
-
-        Returns:
-            Mapping[Hashable, Any]: the context to be sent in form of a Mapping
-        """
-        raise NotImplementedError
-
-    def send_to_server(
-        self,
-        client_id: int,
-        datasets: Dict[str, Iterable],
-        round_scores: Dict[str, Dict[str, Any]],
-        epochs: int,
-        criterion: nn.Module,
-        train_batch_size: int,
-        inference_batch_size: int,
-        optimizer_def: Callable,
-        lr_scheduler_def: Optional[Callable] = None,
-        device: Union[int, str] = "cuda",
-        ctx: Optional[Dict[Hashable, Any]] = None,
-        *args,
-        **kwargs,
-    ) -> Mapping[str, Any]:
-        """client operation on the recieved information.
-
-        Args:
-            client_id (int): id of the client
-            datasets (Dict[str, Iterable]): this comes from Data Manager
-            round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
-                form {'split_name':{'score_name': score_def}} for global scores to
-                evaluate at the current round.
-            epochs (``int``): number of epochs to train
-            criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
-            train_batch_size (int): training batch_size
-            inference_batch_size (int): inference batch_size
-            optimizer_def (float): class for constructing the local optimizer
-            lr_scheduler_def (float): class for constructing the local lr scheduler
-            device (Union[int, str], optional): Defaults to 'cuda'.
-            ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
-
-        Raises:
-            NotImplementedError: abstract class to be implemented by child
-
-        Returns:
-            Mapping[str, Any]: client context to be sent to the server
-        """
-        raise NotImplementedError
-
-    def receive_from_client(
-        self,
-        client_id: int,
-        client_msg: Mapping[Hashable, Any],
-        aggregator: Any,
-    ):
-        """receive and aggregate info from selected clients
-
-        Args:
-            client_id (int): id of the sender (client)
-            client_msg (Mapping[Hashable, Any]): client context that is sent
-            aggregator (Any): aggregator instance to collect info
-
-        Raises:
-            NotImplementedError: abstract class to be implemented by child
-        """
-        raise NotImplementedError
-
-    def optimize(self, aggregator: Any) -> Mapping[Hashable, Any]:
-        """optimize server mdoel(s) and return metrics to be reported
-
-        Args:
-            aggregator (Any): Aggregator instance
-
-        Raises:
-            NotImplementedError: abstract class to be implemented by child
-
-        Returns:
-            Mapping[Hashable, Any]: context to be reported
-        """
-        raise NotImplementedError
-
-    def deploy(self) -> Optional[Mapping[Hashable, Any]]:
-        """return Mapping of name -> parameters_set to test the model
-
-        Raises:
-            NotImplementedError: abstract class to be implemented by child
-        """
-        raise NotImplementedError
-
-    def report(
-        self,
-        dataloaders: Dict[str, Any],
-        round_scores: Dict[str, Dict[str, Any]],
-        metric_logger: Optional[Any],
-        device: str,
-        optimize_reports: Mapping[Hashable, Any],
-        deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
-    ) -> Dict[str, Union[int, float]]:
-        """test on global data and report info. If a flatten dict of
-        str:Union[int,float] is returned from this function the content is
-        automatically logged using the metric logger (e.g., logall.TensorboardLogger).
-        metric_logger is also passed as an input argument for extra
-        logging operations (non scalar).
-
-        Args:
-            dataloaders (Any): dict of data loaders to test the global model(s)
-            round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
-                form {'split_name':{'score_name': score_def}} for global scores to
-                evaluate at the current round.
-            metric_logger (Any, optional): the logging object
-                (e.g., logall.TensorboardLogger)
-            device (str): 'cuda', 'cpu' or gpu number
-            optimize_reports (Mapping[Hashable, Any]): dict returned by
-                optimzier
-            deployment_points (Mapping[Hashable, torch.Tensor], optional): \
-                output of deploy method
-
-        Raises:
-            NotImplementedError: abstract class to be implemented by child
-        """
-        raise NotImplementedError
+    send_to_client: Callable[..., Any] = _send_to_client_unimplemented
+    send_to_server: Callable[..., Any] = _send_to_server_unimplemented
+    receive_from_client: Callable[..., Any] = _receive_from_client_unimplemented
+    optimize: Callable[..., Any] = _optimize_unimplemented
+    deploy: Callable[..., Any] = _deploy_unimplemented
+    report: Callable[..., Any] = _report_unimplemented
+    # optional functions
+    at_round_start: Callable[..., Any] = _at_round_start_unimplemented
+    at_round_end: Callable[..., Any] = _at_round_end_unimplemented
