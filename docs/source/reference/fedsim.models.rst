@@ -7,5 +7,5 @@
         :maxdepth: 1
 
 
-        fedsim.models.mcmahan_nets
+        fedsim.models.simple_models
         fedsim.models.utils

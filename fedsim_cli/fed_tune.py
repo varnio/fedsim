@@ -137,7 +137,7 @@ from .utils import validate_score
     "-m",
     type=tuple,
     cls=OptionEatAll,
-    default=("mlp_mnist",),
+    default=("SimpleMLP",),
     show_default=True,
     help="model architecture.",
 )
