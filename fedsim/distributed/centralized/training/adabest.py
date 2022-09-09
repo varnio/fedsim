@@ -6,14 +6,15 @@ import inspect
 from functools import partial
 
 import torch
-from torch.nn.utils import parameters_to_vector
 from torch.optim import SGD
 
 from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import SerialAggregator
 from fedsim.utils import vector_to_parameters_like
+from fedsim.utils import vectorize_module
 
 from . import fedavg
+from .utils import serial_aggregation
 
 
 class AdaBest(fedavg.FedAvg):
@@ -78,11 +79,9 @@ class AdaBest(fedavg.FedAvg):
         batch_size=32,
         test_batch_size=64,
         device="cuda",
-        mu=0.02,
-        beta=0.98,
+        mu=0.1,
+        beta=0.8,
     ):
-        self.mu = mu
-        self.beta = beta
         # this is to avoid violations like reading oracle info and
         # number of clients in FedDyn and SCAFFOLD
         self.general_agg = SerialAggregator()
@@ -106,19 +105,32 @@ class AdaBest(fedavg.FedAvg):
             device,
         )
 
-        cloud_params = self.read_server("cloud_params")
-        self.write_server("avg_params", cloud_params.detach().clone())
+        server_storage = self.get_server_storage()
+        cloud_params = server_storage.read("cloud_params")
+        server_storage.write("avg_params", cloud_params.clone().detach())
+        server_storage.write("h", torch.zeros_like(cloud_params))
+        server_storage.write("average_sample", 0)
+        server_storage.write("mu", mu)
+        server_storage.write("beta", beta)
 
-        for client_id in range(num_clients):
-            self.write_client(client_id, "h", torch.zeros_like(cloud_params))
-            self.write_client(client_id, "last_round", -1)
-        self.write_server("average_sample", 0)
+        # for client_id in range(num_clients):
+        #     self.write_client(client_id, "h", torch.zeros_like(cloud_params))
+        #     self.write_client(client_id, "last_round", -1)
+
+    def send_to_client(self, server_storage, client_id):
+        msg = super().send_to_client(server_storage, client_id)
+        msg["average_sample"] = server_storage.read("average_sample")
+        msg["mu"] = server_storage.read("mu")
+        return msg
 
     def send_to_server(
         self,
-        client_id,
+        id,
+        rounds,
+        storage,
         datasets,
-        round_scores,
+        train_split_name,
+        metrics,
         epochs,
         criterion,
         train_batch_size,
@@ -131,30 +143,31 @@ class AdaBest(fedavg.FedAvg):
     ):
         train_split_name = self.get_train_split_name()
         model = ctx["model"]
-        params_init = parameters_to_vector(model.parameters()).detach().clone()
-        h = self.read_client(client_id, "h")
-        mu_adaptive = (
-            self.mu
-            / len(datasets[train_split_name])
-            * self.read_server("average_sample")
-        )
+        mu = ctx["mu"]
+        average_sample = ctx["average_sample"]
+        params_init = vectorize_module(model, clone=True, detach=True)
+        h = storage.read("h")
+        mu_adaptive = mu / len(datasets[train_split_name]) * average_sample * epochs
 
         def transform_grads_fn(model):
-            grad_additive = -h
-            grad_additive_list = vector_to_parameters_like(
-                mu_adaptive * grad_additive, model.parameters()
-            )
-
-            for p, g_a in zip(model.parameters(), grad_additive_list):
-                p.grad += g_a
+            if h is not None:
+                grad_additive = -h
+                grad_additive_list = vector_to_parameters_like(
+                    mu_adaptive * grad_additive, model.parameters()
+                )
+                for p, g_a in zip(model.parameters(), grad_additive_list):
+                    p.grad += g_a
 
         step_closure_ = partial(
             default_step_closure, transform_grads=transform_grads_fn
         )
         opt_res = super(AdaBest, self).send_to_server(
-            client_id,
+            id,
+            rounds,
+            storage,
             datasets,
-            round_scores,
+            train_split_name,
+            metrics,
             epochs,
             criterion,
             train_batch_size,
@@ -167,29 +180,49 @@ class AdaBest(fedavg.FedAvg):
         )
 
         # update local h
-        pseudo_grads = (
-            params_init - parameters_to_vector(model.parameters()).detach().clone().data
-        )
-        t = self.rounds
-        new_h = 1 / (t - self.read_client(client_id, "last_round")) * h + pseudo_grads
-        self.write_client(client_id, "h", new_h)
-        self.write_client(client_id, "last_round", self.rounds)
+        pseudo_grads = params_init - vectorize_module(model, clone=True, detach=True)
+        last_round = storage.read("last_round")
+        if h is None:
+            new_h = pseudo_grads
+        else:
+            if last_round is None:
+                last_round = rounds - 1
+            new_h = 1 / (rounds - last_round) * h + pseudo_grads
+
+        storage.write("h", new_h)
+        storage.write("last_round", rounds)
         return opt_res
 
-    def receive_from_client(self, client_id, client_msg, aggregation_results):
+    def receive_from_client(
+        self,
+        server_storage,
+        client_id,
+        client_msg,
+        train_split_name,
+        aggregation_results,
+    ):
         weight = 1
-        self.agg(client_id, client_msg, aggregation_results, train_weight=weight)
+        agg_res = serial_aggregation(
+            server_storage,
+            client_id,
+            client_msg,
+            train_split_name,
+            aggregation_results,
+            train_weight=weight,
+        )
         n_train = client_msg["num_samples"][self.get_train_split_name()]
-        self.general_agg.add("avg_m", n_train / self.epochs, 1)
-        self.write_server("average_sample", self.general_agg.get("avg_m"))
+        self.general_agg.add("avg_m", n_train / client_msg["num_steps"], 1)
+        server_storage.write("average_sample", self.general_agg.get("avg_m"))
+        return agg_res
 
-    def optimize(self, aggregator):
+    def optimize(self, server_storage, aggregator):
         if "local_params" in aggregator:
+            beta = server_storage.read("beta")
             param_avg = aggregator.pop("local_params")
-            optimizer = self.read_server("optimizer")
-            lr_scheduler = self.read_server("lr_scheduler")
-            cloud_params = self.read_server("cloud_params")
-            h = self.beta * (self.read_server("avg_params") - param_avg)
+            optimizer = server_storage.read("optimizer")
+            lr_scheduler = server_storage.read("lr_scheduler")
+            cloud_params = server_storage.read("cloud_params")
+            h = beta * (server_storage.read("avg_params") - param_avg)
             new_params = param_avg - h
             modified_pseudo_grads = cloud_params.data - new_params
             # update cloud params
@@ -203,11 +236,11 @@ class AdaBest(fedavg.FedAvg):
                     lr_scheduler.step(aggregator.get(trigger_metric))
                 else:
                     lr_scheduler.step()
-            self.write_server("avg_params", param_avg.detach().clone())
+            server_storage.write("avg_params", param_avg.detach().clone())
         return aggregator.pop_all()
 
-    def deploy(self):
+    def deploy(self, server_storage):
         return dict(
-            cloud=self.read_server("cloud_params"),
-            avg=self.read_server("avg_params"),
+            cloud=server_storage.read("cloud_params"),
+            avg=server_storage.read("avg_params"),
         )

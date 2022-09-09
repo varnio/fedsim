@@ -4,12 +4,8 @@ FedAvg
 """
 import inspect
 import math
-import sys
-from copy import deepcopy
 from functools import partial
 
-from torch.nn.utils import parameters_to_vector
-from torch.nn.utils import vector_to_parameters
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.utils.data import RandomSampler
@@ -17,8 +13,11 @@ from torch.utils.data import RandomSampler
 from fedsim.local.training import local_inference
 from fedsim.local.training import local_train
 from fedsim.local.training.step_closures import default_step_closure
+from fedsim.utils import initialize_module
+from fedsim.utils import vectorize_module
 
 from ..centralized_fl_algorithm import CentralFLAlgorithm
+from .utils import serial_aggregation
 
 
 class FedAvg(CentralFLAlgorithm):
@@ -101,36 +100,40 @@ class FedAvg(CentralFLAlgorithm):
         )
 
         # make mode and optimizer
-        model = self.get_model_def()().to(self.device)
-        params = deepcopy(parameters_to_vector(model.parameters()).clone().detach())
+        model = self.get_model_def()().to(device)
+        params = vectorize_module(model, clone=True, detach=True)
         optimizer = optimizer_def(params=[params])
         lr_scheduler = None
         if lr_scheduler_def is not None:
             lr_scheduler = lr_scheduler_def(optimizer=optimizer)
         # write model and optimizer to server
-        self.write_server("model", model)
-        self.write_server("cloud_params", params)
-        self.write_server("optimizer", optimizer)
-        self.write_server("lr_scheduler", lr_scheduler)
+        server_storage = self.get_server_storage()
+        server_storage.write("model", model)
+        server_storage.write("cloud_params", params)
+        server_storage.write("optimizer", optimizer)
+        server_storage.write("lr_scheduler", lr_scheduler)
 
-    def send_to_client(self, client_id):
+    def send_to_client(self, server_storage, client_id):
         # since fedavg broadcast the same model to all selected clients,
         # the argument client_id is not used
 
         # load cloud stuff
-        cloud_params = self.read_server("cloud_params")
-        model = self.read_server("model")
-
+        cloud_params = server_storage.read("cloud_params")
+        model = server_storage.read("model")
         # copy cloud params to cloud model to send to the client
-        vector_to_parameters(cloud_params.detach().clone().data, model.parameters())
+        initialize_module(model, cloud_params, clone=True, detach=True)
         # return a copy of the cloud model
         return dict(model=model)
 
+    # define client operation
     def send_to_server(
         self,
-        client_id,
+        id,
+        rounds,
+        storage,
         datasets,
-        round_scores,
+        train_split_name,
+        metrics,
         epochs,
         criterion,
         train_batch_size,
@@ -141,7 +144,8 @@ class FedAvg(CentralFLAlgorithm):
         ctx=None,
         step_closure=None,
     ):
-        train_split_name = self.get_train_split_name()
+        # make the data ready
+        train_split_name = train_split_name
         # create a random sampler with replacement so that
         # stochasticity is maximiazed and privacy is not compromized
         sampler = RandomSampler(
@@ -164,8 +168,8 @@ class FedAvg(CentralFLAlgorithm):
             lr_scheduler = None
         # optimize the model locally
         step_closure_ = default_step_closure if step_closure is None else step_closure
-        if train_split_name in round_scores:
-            train_scores = round_scores[train_split_name]
+        if train_split_name in metrics:
+            train_scores = metrics[train_split_name]
         else:
             train_scores = dict()
         num_train_samples, num_steps, diverged, = local_train(
@@ -187,13 +191,13 @@ class FedAvg(CentralFLAlgorithm):
             }
         }
         # append train loss
-        if self.rounds % criterion.log_freq == 0:
+        if rounds % criterion.log_freq == 0:
             metrics_dict[train_split_name][criterion.get_name()] = criterion.get_score()
         num_samples_dict = {train_split_name: num_train_samples}
         # other splits
         for split_name, split in datasets.items():
-            if split_name != train_split_name and split_name in round_scores:
-                o_scores = round_scores[split_name]
+            if split_name != train_split_name and split_name in metrics:
+                o_scores = metrics[split_name]
                 split_loader = DataLoader(
                     split,
                     batch_size=inference_batch_size,
@@ -211,53 +215,31 @@ class FedAvg(CentralFLAlgorithm):
                 num_samples_dict[split_name] = num_samples
         # return optimized model parameters and number of train samples
         return dict(
-            local_params=parameters_to_vector(model.parameters()),
+            local_params=vectorize_module(model),
             num_steps=num_steps,
             diverged=diverged,
             num_samples=num_samples_dict,
             metrics=metrics_dict,
         )
 
-    def agg(
+    def receive_from_client(
         self,
+        server_storage,
         client_id,
         client_msg,
-        aggregator,
-        train_weight=None,
-        other_weight=None,
+        train_split_name,
+        aggregation_results,
     ):
-        params = client_msg["local_params"].clone().detach().data
-        diverged = client_msg["diverged"]
-        metrics = client_msg["metrics"]
-        n_samples = client_msg["num_samples"]
+        return serial_aggregation(
+            server_storage, client_id, client_msg, train_split_name, aggregation_results
+        )
 
-        if diverged:
-            print("client {} diverged".format(client_id))
-            print("exiting ...")
-            sys.exit(1)
-        if train_weight is None:
-            train_weight = n_samples[self.get_train_split_name()]
-
-        if train_weight > 0:
-            aggregator.add("local_params", params, train_weight)
-            for split_name, metrics in metrics.items():
-                if other_weight is None:
-                    other_weight = n_samples[split_name]
-                for key, metric in metrics.items():
-                    aggregator.add(f"clients.{split_name}.{key}", metric, other_weight)
-
-        # purge client info
-        del client_msg
-
-    def receive_from_client(self, client_id, client_msg, aggregation_results):
-        self.agg(client_id, client_msg, aggregation_results)
-
-    def optimize(self, aggregator):
+    def optimize(self, server_storage, aggregator):
         if "local_params" in aggregator:
             param_avg = aggregator.pop("local_params")
-            optimizer = self.read_server("optimizer")
-            lr_scheduler = self.read_server("lr_scheduler")
-            cloud_params = self.read_server("cloud_params")
+            optimizer = server_storage.read("optimizer")
+            lr_scheduler = server_storage.read("lr_scheduler")
+            cloud_params = server_storage.read("cloud_params")
             pseudo_grads = cloud_params.data - param_avg
             # update cloud params
             optimizer.zero_grad()
@@ -274,19 +256,21 @@ class FedAvg(CentralFLAlgorithm):
             del param_avg
         return aggregator.pop_all()
 
-    def deploy(self):
-        return dict(avg=self.read_server("cloud_params"))
+    def deploy(self, server_storage):
+        return dict(avg=server_storage.read("cloud_params"))
 
     def report(
         self,
+        server_storage,
         dataloaders,
-        round_scores,
+        rounds,
+        metrics,
         metric_logger,
         device,
         optimize_reports,
         deployment_points=None,
     ):
-        model = self.read_server("model")
+        model = server_storage.read("model")
         metrics_from_deployment = dict()
         # TODO: reporting norm and similar metrics should be implemented
         # through hooks (hook probe perhaps)
@@ -295,12 +279,11 @@ class FedAvg(CentralFLAlgorithm):
         if deployment_points is not None:
             for point_name, point in deployment_points.items():
                 # copy cloud params to cloud model to send to the client
-                point_vec = point.detach().clone().data
-                vector_to_parameters(point_vec, model.parameters())
+                initialize_module(model, point, clone=True, detach=True)
 
                 for split_name, loader in dataloaders.items():
-                    if split_name in round_scores:
-                        scores = round_scores[split_name]
+                    if split_name in metrics:
+                        scores = metrics[split_name]
                         _ = local_inference(
                             model,
                             loader,
@@ -316,8 +299,8 @@ class FedAvg(CentralFLAlgorithm):
                             **metrics_from_deployment,
                             **split_metrics,
                         }
-                    if self.rounds % norm_report_freq == 0:
+                    if rounds % norm_report_freq == 0:
                         norm_reports[
                             f"server.{point_name}.param.norm"
-                        ] = point_vec.norm().item()
+                        ] = point.norm().item()
         return {**metrics_from_deployment, **optimize_reports, **norm_reports}

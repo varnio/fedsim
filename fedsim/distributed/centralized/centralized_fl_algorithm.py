@@ -20,166 +20,11 @@ from torch.utils.data import DataLoader
 from tqdm import trange
 
 from fedsim import scores
+from fedsim.utils import AppendixAggregator
+from fedsim.utils import SerialAggregator
+from fedsim.utils import Storage
 from fedsim.utils import apply_on_dict
 from fedsim.utils import get_from_module
-
-from ...utils.aggregators import AppendixAggregator
-from ...utils.aggregators import SerialAggregator
-
-
-def _at_round_start_unimplemented(self) -> None:
-    """to inject code at the beginning of rounds in training loop"""
-    pass
-
-
-def _at_round_end_unimplemented(self, score_aggregator: AppendixAggregator) -> None:
-    """to inject code at the end of rounds in training loop
-
-    Args:
-        score_aggregator (AppendixAggregator): contains the aggregated scores
-    """
-    pass
-
-
-def _send_to_client_unimplemented(self, client_id: int) -> Mapping[Hashable, Any]:
-    """returns context to send to the client corresponding to client_id.
-
-    .. warning::
-        Do not send shared objects like server model if you made any
-        before you deepcopy it.
-
-    Args:
-        client_id (int): id of the receiving client
-
-    Raises:
-        NotImplementedError: abstract class to be implemented by child
-
-    Returns:
-        Mapping[Hashable, Any]: the context to be sent in form of a Mapping
-    """
-    raise NotImplementedError(
-        f"Algorithm [{type(self).__name__}] is missing the"
-        f'required "send_to_client" function'
-    )
-
-
-def _send_to_server_unimplemented(
-    self,
-    client_id: int,
-    datasets: Dict[str, Iterable],
-    round_scores: Dict[str, Dict[str, Any]],
-    epochs: int,
-    criterion: nn.Module,
-    train_batch_size: int,
-    inference_batch_size: int,
-    optimizer_def: Callable,
-    lr_scheduler_def: Optional[Callable] = None,
-    device: Union[int, str] = "cuda",
-    ctx: Optional[Dict[Hashable, Any]] = None,
-    *args,
-    **kwargs,
-) -> Mapping[str, Any]:
-    """client operation on the recieved information.
-
-    Args:
-        client_id (int): id of the client
-        datasets (Dict[str, Iterable]): this comes from Data Manager
-        round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
-            form {'split_name':{'score_name': score_def}} for global scores to
-            evaluate at the current round.
-        epochs (``int``): number of epochs to train
-        criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
-        train_batch_size (int): training batch_size
-        inference_batch_size (int): inference batch_size
-        optimizer_def (float): class for constructing the local optimizer
-        lr_scheduler_def (float): class for constructing the local lr scheduler
-        device (Union[int, str], optional): Defaults to 'cuda'.
-        ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
-
-    Raises:
-        NotImplementedError: abstract class to be implemented by child
-
-    Returns:
-        Mapping[str, Any]: client context to be sent to the server
-    """
-    raise NotImplementedError
-
-
-def _receive_from_client_unimplemented(
-    self,
-    client_id: int,
-    client_msg: Mapping[Hashable, Any],
-    aggregator,
-):
-    """receive and aggregate info from selected clients
-
-    Args:
-        client_id (int): id of the sender (client)
-        client_msg (Mapping[Hashable, Any]): client context that is sent
-        aggregator (SerialAggregator): aggregator instance to collect info
-
-    Raises:
-        NotImplementedError: abstract class to be implemented by child
-    """
-    raise NotImplementedError
-
-
-def _optimize_unimplemented(self, aggregator) -> Mapping[Hashable, Any]:
-    """optimize server mdoel(s) and return metrics to be reported
-
-    Args:
-        aggregator (SerialAggregator): Aggregator instance
-
-    Raises:
-        NotImplementedError: abstract class to be implemented by child
-
-    Returns:
-        Mapping[Hashable, Any]: context to be reported
-    """
-    raise NotImplementedError
-
-
-def _deploy_unimplemented(self) -> Optional[Mapping[Hashable, Any]]:
-    """return Mapping of name -> parameters_set to test the model
-
-    Raises:
-        NotImplementedError: abstract class to be implemented by child
-    """
-    raise NotImplementedError
-
-
-def _report_unimplemented(
-    self,
-    dataloaders: Dict[str, Any],
-    round_scores: Dict[str, Dict[str, Any]],
-    metric_logger: Optional[Any],
-    device: str,
-    optimize_reports: Mapping[Hashable, Any],
-    deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
-) -> Dict[str, Union[int, float]]:
-    """test on global data and report info. If a flatten dict of
-    str:Union[int,float] is returned from this function the content is
-    automatically logged using the metric logger (e.g., logall.TensorboardLogger).
-    metric_logger is also passed as an input argument for extra
-    logging operations (non scalar).
-
-    Args:
-        dataloaders (Any): dict of data loaders to test the global model(s)
-        round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
-            form {'split_name':{'score_name': score_def}} for global scores to
-            evaluate at the current round.
-        metric_logger (Any, optional): the logging object
-            (e.g., logall.TensorboardLogger)
-        device (str): 'cuda', 'cpu' or gpu number
-        optimize_reports (Mapping[Hashable, Any]): dict returned by
-            optimzier
-        deployment_points (Mapping[Hashable, torch.Tensor], optional): \
-            output of deploy method
-
-    Raises:
-        NotImplementedError: abstract class to be implemented by child
-    """
-    raise NotImplementedError
 
 
 class CentralFLAlgorithm(object):
@@ -241,11 +86,8 @@ class CentralFLAlgorithm(object):
         test_batch_size,
         device,
     ):
-        self._data_manager = data_manager
-        self.num_clients = num_clients
-        self.sample_scheme = sample_scheme
-        self.sample_count = int(sample_rate * num_clients)
-        if not 1 <= self.sample_count <= num_clients:
+        sample_count = int(sample_rate * num_clients)
+        if not 1 <= sample_count <= num_clients:
             raise Exception(
                 "invalid client sample size for {}% of {} clients".format(
                     sample_rate, num_clients
@@ -258,24 +100,16 @@ class CentralFLAlgorithm(object):
             model_def_ = model_def
 
         if isinstance(model_def_, str):
-            self.model_def = get_from_module("fedsim.models", model_def)
+            model_def = get_from_module("fedsim.models", model_def)
         elif issubclass(model_def_, nn.Module):
-            self.model_def = model_def
+            model_def = model_def
         else:
             raise Exception("incompatiple model!")
-        self.epochs = epochs
 
         if isinstance(criterion_def, str) and hasattr(scores, criterion_def):
-            self.criterion_def = getattr(scores, criterion_def)
+            criterion_def = getattr(scores, criterion_def)
         else:
-            self.criterion_def = criterion_def
-        self.batch_size = batch_size
-        self.test_batch_size = test_batch_size
-        self.optimizer_def = optimizer_def
-        self.local_optimizer_def = local_optimizer_def
-        self.lr_scheduler_def = lr_scheduler_def
-        self.local_lr_scheduler_def = local_lr_scheduler_def
-        self._train_split_name = "train"
+            criterion_def = criterion_def
 
         if r2r_local_lr_scheduler_def is not None:
             # get local lr to build r2r scheduler
@@ -301,148 +135,121 @@ class CentralFLAlgorithm(object):
             if not hasattr(r2r_scheduler, "get_last_lr"):
                 r2r_scheduler.get_last_lr = partial(last_private_lr, r2r_scheduler)
 
-            self.r2r_local_lr_scheduler = r2r_scheduler
+            r2r_local_lr_scheduler = r2r_scheduler
             dummy_optimizer.step()
         else:
-            self.r2r_local_lr_scheduler = None
+            r2r_local_lr_scheduler = None
 
-        self.metric_logger = metric_logger
-        self.device = device
-
-        self._server_memory: Dict[Hashable, object] = dict()
-        self._client_memory: Dict[int, Dict[object]] = {
-            k: dict() for k in range(num_clients)
-        }
-
-        self.global_dataloaders = {
+        global_dataloaders = {
             key: DataLoader(
                 dataset,
-                batch_size=self.test_batch_size,
+                batch_size=test_batch_size,
                 pin_memory=True,
             )
-            for key, dataset in self._data_manager.get_global_dataset().items()
+            for key, dataset in data_manager.get_global_dataset().items()
         }
 
-        self.oracle_dataset = self._data_manager.get_oracle_dataset()
-        self.rounds = 0
+        oracle_dataset = data_manager.get_oracle_dataset()
 
-        # for internal use only
-        self._last_client_sampled: int = None
+        self._psm = Storage()  # private server memory
+        self._psm.write("data_manager", data_manager)
+        self._psm.write("num_clients", num_clients)
+        self._psm.write("sample_count", sample_count)
+        self._psm.write("sample_scheme", sample_scheme)
+        self._psm.write("test_batch_size", test_batch_size)
+        self._psm.write("optimizer_def", optimizer_def)
+        self._psm.write("lr_scheduler_def", lr_scheduler_def)
+        self._psm.write("r2r_local_lr_scheduler", r2r_local_lr_scheduler)
+        self._psm.write("criterion_def", criterion_def)
+        self._psm.write("model_def", model_def)
+        self._psm.write("metric_logger", metric_logger)
+        self._psm.write("device", device)
+        self._psm.write("global_dataloaders", global_dataloaders)
+        self._psm.write("oracle_dataset", oracle_dataset)
+        self._psm.write("rounds", 0)
+        self._psm.write("last_client_sampled", None)
 
-        self._server_scores = {key: dict() for key in self.global_dataloaders}
+        self._pcm = Storage()  # private client memory
+        self._pcm.write("epochs", epochs)
+        self._pcm.write("batch_size", batch_size)
+        self._pcm.write("test_batch_size", test_batch_size)
+        self._pcm.write("criterion_def", criterion_def)
+        self._pcm.write("local_optimizer_def", local_optimizer_def)
+        self._pcm.write("local_lr_scheduler_def", local_lr_scheduler_def)
+        self._pcm.write("device", device)
+
+        # this is over written in train method
+        self._train_split_name = "train"
+
+        self._server_memory = Storage()
+        self._client_memory = {k: Storage() for k in range(num_clients)}
+        self._server_scores = {key: dict() for key in global_dataloaders}
         self._client_scores = {
-            key: dict() for key in self._data_manager.get_local_splits_names()
+            key: dict() for key in data_manager.get_local_splits_names()
         }
-
-    def write_server(self, key, obj):
-        """stores an object on server's memory
-
-        Args:
-            key (Hashable): object key for future access
-            obj (Any): object itself
-        """
-        self._server_memory[key] = obj
-
-    def write_client(self, client_id, key, obj):
-        """stores an object on client's memory
-
-        Args:
-            client_id (int): client id
-            key (Hashable): object key for future access
-            obj (Any): object itself
-        """
-        self._client_memory[client_id][key] = obj
-
-    def read_server(self, key):
-        """read from server memory
-
-        Args:
-            key (Hashable): key of the object on server memory
-
-        Returns:
-            Any: Object. If key does not exist None is returned.
-        """
-        return self._server_memory[key] if key in self._server_memory else None
-
-    def read_client(self, client_id, key):
-        """read from client memory
-
-        Args:
-            client_id (int): client id to access
-            key (Hashable): key of the object on server memory
-
-        Returns:
-            Any: Object. If key does not exist None is returned.
-        """
-        if client_id >= self.num_clients:
-            raise Exception("invalid client id {} >= {}".format(id, self.num_clients))
-        if key in self._client_memory[client_id]:
-            return self._client_memory[client_id][key]
-        return None
-
-    def get_server_keys(self):
-        """Fetches the keys of the objects written to the server so far.
-
-        Returns:
-            Iterable: keys of the objects writter to the server.
-        """
-        return self._server_memory.keys()
-
-    def get_client_keys(self, client_id):
-        """Fetches the keys of the objects written to the server so far.
-
-        Args:
-            client_id (int): client id to access
-
-        Returns:
-            Iterable: keys of the objects writter to the server.
-
-        """
-        if client_id >= self.num_clients:
-            raise Exception("invalid client id {} >= {}".format(id, self.num_clients))
-        return self._client_memory[client_id].keys()
 
     def _sample_clients(self):
-        if self.sample_scheme == "uniform":
-            clients = random.sample(range(self.num_clients), self.sample_count)
-        elif self.sample_scheme == "sequential":
-            last_sampled = (
-                -1 if self._last_client_sampled is None else self._last_client_sampled
-            )
+        sample_scheme = self._psm.read("sample_scheme")
+        sample_count = self._psm.read("sample_count")
+        num_clients = self._psm.read("num_clients")
+        last_client_sampled = self._psm.read("last_client_sampled")
+
+        if sample_scheme == "uniform":
+            clients = random.sample(range(num_clients), sample_count)
+        elif sample_scheme == "sequential":
+            last_sampled = -1 if last_client_sampled is None else last_client_sampled
             clients = [
-                (i + 1) % self.num_clients
-                for i in range(last_sampled, last_sampled + self.sample_count)
+                (i + 1) % num_clients
+                for i in range(last_sampled, last_sampled + sample_count)
             ]
-            self._last_client_sampled = clients[-1]
+            self._psm.write("last_client_sampled", clients[-1])
         else:
             raise NotImplementedError
         return clients
 
     def _send_to_client(self, client_id):
-        return self.send_to_client(client_id=client_id)
+        return self.send_to_client(self._server_memory, client_id=client_id)
 
     def _send_to_server(self, client_id):
-        if self.r2r_local_lr_scheduler is None:
-            local_optimizer_def = self.local_optimizer_def
+        r2r_local_lr_scheduler = self._psm.read("r2r_local_lr_scheduler")
+        data_manager = self._psm.read("data_manager")
+        rounds = self._psm.read("rounds")
+
+        epochs = self._pcm.read("epochs")
+        batch_size = self._pcm.read("batch_size")
+        test_batch_size = self._pcm.read("test_batch_size")
+        local_optimizer_def = self._pcm.read("local_optimizer_def")
+        criterion_def = self._pcm.read("criterion_def")
+        local_lr_scheduler_def = self._pcm.read("local_lr_scheduler_def")
+        device = self._pcm.read("device")
+
+        if r2r_local_lr_scheduler is None:
+            local_optimizer_def = local_optimizer_def
         else:
             local_optimizer_def = partial(
-                self.local_optimizer_def,
-                lr=self.r2r_local_lr_scheduler.get_last_lr()[0],
+                local_optimizer_def,
+                lr=r2r_local_lr_scheduler.get_last_lr()[0],
             )
 
-        datasets = self._data_manager.get_local_dataset(client_id)
+        datasets = data_manager.get_local_dataset(client_id)
         round_scores = self.get_local_scores()
+        storage = self._client_memory[client_id]
+        train_split_name = self.get_train_split_name()
+
         client_ctx = self.send_to_server(
             client_id,
+            rounds,
+            storage,
             datasets,
+            train_split_name,
             round_scores,
-            self.epochs,
-            self.criterion_def(),
-            self.batch_size,
-            self.test_batch_size,
+            epochs,
+            criterion_def(),
+            batch_size,
+            test_batch_size,
             local_optimizer_def,
-            self.local_lr_scheduler_def,
-            self.device,
+            local_lr_scheduler_def,
+            device,
             ctx=self._send_to_client(client_id),
         )
         if not isinstance(client_ctx, dict):
@@ -451,66 +258,88 @@ class CentralFLAlgorithm(object):
 
     def _receive_from_client(self, client_msg, aggregator):
         client_id = client_msg.pop("client_id")
-        return self.receive_from_client(client_id, client_msg, aggregator)
+        train_split_name = self.get_train_split_name()
+        return self.receive_from_client(
+            self._server_memory, client_id, client_msg, train_split_name, aggregator
+        )
 
     def _optimize(self, aggregator):
-        reports = self.optimize(aggregator)
+        reports = self.optimize(self._server_memory, aggregator)
         # purge aggregated results
         del aggregator
         return reports
 
     def _report(self, round_scores, optimize_reports=None, deployment_points=None):
+        global_dataloaders = self._psm.read("global_dataloaders")
+        metric_logger = self._psm.read("metric_logger")
+        rounds = self._psm.read("rounds")
+        device = self._psm.read("device")
+
         report_metrics = self.report(
-            self.global_dataloaders,
+            self._server_memory,
+            global_dataloaders,
+            rounds,
             round_scores,
-            self.metric_logger,
-            self.device,
+            metric_logger,
+            device,
             optimize_reports,
             deployment_points,
         )
-        if self.metric_logger is not None:
-            log_fn = self.metric_logger.log_scalar
-            apply_on_dict(report_metrics, log_fn, step=self.rounds)
+        if metric_logger is not None:
+            log_fn = metric_logger.log_scalar
+            apply_on_dict(report_metrics, log_fn, step=rounds)
         return report_metrics
 
     def _train(self, rounds, num_score_report_point=None):
+        diverged = False
+        cur_round = self._psm.read("rounds")
         score_aggregator = AppendixAggregator(max_deque_lenght=num_score_report_point)
-        for self.rounds in trange(rounds + 1):
+        for round_num in trange(rounds + 1):
             self._at_round_start()
             round_aggregator = SerialAggregator()
             for client_id in self._sample_clients():
                 client_msg = self._send_to_server(client_id)
-                self._receive_from_client(client_msg, round_aggregator)
+                success = self._receive_from_client(client_msg, round_aggregator)
+                # signal divergence
+                if not success:
+                    diverged = True
+                    break
+            # check for divergence, early return
+            if diverged:
+                return score_aggregator.pop_all()
+            # optimzie
             opt_reports = self._optimize(round_aggregator)
-            deploy_poiont = self.deploy()
+            deploy_poiont = self.deploy(self._server_memory)
             round_scores = self.get_global_scores()
             score_dict = self._report(round_scores, opt_reports, deploy_poiont)
-            score_aggregator.append_all(score_dict, step=self.rounds)
+            score_aggregator.append_all(score_dict, step=cur_round)
             self._at_round_end(score_aggregator)
+            self._psm.write("rounds", cur_round + round_num + 1)
 
         return score_aggregator.pop_all()
 
     def _at_round_start(self) -> None:
-        self.at_round_start()
+        self.at_round_start(self._server_memory)
 
     def _at_round_end(self, score_aggregator) -> None:
-        if self.r2r_local_lr_scheduler is not None:
-            step_args = inspect.signature(self.r2r_local_lr_scheduler.step).parameters
+        r2r_local_lr_scheduler = self._psm.read("r2r_local_lr_scheduler")
+        if r2r_local_lr_scheduler is not None:
+            step_args = inspect.signature(r2r_local_lr_scheduler.step).parameters
+            # TODO: metrics in step_args is deprecated, remove in future releases
             if "metrics" in step_args:
-                trigger_metric = self.r2r_local_lr_scheduler.trigger_metric
-                self.r2r_local_lr_scheduler.step(
-                    score_aggregator.get(trigger_metric, 1)
-                )
+                trigger_metric = r2r_local_lr_scheduler.trigger_metric
+                r2r_local_lr_scheduler.step(score_aggregator.get(trigger_metric, 1))
             else:
-                self.r2r_local_lr_scheduler.step()
-        self.at_round_end(score_aggregator)
+                r2r_local_lr_scheduler.step()
+        self.at_round_end(self._server_memory, score_aggregator)
 
     def _get_round_scores(self, score_def_deck):
         # filter out the scores that should not be present in the current round
+        rounds = self._psm.read("rounds")
         round_scores = dict()
         for name, definition in score_def_deck.items():
             obj = definition()
-            if self.rounds % obj.log_freq == 0:
+            if rounds % obj.log_freq == 0:
                 round_scores[name] = obj
         return round_scores
 
@@ -551,7 +380,22 @@ class CentralFLAlgorithm(object):
         return ans
 
     def get_model_def(self):
-        return self.model_def
+        model_def = self._psm.read("model_def")
+        return model_def
+
+    def get_server_storage(self):
+        return self._server_memory
+
+    def get_server_private_storage(self, verbose=True):
+        if verbose:
+            print(
+                "Warning: private server's storage is fetched! "
+                "This is most probably due to a violation!"
+            )
+        return self._psm
+
+    def get_round_number(self):
+        return self._psm.read("rounds")
 
     def get_train_split_name(self):
         return self._train_split_name
@@ -586,13 +430,179 @@ class CentralFLAlgorithm(object):
 
     # we do not do type hinting, however, the hints for abstract
     # methods are provided to help clarity for users
-    # abstract functions
-    send_to_client: Callable[..., Any] = _send_to_client_unimplemented
-    send_to_server: Callable[..., Any] = _send_to_server_unimplemented
-    receive_from_client: Callable[..., Any] = _receive_from_client_unimplemented
-    optimize: Callable[..., Any] = _optimize_unimplemented
-    deploy: Callable[..., Any] = _deploy_unimplemented
-    report: Callable[..., Any] = _report_unimplemented
-    # optional functions
-    at_round_start: Callable[..., Any] = _at_round_start_unimplemented
-    at_round_end: Callable[..., Any] = _at_round_end_unimplemented
+
+    # optional methods
+    def at_round_start(self, server_storage: Storage) -> None:
+        """to inject code at the beginning of rounds in training loop
+        Args:
+            server_storage (Storage): server storage object.
+        """
+        pass
+
+    def at_round_end(
+        self,
+        server_storage: Storage,
+        score_aggregator: AppendixAggregator,
+    ) -> None:
+        """to inject code at the end of rounds in training loop
+
+        Args:
+            server_storage (Storage): server storage object.
+            score_aggregator (AppendixAggregator): contains the aggregated scores
+        """
+        pass
+
+    # abstract methods
+    def send_to_client(self, server_storage, client_id: int) -> Mapping[Hashable, Any]:
+        """returns context to send to the client corresponding to client_id.
+
+        .. warning::
+            Do not send shared objects like server model if you made any
+            before you deepcopy it.
+
+        Args:
+            server_storage (Storage): server storage object.
+            client_id (int): id of the receiving client
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+
+        Returns:
+            Mapping[Hashable, Any]: the context to be sent in form of a Mapping
+        """
+        raise NotImplementedError(
+            f"Algorithm [{type(self).__name__}] is missing the"
+            f"required 'send_to_client' function"
+        )
+
+    def send_to_server(
+        self,
+        id: int,
+        rounds: int,
+        storage: Dict[Hashable, Any],
+        datasets: Dict[str, Iterable],
+        train_split_name: str,
+        metrics: Dict[str, Dict[str, Any]],
+        epochs: int,
+        criterion: nn.Module,
+        train_batch_size: int,
+        inference_batch_size: int,
+        optimizer_def: Callable,
+        lr_scheduler_def: Optional[Callable] = None,
+        device: Union[int, str] = "cuda",
+        ctx: Optional[Dict[Hashable, Any]] = None,
+        *args,
+        **kwargs,
+    ) -> Mapping[str, Any]:
+        """client operation on the recieved information.
+
+        Args:
+            id (int): id of the client
+            rounds (int): global round number
+            storage (Storage): storage object of the client
+            datasets (Dict[str, Iterable]): this comes from Data Manager
+            train_split_name (str): string containing name of the training split
+            metrics: Dict[str, Dict[str, Any]]: dictionary of
+                form {'split_name':{'score_name': score_def}} for global scores to
+                evaluate at the current round.
+            epochs (``int``): number of epochs to train
+            criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
+            train_batch_size (int): training batch_size
+            inference_batch_size (int): inference batch_size
+            optimizer_def (float): class for constructing the local optimizer
+            lr_scheduler_def (float): class for constructing the local lr scheduler
+            device (Union[int, str], optional): Defaults to 'cuda'.
+            ctx (Optional[Dict[Hashable, Any]], optional): context reveived.
+
+        Returns:
+            Mapping[str, Any]: client context to be sent to the server
+
+        """
+        raise NotImplementedError(
+            "Algorithm is missing the required 'send_to_client' function"
+        )
+
+    def receive_from_client(
+        self,
+        server_storage: Storage,
+        client_id: int,
+        client_msg: Mapping[Hashable, Any],
+        train_split_name: str,
+        aggregator,
+    ) -> bool:
+        """receive and aggregate info from selected clients
+
+        Args:
+            server_storage (Storage): server storage object.
+            client_id (int): id of the sender (client)
+            client_msg (Mapping[Hashable, Any]): client context that is sent.
+            train_split_name (str): name of the training split on clients.
+            aggregator (SerialAggregator): aggregator instance to collect info.
+
+        Returns:
+            bool: success of the aggregation.
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+        """
+        raise NotImplementedError
+
+    def optimize(
+        self, server_storage: Storage, aggregator: SerialAggregator
+    ) -> Mapping[Hashable, Any]:
+        """optimize server mdoel(s) and return metrics to be reported
+
+        Args:
+            server_storage (Storage): server storage object.
+            aggregator (SerialAggregator): Aggregator instance
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+
+        Returns:
+            Mapping[Hashable, Any]: context to be reported
+        """
+        raise NotImplementedError
+
+    def deploy(self, server_storage: Storage) -> Optional[Mapping[Hashable, Any]]:
+        """return Mapping of name -> parameters_set to test the model
+
+        Args:
+            server_storage (Storage): server storage object.
+        """
+        raise NotImplementedError
+
+    def report(
+        self,
+        server_storage: Storage,
+        dataloaders: Dict[str, Any],
+        round_scores: Dict[str, Dict[str, Any]],
+        metric_logger: Optional[Any],
+        device: str,
+        optimize_reports: Mapping[Hashable, Any],
+        deployment_points: Optional[Mapping[Hashable, torch.Tensor]] = None,
+    ) -> Dict[str, Union[int, float]]:
+        """test on global data and report info. If a flatten dict of
+        str:Union[int,float] is returned from this function the content is
+        automatically logged using the metric logger (e.g., logall.TensorboardLogger).
+        metric_logger is also passed as an input argument for extra
+        logging operations (non scalar).
+
+        Args:
+            server_storage (Storage): server storage object.
+            dataloaders (Any): dict of data loaders to test the global model(s)
+            round_scores (Dict[str, Dict[str, fedsim.scores.Score]]): dictionary of
+                form {'split_name':{'score_name': score_def}} for global scores to
+                evaluate at the current round.
+            metric_logger (Any, optional): the logging object
+                (e.g., logall.TensorboardLogger)
+            device (str): 'cuda', 'cpu' or gpu number
+            optimize_reports (Mapping[Hashable, Any]): dict returned by
+                optimzier
+            deployment_points (Mapping[Hashable, torch.Tensor], optional): \
+                output of deploy method
+
+        Raises:
+            NotImplementedError: abstract class to be implemented by child
+        """
+        raise NotImplementedError

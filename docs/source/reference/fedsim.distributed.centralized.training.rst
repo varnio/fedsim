@@ -12,3 +12,4 @@
         fedsim.distributed.centralized.training.feddyn
         fedsim.distributed.centralized.training.fednova
         fedsim.distributed.centralized.training.fedprox
+        fedsim.distributed.centralized.training.utils

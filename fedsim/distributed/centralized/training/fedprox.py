@@ -9,6 +9,7 @@ from torch.optim import SGD
 
 from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import vector_to_parameters_like
+from fedsim.utils import vectorize_module
 
 from . import fedavg
 
@@ -98,9 +99,12 @@ class FedProx(fedavg.FedAvg):
 
     def send_to_server(
         self,
-        client_id,
+        id,
+        rounds,
+        storage,
         datasets,
-        round_scores,
+        train_split_name,
+        metrics,
         epochs,
         criterion,
         train_batch_size,
@@ -109,11 +113,10 @@ class FedProx(fedavg.FedAvg):
         lr_scheduler_def=None,
         device="cuda",
         ctx=None,
-        *args,
-        **kwargs,
+        step_closure=None,
     ):
         model = ctx["model"]
-        params_init = parameters_to_vector(model.parameters()).detach().clone()
+        params_init = vectorize_module(model, clone=True, detach=True)
         mu = self.mu
 
         def transform_grads_fn(model):
@@ -130,9 +133,12 @@ class FedProx(fedavg.FedAvg):
             default_step_closure, transform_grads=transform_grads_fn
         )
         return super(FedProx, self).send_to_server(
-            client_id,
+            id,
+            rounds,
+            storage,
             datasets,
-            round_scores,
+            train_split_name,
+            metrics,
             epochs,
             criterion,
             train_batch_size,
@@ -142,6 +148,4 @@ class FedProx(fedavg.FedAvg):
             device,
             ctx,
             step_closure=step_closure_,
-            *args,
-            **kwargs,
         )
