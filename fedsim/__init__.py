@@ -7,7 +7,7 @@ Comprehensive and flexible Federated Learning Simulator!
 
 """
 
-__version__ = "0.6.2"
+__version__ = "0.7.0"
 
 from . import datasets
 from . import distributed
