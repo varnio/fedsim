@@ -12,3 +12,4 @@
         fedsim.utils.dict_ops
         fedsim.utils.import_utils
         fedsim.utils.random_utils
+        fedsim.utils.storage

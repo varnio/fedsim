@@ -38,6 +38,8 @@ def default_step_closure(
     # optimize
     optimizer.step()
     optimizer.zero_grad()
-    for score in scores.values():
-        score(outputs, y)
+
+    if scores is not None:
+        for score in scores.values():
+            score(outputs, y)
     return loss

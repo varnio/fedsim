@@ -58,6 +58,9 @@ class DataManager(object):
         # {'<split_name>': [<client index>:[<sample_index>,],]}
         self._local_parition_indices: Optional[Dict[Iterable[Iterable[int]]]] = None
 
+        np_state = np.random.get_state()
+        rd_state = random.getstate()
+
         # set random seed for partitioning
         if seed is not None:
             np.random.seed(seed)
@@ -68,6 +71,9 @@ class DataManager(object):
         self._make_datasets()
         self._partition_local_data()
         self._partition_global_data()
+
+        np.random.set_state(np_state)
+        random.setstate(rd_state)
 
     def _make_transforms(self) -> None:
         (

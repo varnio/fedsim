@@ -88,7 +88,7 @@ from .utils import validate_score
     "-m",
     type=tuple,
     cls=OptionEatAll,
-    default=("mlp_mnist",),
+    default=("SimpleMLP",),
     show_default=True,
     help="model architecture.",
 )
@@ -360,14 +360,14 @@ def fed_learn(
     logger.info("arguments: \n" + pformat(log))
     tb_logger.get_logger_object().add_text("config", f"{log}")
 
-    # set the seed of random generators
-    if seed is not None:
-        set_seed(seed, device)
-
     # set the train split as the split of criterion (loss)
     criterion_def = partial(cfg["criterion"].definition, split=train_split_name)
 
     data_manager_instant = cfg["data_manager"].definition()
+
+    # set the seed of random generators
+    if seed is not None:
+        set_seed(seed, device)
 
     algorithm_instance = cfg["algorithm"].definition(
         data_manager=data_manager_instant,

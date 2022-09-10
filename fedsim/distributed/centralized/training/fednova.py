@@ -7,6 +7,7 @@ from functools import partial
 from torch.optim import SGD
 
 from . import fedavg
+from .utils import serial_aggregation
 
 
 class FedNova(fedavg.FedAvg):
@@ -88,8 +89,23 @@ class FedNova(fedavg.FedAvg):
             device,
         )
 
-    def receive_from_client(self, client_id, client_msg, aggregation_results):
+    def receive_from_client(
+        self,
+        server_storage,
+        client_id,
+        client_msg,
+        train_split_name,
+        aggregation_results,
+    ):
         train_split_name = self.get_train_split_name()
         n_train = client_msg["num_samples"][train_split_name]
         weight = n_train / client_msg["num_steps"]
-        self.agg(client_id, client_msg, aggregation_results, train_weight=weight)
+
+        return serial_aggregation(
+            server_storage,
+            client_id,
+            client_msg,
+            train_split_name,
+            aggregation_results,
+            train_weight=weight,
+        )

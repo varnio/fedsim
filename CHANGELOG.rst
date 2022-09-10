@@ -1,3 +1,11 @@
+0.7.0 (2022-09-10)
+------------------
+
+* algorithms got more secure with local storage
+* redefined model architectures
+* fixed bug in default step closure'
+* made random seed more consistent
+
 0.6.2 (2022-08-31)
 ------------------
 

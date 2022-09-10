@@ -10,7 +10,7 @@ from fedsim.distributed.centralized import FedNova
 from fedsim.distributed.centralized import FedProx
 from fedsim.distributed.data_management import BasicDataManager
 from fedsim.losses import CrossEntropyLoss
-from fedsim.models.mcmahan_nets import cnn_cifar100
+from fedsim.models.simple_models import SimpleCNN2
 from fedsim.scores import Accuracy
 
 
@@ -48,7 +48,7 @@ def test_algs():
         num_clients=2,
         sample_scheme="uniform",
         sample_rate=1.0,
-        model_def=cnn_cifar100,
+        model_def=partial(SimpleCNN2, num_classes=100),
         epochs=1,
         criterion_def=partial(CrossEntropyLoss, log_freq=100),
         batch_size=32,
