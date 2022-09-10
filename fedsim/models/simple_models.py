@@ -26,6 +26,7 @@ class SimpleMLP(nn.Module):
 
     Args:
         num_classes (int, optional): number of classes. Defaults to 10.
+            Assigning None or a negative integer means no classifier.
         num_channels (int, optional): number of channels of input. Defaults to 1.
         in_height (int, optional): input height to resize to. Defaults to 28.
         in_width (int, optional): input width to resize to. Defaults to 28.
@@ -46,11 +47,15 @@ class SimpleMLP(nn.Module):
         self.resize = Resize((in_height, in_width))
         self.fc1 = nn.Linear(num_channels * in_height * in_width, feature_size)
         self.fc2 = nn.Linear(feature_size, feature_size)
-        self.classifier = nn.Linear(feature_size, num_classes)
+        if num_classes is not None and num_classes > 0:
+            self.classifier = nn.Linear(feature_size, num_classes)
+        else:
+            self.classifier = None
 
     def forward(self, x):
         x = self.get_features(x)
-        x = self.classifier(x)
+        if self.classifier is not None:
+            x = self.classifier(x)
         return x
 
     def get_features(self, x):
@@ -77,6 +82,7 @@ class SimpleCNN(nn.Module):
 
     Args:
         num_classes (int, optional): number of classes. Defaults to 10.
+            Assigning None or a negative integer means no classifier.
         num_channels (int, optional): number of channels of input. Defaults to 1.
         in_height (int, optional): input height to resize to. Defaults to 28.
         in_width (int, optional): input width to resize to. Defaults to 28.
@@ -123,11 +129,15 @@ class SimpleCNN(nn.Module):
         out_w = get_output_size(out_w, 1, 2, 2)
 
         self.fc = nn.Linear(num_filters2 * out_w * out_h, feature_size)
-        self.classifier = nn.Linear(feature_size, num_classes)
+        if num_classes is not None and num_classes > 0:
+            self.classifier = nn.Linear(feature_size, num_classes)
+        else:
+            self.classifier = None
 
     def forward(self, x):
         x = self.get_features(x)
-        x = self.classifier(x)
+        if self.classifier is not None:
+            x = self.classifier(x)
         return x
 
     def get_features(self, x):
@@ -158,6 +168,7 @@ class SimpleCNN2(nn.Module):
 
     Args:
         num_classes (int, optional): number of classes. Defaults to 10.
+            Assigning None or a negative integer means no classifier.
         num_channels (int, optional): number of channels of input. Defaults to 1.
         in_height (int, optional): input height to resize to. Defaults to 28.
         in_width (int, optional): input width to resize to. Defaults to 28.
@@ -207,11 +218,15 @@ class SimpleCNN2(nn.Module):
 
         self.fc1 = nn.Linear(num_filters2 * out_w * out_h, hidden_size)
         self.fc2 = nn.Linear(hidden_size, feature_size)
-        self.classifier = nn.Linear(feature_size, num_classes)
+        if num_classes is not None and num_classes > 0:
+            self.classifier = nn.Linear(feature_size, num_classes)
+        else:
+            self.classifier = None
 
     def forward(self, x):
         x = self.get_features(x)
-        x = self.classifier(x)
+        if self.classifier is not None:
+            x = self.classifier(x)
         return x
 
     def get_features(self, x):
