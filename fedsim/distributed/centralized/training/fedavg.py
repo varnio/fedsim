@@ -2,7 +2,6 @@ r"""
 FedAvg
 ------
 """
-import inspect
 import math
 from functools import partial
 
@@ -55,7 +54,7 @@ class FedAvg(CentralFLAlgorithm):
                 get_last_lr methods._schedulers``.
             * optimizers, could be any ``torch.optim.Optimizer``.
             * model, could be any ``torch.Module``.
-            * criterion, could be any ``fedsim.losses``.
+            * criterion, could be any ``fedsim.scores.Score``.
 
     .. _Communication-Efficient Learning of Deep Networks from Decentralized
         Data: https://arxiv.org/abs/1602.05629
@@ -133,7 +132,7 @@ class FedAvg(CentralFLAlgorithm):
         storage,
         datasets,
         train_split_name,
-        metrics,
+        scores,
         epochs,
         criterion,
         train_batch_size,
@@ -144,8 +143,6 @@ class FedAvg(CentralFLAlgorithm):
         ctx=None,
         step_closure=None,
     ):
-        # make the data ready
-        train_split_name = train_split_name
         # create a random sampler with replacement so that
         # stochasticity is maximiazed and privacy is not compromized
         sampler = RandomSampler(
@@ -168,8 +165,8 @@ class FedAvg(CentralFLAlgorithm):
             lr_scheduler = None
         # optimize the model locally
         step_closure_ = default_step_closure if step_closure is None else step_closure
-        if train_split_name in metrics:
-            train_scores = metrics[train_split_name]
+        if train_split_name in scores:
+            train_scores = scores[train_split_name]
         else:
             train_scores = dict()
         num_train_samples, num_steps, diverged, = local_train(
@@ -196,8 +193,8 @@ class FedAvg(CentralFLAlgorithm):
         num_samples_dict = {train_split_name: num_train_samples}
         # other splits
         for split_name, split in datasets.items():
-            if split_name != train_split_name and split_name in metrics:
-                o_scores = metrics[split_name]
+            if split_name != train_split_name and split_name in scores:
+                o_scores = scores[split_name]
                 split_loader = DataLoader(
                     split,
                     batch_size=inference_batch_size,
@@ -246,12 +243,7 @@ class FedAvg(CentralFLAlgorithm):
             cloud_params.grad = pseudo_grads
             optimizer.step()
             if lr_scheduler is not None:
-                step_args = inspect.signature(lr_scheduler.step).parameters
-                if "metrics" in step_args:
-                    trigger_metric = lr_scheduler.trigger_metric
-                    lr_scheduler.step(aggregator.get(trigger_metric))
-                else:
-                    lr_scheduler.step()
+                lr_scheduler.step()
             # purge aggregated results
             del param_avg
         return aggregator.pop_all()
@@ -264,15 +256,15 @@ class FedAvg(CentralFLAlgorithm):
         server_storage,
         dataloaders,
         rounds,
-        metrics,
+        scores,
         metric_logger,
         device,
         optimize_reports,
         deployment_points=None,
     ):
         model = server_storage.read("model")
-        metrics_from_deployment = dict()
-        # TODO: reporting norm and similar metrics should be implemented
+        scores_from_deploy = dict()
+        # TODO: reporting norm and similar scores should be implemented
         # through hooks (hook probe perhaps)
         norm_report_freq = 50
         norm_reports = dict()
@@ -282,25 +274,25 @@ class FedAvg(CentralFLAlgorithm):
                 initialize_module(model, point, clone=True, detach=True)
 
                 for split_name, loader in dataloaders.items():
-                    if split_name in metrics:
-                        scores = metrics[split_name]
+                    if split_name in scores:
+                        scores = scores[split_name]
                         _ = local_inference(
                             model,
                             loader,
                             scores=scores,
                             device=device,
                         )
-                        split_metrics = {
+                        split_scores = {
                             f"server.{point_name}.{split_name}."
                             f"{score_name}": score.get_score()
                             for score_name, score in scores.items()
                         }
-                        metrics_from_deployment = {
-                            **metrics_from_deployment,
-                            **split_metrics,
+                        scores_from_deploy = {
+                            **scores_from_deploy,
+                            **split_scores,
                         }
                     if rounds % norm_report_freq == 0:
                         norm_reports[
                             f"server.{point_name}.param.norm"
                         ] = point.norm().item()
-        return {**metrics_from_deployment, **optimize_reports, **norm_reports}
+        return {**scores_from_deploy, **optimize_reports, **norm_reports}

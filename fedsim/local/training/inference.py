@@ -17,12 +17,20 @@ def local_inference(
 ):
     """to test the performance of a model on a test set.
 
-    :param model: model to get the predictions from
-    :param loader: data loader
-    :param metric_fn_dict: a dict of {name: fn}, fn gets (inputs, targets)
-    :param link_fn: to be applied on top of model output (e.g. softmax)
-    :param device: device (e.g., 'cuda', '<gpu number> or 'cpu')
+    Args:
+        model (Module): model to get the predictions from
+        data_loader (Iterable): inference data loader.
+        scores (Dict[str, Score]): scores to evaluate
+        device (str, optional): device to load the data into
+            ("cpu", "cuda", or device ordinal number). This must be the same device as
+            the one model parameters are loaded into. Defaults to "cpu".
+        transform_y (Callable, optional): a function that takes raw labels and modifies
+            them. Defaults to None.
+
+    Returns:
+        int: number of samples the evaluation is done for.
     """
+
     num_samples = 0
     model_is_training = model.training
     model.eval()
@@ -40,4 +48,4 @@ def local_inference(
             del outputs
     if model_is_training:
         model.train()
-    return (num_samples,)
+    return num_samples

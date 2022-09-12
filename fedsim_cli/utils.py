@@ -196,7 +196,7 @@ def ingest_fed_context(
     )
     criterion_def = get_definition(
         name=criterion,
-        modules="fedsim.losses",
+        modules="fedsim.scores",
     )
     optimizer_def = get_definition(
         name=optimizer,

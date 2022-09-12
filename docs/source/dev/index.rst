@@ -1,8 +1,8 @@
 .. _dev:
 
-########################
-FedSim contributor guide
-########################
+#################
+Contributor guide
+#################
 
 .. include:: contributing.rst
 .. include:: authors.rst

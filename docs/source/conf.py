@@ -156,7 +156,7 @@ html_theme_options = {
         "text": "FedSim",
         "image_dark": "logo-light.png",
     },
-    "show_toc_level": 1,
+    "show_toc_level": 2,
     "navbar_start": ["navbar-logo"],
 }
 

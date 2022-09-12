@@ -8,6 +8,7 @@ FedSim |release| documentation
 .. toctree::
   :hidden:
 
+  Download and Start <user/get_it_now>
   User Guide <user/index>
   API reference <reference/index>
   Developement <dev/index>

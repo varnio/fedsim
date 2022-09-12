@@ -1,6 +1,8 @@
 r"""
-Local Training
---------------
+Local Training and Inference
+----------------------------
+
+Provides the basic definitions for local trainign and inference.
 """
 
 from .inference import local_inference

@@ -12,5 +12,4 @@
         fedsim.models
         fedsim.utils
 
-        fedsim.losses
         fedsim.scores
