@@ -1,7 +1,7 @@
 
-*****************
-Two line to train
-*****************
+*********************
+Easy install and run
+*********************
 
 .. panels::
     :card: + intro-card text-center
@@ -16,6 +16,6 @@ Two line to train
     ---
 
     .. code-block:: bash
-        :caption: Train MNIST on 1000 clients:
+        :caption: Train MNIST on 500 clients:
 
-        fedsim-cli fed-learn -n 1000
+        fedsim-cli fed-learn

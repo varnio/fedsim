@@ -4,39 +4,20 @@ Dict Ops
 """
 
 
-def append_dict_to_dict(new_dict, currecnt_dict=None):
-    ans = verify_dict(currecnt_dict)
-    for key, item in new_dict.items():
-        if key not in ans:
-            ans[key] = []
-        ans[key].append(item)
-    return ans
-
-
-def add_dict_to_dict(new_dict, currecnt_dict=None, scale=1):
-    ans = verify_dict(currecnt_dict)
-    for key, item in new_dict.items():
-        curr = ans[key] if key in ans else 0
-        ans[key] = curr + scale * item
-    return ans
-
-
-def add_in_dict(key, additive, currecnt_dict=None, scale=1):
-    ans = verify_dict(currecnt_dict)
-    curr = ans[key] if key in ans else 0
-    ans[key] = curr + scale * additive
-    return ans
-
-
-def reduce_dict(to_reduct, reduction_fn=lambda x: float(sum(x)) / len(x)):
-    return {key: reduction_fn(item) for key, item in to_reduct.items()}
-
-
-def verify_dict(dict_obj):
-    return dict() if dict_obj is None else dict_obj
-
-
 def apply_on_dict(dict_obj, fn, return_as_dict=False, *args, **kwargs):
+    """Applies an operation defined by ``fn`` on all the entries in a dectionary.
+
+    Args:
+        dict_obj (_type_): _description_
+        fn (Callable): method to apply on dictionary entries. The signature must be
+            ``fn(key, value, *args, **kwargs)``. where ``*args`` and ``**kwargs`` are
+            forwarded from ``apply_on_dict`` method to ``fn``.
+        return_as_dict (bool, optional): If True a new dictionary with modified entries
+            is returned.
+
+    Returns:
+        _type_: _description_
+    """
     ans = dict()
     if dict_obj is None:
         return

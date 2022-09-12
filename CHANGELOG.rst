@@ -1,3 +1,9 @@
+0.8.0 (2022-09-12)
+------------------
+
+* some major revision to documentation
+* some enhancement to FedProx compatibility with v0.7+
+
 0.7.0 (2022-09-10)
 ------------------
 

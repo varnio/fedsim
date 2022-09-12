@@ -2,7 +2,6 @@ r"""
 FedDyn
 -------
 """
-import inspect
 from functools import partial
 
 import torch
@@ -52,7 +51,7 @@ class FedDyn(fedavg.FedAvg):
                 get_last_lr methods._schedulers``.
             * optimizers, could be any ``torch.optim.Optimizer``.
             * model, could be any ``torch.Module``.
-            * criterion, could be any ``fedsim.losses``.
+            * criterion, could be any ``fedsim.scores.Score``.
 
 
     .. _Federated Learning Based on Dynamic Regularization:
@@ -232,12 +231,7 @@ class FedDyn(fedavg.FedAvg):
             cloud_params.grad = modified_pseudo_grads
             optimizer.step()
             if lr_scheduler is not None:
-                step_args = inspect.signature(lr_scheduler.step).parameters
-                if "metrics" in step_args:
-                    trigger_metric = lr_scheduler.trigger_metric
-                    lr_scheduler.step(aggregator.get(trigger_metric))
-                else:
-                    lr_scheduler.step()
+                lr_scheduler.step()
             server_storage.write("avg_params", param_avg.detach().clone())
             server_storage.write("h", h.data)
             # purge aggregated results

@@ -104,9 +104,9 @@ from .utils import validate_score
     "--criterion",
     type=tuple,
     cls=OptionEatAll,
-    default=("CrossEntropyLoss", "log_freq:50"),
+    default=("CrossEntropyScore", "log_freq:50"),
     show_default=True,
-    help="loss function to use (defined under fedsim.losses).",
+    help="loss function to use (any differentiable fedsim.scores.Score).",
 )
 @click.option(
     "--batch-size",

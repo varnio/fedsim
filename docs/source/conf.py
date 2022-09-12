@@ -26,7 +26,7 @@ copyright = "2022, Farshid Varno"
 year = "2022"
 author = "Farshid Varno"
 copyright = "{0}, {1}".format(year, author)
-version = release = "0.7.0"
+version = release = "0.8.0"
 # The full version, including alpha/beta/rc tags
 
 # -- General configuration ---------------------------------------------------
@@ -156,7 +156,7 @@ html_theme_options = {
         "text": "FedSim",
         "image_dark": "logo-light.png",
     },
-    "show_toc_level": 1,
+    "show_toc_level": 2,
     "navbar_start": ["navbar-logo"],
 }
 
