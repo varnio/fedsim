@@ -4,4 +4,4 @@
 Quick User Guide
 ################
 
-.. include:: README.rst
+.. include:: ../../../README.rst
