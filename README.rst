@@ -54,7 +54,7 @@ That's it! You are all set!
 Design Architecture
 ===================
 
-.. image:: docs/source/_static/arch.svg
+.. image:: https://raw.githubusercontent.com/varnio/fedsim/3387a994664853c599094a72b342b8f7f3dba0f2/docs/source/_static/arch.svg
     :width: 90%
 
 
@@ -76,7 +76,7 @@ The "MNIST" dataset is partitioned on 500 clients by default, and the FedAvg alg
 A text file is made that descibes the configuration for the experiment and a summary of results when it is finished. Additionally, a tensorboard log file is made to monitor the scores/metrics of the training.
 The directory that these files are stored is (reconfigurable and is) displayed while the experiment is running.
 
-.. image:: docs/source/_static/examples/one_line_train.gif
+.. image:: https://github.com/varnio/fedsim/blob/main/docs/source/_static/examples/one_line_train.gif?raw=true
 
 Hooking scores to cli tools
 ---------------------------
@@ -94,9 +94,9 @@ Here's how we modify the above command:
         --global-score Accuracy score_name:acc43 split:test log_freq:43 \
         --local-score Accuracy split:train log_freq:15
 
-.. image:: docs/source/_static/examples/add_metrics.gif
+.. image:: https://github.com/varnio/fedsim/blob/main/docs/source/_static/examples/add_metrics.gif?raw=true
 
-.. image:: docs/source/_static/examples/tb_ex.png
+.. image:: https://github.com/varnio/fedsim/blob/main/docs/source/_static/examples/tb_ex.png?raw=true
 
 Check `Fedsim Scores Page <https://fedsim.varnio.com/en/latest/reference/fedsim.scores.html>`_ for the list of all other scores like Accyracy or define your custom score.
 
