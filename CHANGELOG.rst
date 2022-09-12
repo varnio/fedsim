@@ -1,3 +1,9 @@
+0.8.2 (2022-09-12)
+------------------
+
+* changed image paths to links from github in readme
+
+
 0.8.1 (2022-09-12)
 ------------------
 
