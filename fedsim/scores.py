@@ -81,6 +81,18 @@ class Score(object):
         """
         raise NotImplementedError
 
+    def is_differentiable(self) -> bool:
+        """to check if the score is differentiable (to for ex. use as loss function).
+
+        Raises:
+            NotImplementedError: This abstract method should be implemented by child
+                classes
+
+        Returns:
+            bool: True if the output of the call is differentiable.
+        """
+        raise NotImplementedError
+
 
 class Accuracy(Score):
     r"""updatable accuracy score
@@ -160,6 +172,9 @@ class Accuracy(Score):
     def reset(self) -> None:
         self._sum = 0
         self._weight = 0
+
+    def is_differentiable(self) -> bool:
+        return False
 
 
 class CrossEntropyScore(Score):
@@ -247,3 +262,6 @@ class CrossEntropyScore(Score):
     def reset(self) -> None:
         self._sum = 0
         self._weight = 0
+
+    def is_differentiable(self) -> bool:
+        return True

@@ -64,7 +64,7 @@ class CentralFLAlgorithm(object):
 
     Architecture:
 
-        .. image:: ../_static/fedlearn.svg
+        .. image:: ../_static/arch.svg
     """
 
     def __init__(
@@ -324,13 +324,7 @@ class CentralFLAlgorithm(object):
     def _at_round_end(self, score_aggregator) -> None:
         r2r_local_lr_scheduler = self._psm.read("r2r_local_lr_scheduler")
         if r2r_local_lr_scheduler is not None:
-            step_args = inspect.signature(r2r_local_lr_scheduler.step).parameters
-            # TODO: metrics in step_args is deprecated, remove in future releases
-            if "metrics" in step_args:
-                trigger_metric = r2r_local_lr_scheduler.trigger_metric
-                r2r_local_lr_scheduler.step(score_aggregator.get(trigger_metric, 1))
-            else:
-                r2r_local_lr_scheduler.step()
+            r2r_local_lr_scheduler.step()
         self.at_round_end(self._server_memory, score_aggregator)
 
     def _get_round_scores(self, score_def_deck):
@@ -356,7 +350,7 @@ class CentralFLAlgorithm(object):
 
         .. note::
             * The clients metrics are reported in the form of clients.{metric_name}.
-            * The server metrics are reported in the form of
+            * The server metrics (scores results) are reported in the form of
                 server.{deployment_point}.{metric_name}
 
         Args:
@@ -380,13 +374,36 @@ class CentralFLAlgorithm(object):
         return ans
 
     def get_model_def(self):
+        """To get the definition of the model so that one can instantiate it by
+        calling.
+
+        Returns:
+            Callable: definition of the model. To instantiate, you may call the
+            returned value with paranthesis in front.
+        """
         model_def = self._psm.read("model_def")
         return model_def
 
     def get_server_storage(self):
+        """To access the public configs of the server.
+
+        Returns:
+            Storage: public server storage.
+        """
         return self._server_memory
 
     def get_server_private_storage(self, verbose=True):
+        """To access the private configs of the server. Accessing this method is not
+        recommended and often violates a principle of the common FL algorithms. Almost
+        always ``get_server_storage`` is preferred to this method.
+
+        Args:
+            verbose (bool, optional): To show a warning message for access violation.
+            Defaults to True.
+
+        Returns:
+            Storage: private server storage.
+        """
         if verbose:
             print(
                 "Warning: private server's storage is fetched! "
@@ -395,37 +412,98 @@ class CentralFLAlgorithm(object):
         return self._psm
 
     def get_round_number(self):
+        """To get the current round number, starting from zero.
+
+        Returns:
+            int: current round number, starting from zero.
+        """
         return self._psm.read("rounds")
 
     def get_train_split_name(self):
+        """To get the name of the split used to perform local training.
+
+        Returns:
+            Hashable: name of the split used for local training.
+        """
         return self._train_split_name
 
     def hook_local_score(self, score_def, score_name, split_name) -> None:
+        """To hook a score measurment on local data.
+
+        Args:
+            score_def (Callable): definition of the score used to make new instances of.
+                the list of existing scores could be found under ``fedsim.scores``.
+            score_name (Hashable): name of the score to show up in the logs.
+            split_name (Hashable): name of the data split to apply the measurement on.
+        """
         self._client_scores[split_name][score_name] = score_def
 
     def hook_global_score(self, score_def, score_name, split_name) -> None:
+        """To hook a score measurment on global data.
+
+        Args:
+            score_def (Callable): definition of the score used to make new instances of.
+                the list of existing scores could be found under ``fedsim.scores``.
+            score_name (Hashable): name of the score to show up in the logs.
+            split_name (Hashable): name of the data split to apply the measurement on.
+        """
         self._server_scores[split_name][score_name] = score_def
 
     def get_local_split_scores(self, split_name) -> Dict[str, Any]:
+        """To instantiate and get local scores that have to be measured in the
+        current round (log frequencies are matched) for a specific data split.
+
+        Args:
+            split_name (Hashable): name of the global data split
+
+        Returns:
+            Dict[str, Any]: mapping of name:score
+        """
         return self._get_round_scores(self._client_scores[split_name])
 
     def get_global_split_scores(self, split_name) -> Dict[str, Any]:
-        return self._get_round_scores(self._server_scores[split_name])
+        """To instantiate and get global scores that have to be measured in the
+        current round (log frequencies are matched) for a specific data split.
+
+        Args:
+            split_name (Hashable): name of the global data split
+
+        Returns:
+            Dict[str, Any]: mapping of name:score. If no score is listed for the given
+                split, None is returned.
+        """
+        split_scores = self._get_round_scores(self._server_scores[split_name])
+        if len(split_scores) > 0:
+            return split_scores
+        return None
 
     def get_local_scores(self) -> Dict[str, Any]:
+        """To instantiate and get local scores that have to be measured in the current
+        round (log frequencies are matched).
+
+        Returns:
+            Dict[str, Any]: mapping of name:score. If no score is listed for the given
+                split, None is returned.
+        """
         scores = dict()
-        for split_name, split in self._client_scores.items():
-            split_scores = self._get_round_scores(split)
-            if len(split_scores) > 0:
-                scores[split_name] = split_scores
+        for split_name in self._client_scores:
+            split_score = self.get_local_split_scores(split_name)
+            if split_score is not None:
+                scores[split_name] = split_score
         return scores
 
     def get_global_scores(self) -> Dict[str, Any]:
+        """To instantiate and get global scores that have to be measured in the
+        current round (log frequencies are matched).
+
+        Returns:
+            Dict[str, Any]: mapping of name:score
+        """
         scores = dict()
-        for split_name, split in self._server_scores.items():
-            split_scores = self._get_round_scores(split)
-            if len(split_scores) > 0:
-                scores[split_name] = split_scores
+        for split_name in self._server_scores:
+            split_score = self.get_global_split_scores(split_name)
+            if split_score is not None:
+                scores[split_name] = split_score
         return scores
 
     # we do not do type hinting, however, the hints for abstract
@@ -482,7 +560,7 @@ class CentralFLAlgorithm(object):
         storage: Dict[Hashable, Any],
         datasets: Dict[str, Iterable],
         train_split_name: str,
-        metrics: Dict[str, Dict[str, Any]],
+        scores: Dict[str, Dict[str, Any]],
         epochs: int,
         criterion: nn.Module,
         train_batch_size: int,
@@ -502,11 +580,11 @@ class CentralFLAlgorithm(object):
             storage (Storage): storage object of the client
             datasets (Dict[str, Iterable]): this comes from Data Manager
             train_split_name (str): string containing name of the training split
-            metrics: Dict[str, Dict[str, Any]]: dictionary of
-                form {'split_name':{'score_name': score_def}} for global scores to
+            scores: Dict[str, Dict[str, Score]]: dictionary of
+                form {'split_name':{'score_name': Score}} for global scores to
                 evaluate at the current round.
-            epochs (``int``): number of epochs to train
-            criterion (nn.Module): either 'ce' (for cross-entropy) or 'mse'
+            epochs (int): number of epochs to train
+            criterion (Score): citerion, should be a differentiable fedsim.scores.score
             train_batch_size (int): training batch_size
             inference_batch_size (int): inference batch_size
             optimizer_def (float): class for constructing the local optimizer
@@ -550,7 +628,7 @@ class CentralFLAlgorithm(object):
     def optimize(
         self, server_storage: Storage, aggregator: SerialAggregator
     ) -> Mapping[Hashable, Any]:
-        """optimize server mdoel(s) and return metrics to be reported
+        """optimize server mdoel(s) and return scores to be reported
 
         Args:
             server_storage (Storage): server storage object.

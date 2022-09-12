@@ -9,9 +9,9 @@ from fedsim.distributed.centralized import FedDyn
 from fedsim.distributed.centralized import FedNova
 from fedsim.distributed.centralized import FedProx
 from fedsim.distributed.data_management import BasicDataManager
-from fedsim.losses import CrossEntropyLoss
 from fedsim.models.simple_models import SimpleCNN2
 from fedsim.scores import Accuracy
+from fedsim.scores import CrossEntropyScore
 
 
 def alg_hook(alg, dm):
@@ -50,7 +50,7 @@ def test_algs():
         sample_rate=1.0,
         model_def=partial(SimpleCNN2, num_classes=100),
         epochs=1,
-        criterion_def=partial(CrossEntropyLoss, log_freq=100),
+        criterion_def=partial(CrossEntropyScore, log_freq=100),
         batch_size=32,
         metric_logger=sw,
         device=device,

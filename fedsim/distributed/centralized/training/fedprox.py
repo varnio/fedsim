@@ -50,7 +50,7 @@ class FedProx(fedavg.FedAvg):
                 get_last_lr methods._schedulers``.
             * optimizers, could be any ``torch.optim.Optimizer``.
             * model, could be any ``torch.Module``.
-            * criterion, could be any ``fedsim.losses``.
+            * criterion, could be any ``fedsim.scores.Score``.
 
     .. _Federated Optimization in Heterogeneous Networks:
         https://arxiv.org/abs/1812.06127
@@ -76,8 +76,6 @@ class FedProx(fedavg.FedAvg):
         device="cuda",
         mu=0.0001,
     ):
-        self.mu = mu
-
         super(FedProx, self).__init__(
             data_manager,
             metric_logger,
@@ -96,6 +94,13 @@ class FedProx(fedavg.FedAvg):
             test_batch_size,
             device,
         )
+        server_storage = self.get_server_storage()
+        server_storage.write("mu", mu)
+
+    def send_to_client(self, server_storage, client_id):
+        server_msg = super().send_to_client(server_storage, client_id)
+        server_msg["mu"] = server_storage.read("mu")
+        return server_msg
 
     def send_to_server(
         self,
@@ -104,7 +109,7 @@ class FedProx(fedavg.FedAvg):
         storage,
         datasets,
         train_split_name,
-        metrics,
+        scores,
         epochs,
         criterion,
         train_batch_size,
@@ -116,8 +121,8 @@ class FedProx(fedavg.FedAvg):
         step_closure=None,
     ):
         model = ctx["model"]
+        mu = ctx["mu"]
         params_init = vectorize_module(model, clone=True, detach=True)
-        mu = self.mu
 
         def transform_grads_fn(model):
             params = parameters_to_vector(model.parameters())
@@ -138,7 +143,7 @@ class FedProx(fedavg.FedAvg):
             storage,
             datasets,
             train_split_name,
-            metrics,
+            scores,
             epochs,
             criterion,
             train_batch_size,

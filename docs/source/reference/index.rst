@@ -2,9 +2,9 @@
 
 .. _reference:
 
-################
-FedSim Reference
-################
+#############
+API Reference
+#############
 
 :Release: |version|
 :Date: |today|
