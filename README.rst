@@ -150,7 +150,7 @@ The same is possible for any other component, for instance for a Custom model:
 More about cli commands
 -----------------------
 
-For help with cli check `fedsim-cli documentation <http://0.0.0.0:8000/clidoc/index.html>`_ or read the output of the following commands:
+For help with cli check `fedsim-cli documentation <https://fedsim.varnio.com/en/latest/clidoc/index.html>`_ or read the output of the following commands:
 
 .. code-block:: bash
 
