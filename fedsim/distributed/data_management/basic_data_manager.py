@@ -274,8 +274,10 @@ class BasicDataManager(DataManager):
                 dictionary of {split:example indices of global dataset}.
         """
         num = len(dataset)
-        val = int(num * self.global_valid_portion)
-        return dict(test=range(val, num), valid=range(0, val))
+        if self.global_valid_portion > 0:
+            val = int(num * self.global_valid_portion)
+            return dict(test=range(val, num), valid=range(0, val))
+        return dict(test=range(range(num)))
 
     def get_identifiers(self):
         """Returns identifiers to be used for saving the partition info.
