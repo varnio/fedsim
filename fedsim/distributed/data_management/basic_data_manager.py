@@ -138,7 +138,7 @@ class BasicDataManager(DataManager):
             )
         return (
             dict(train=train_transform, test=infer_transform),  # for local
-            dict(test=infer_transform),  # for gloval
+            dict(test=infer_transform, valid=infer_transform),  # for gloval
         )
 
     def partition_local_data(self, dataset):
