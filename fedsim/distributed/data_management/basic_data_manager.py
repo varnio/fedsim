@@ -277,7 +277,7 @@ class BasicDataManager(DataManager):
         if self.global_valid_portion > 0:
             val = int(num * self.global_valid_portion)
             return dict(test=range(val, num), valid=range(0, val))
-        return dict(test=range(range(num)))
+        return dict(test=range(num))
 
     def get_identifiers(self):
         """Returns identifiers to be used for saving the partition info.
