@@ -1,3 +1,9 @@
+0.8.3 (2022-09-18)
+------------------
+
+* add option for valid split on global data in basic dta manager.
+
+
 0.8.2 (2022-09-12)
 ------------------
 

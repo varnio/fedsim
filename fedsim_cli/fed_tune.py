@@ -254,7 +254,7 @@ from .utils import validate_score
     type=tuple,
     cls=OptionEatAll,
     multiple=True,
-    default=(("CrossEntropyScore", "log_freq:50", "split:test"),),
+    default=None,
     help="hooks a score object to a split of global datasets. Choose the score classes\
         from `fedsim.scores`. It is possible to call this option multiple times.",
 )
