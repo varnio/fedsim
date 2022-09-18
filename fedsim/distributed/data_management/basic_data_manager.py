@@ -39,6 +39,8 @@ class BasicDataManager(DataManager):
         sample_balance (float): balance of number of samples among clients
         label_balance (float): balance of the labels on each clietns
         local_test_portion (float): portion of local test set from trian
+        global_valid_portion (float): portion of global valid split.
+            What remains from global samples goes to the test split.
         seed (int): random seed of partitioning
         save_dir (str, optional): dir to save partitioned indices.
     """
@@ -52,6 +54,7 @@ class BasicDataManager(DataManager):
         sample_balance=0.0,
         label_balance=1.0,
         local_test_portion=0.0,
+        global_valid_portion=0.0,
         seed=10,
         save_dir="partitions",
     ):
@@ -61,6 +64,7 @@ class BasicDataManager(DataManager):
         self.sample_balance = sample_balance
         self.label_balance = label_balance
         self.local_test_portion = local_test_portion
+        self.global_valid_portion = global_valid_portion
 
         # super should be called at the end because abstract classes are
         # called in its __init__
@@ -269,7 +273,9 @@ class BasicDataManager(DataManager):
             Dict[str, Iterable[int]]:
                 dictionary of {split:example indices of global dataset}.
         """
-        return dict(test=range(len(dataset)))
+        num = len(dataset)
+        val = int(num * self.global_valid_portion)
+        return dict(test=range(val, num), valid=range(0, val))
 
     def get_identifiers(self):
         """Returns identifiers to be used for saving the partition info.
@@ -289,5 +295,7 @@ class BasicDataManager(DataManager):
         else:
             identifiers.append(f"unbalanced_{self.sample_balance}")
         if self.local_test_portion > 0:
-            identifiers.append("ts_{}".format(self.local_test_portion))
+            identifiers.append("lTS_{}".format(self.local_test_portion))
+        if self.global_valid_portion > 0:
+            identifiers.append("gVL_{}".format(self.global_valid_portion))
         return identifiers
