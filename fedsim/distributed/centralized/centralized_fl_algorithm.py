@@ -427,6 +427,25 @@ class CentralFLAlgorithm(object):
         """
         return self._train_split_name
 
+    def get_global_loader_split(self, split_name) -> Iterable:
+        """To get the data loader for a specific global split.
+
+        Args:
+            split_name (Hashable): split name.
+
+        Returns:
+            Iterable: data loader for global split <split_name>
+        """
+        return self._psm.read("global_dataloaders")[split_name]
+
+    def get_device(self) -> str:
+        """To get the device name or number
+
+        Returns:
+            str: device name or number
+        """
+        return self._psm.read("device")
+
     def hook_local_score(self, score_def, score_name, split_name) -> None:
         """To hook a score measurment on local data.
 
