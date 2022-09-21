@@ -5,18 +5,17 @@ AdaBest
 from functools import partial
 
 import torch
-from torch.optim import SGD
 
 from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import SerialAggregator
 from fedsim.utils import vector_to_parameters_like
 from fedsim.utils import vectorize_module
 
-from . import fedavg
+from .fedavg import FedAvg
 from .utils import serial_aggregation
 
 
-class AdaBest(fedavg.FedAvg):
+class AdaBest(FedAvg):
     r"""Implements AdaBest algorithm for centralized FL.
 
     For further details regarding the algorithm we refer to `AdaBest: Minimizing Client
@@ -60,70 +59,27 @@ class AdaBest(fedavg.FedAvg):
         Bias Estimation: https://arxiv.org/abs/2204.13170
     """
 
-    def __init__(
-        self,
-        data_manager,
-        metric_logger,
-        num_clients,
-        sample_scheme,
-        sample_rate,
-        model_def,
-        epochs,
-        criterion_def,
-        optimizer_def=partial(SGD, lr=0.1, weight_decay=0.001),
-        local_optimizer_def=partial(SGD, lr=1.0),
-        lr_scheduler_def=None,
-        local_lr_scheduler_def=None,
-        r2r_local_lr_scheduler_def=None,
-        batch_size=32,
-        test_batch_size=64,
-        device="cuda",
-        mu=0.1,
-        beta=0.8,
-    ):
-        # this is to avoid violations like reading oracle info and
-        # number of clients in FedDyn and SCAFFOLD
-        self.general_agg = SerialAggregator()
-
-        super(AdaBest, self).__init__(
-            data_manager,
-            metric_logger,
-            num_clients,
-            sample_scheme,
-            sample_rate,
-            model_def,
-            epochs,
-            criterion_def,
-            optimizer_def,
-            local_optimizer_def,
-            lr_scheduler_def,
-            local_lr_scheduler_def,
-            r2r_local_lr_scheduler_def,
-            batch_size,
-            test_batch_size,
-            device,
-        )
-
-        server_storage = self.get_server_storage()
+    def init(server_storage, *args, **kwrag):
+        default_mu = 0.1
+        default_beta = 0.85
+        FedAvg.init(server_storage)
         cloud_params = server_storage.read("cloud_params")
         server_storage.write("avg_params", cloud_params.clone().detach())
         server_storage.write("h", torch.zeros_like(cloud_params))
         server_storage.write("average_sample", 0)
-        server_storage.write("mu", mu)
-        server_storage.write("beta", beta)
+        server_storage.write("mu", kwrag.get("mu", default_mu))
+        server_storage.write("beta", kwrag.get("beta", default_beta))
+        running_stats = SerialAggregator()
+        running_stats.add("avg_m", 0, 0)
+        server_storage.write("running_stats", running_stats)
 
-        # for client_id in range(num_clients):
-        #     self.write_client(client_id, "h", torch.zeros_like(cloud_params))
-        #     self.write_client(client_id, "last_round", -1)
-
-    def send_to_client(self, server_storage, client_id):
-        msg = super().send_to_client(server_storage, client_id)
-        msg["average_sample"] = server_storage.read("average_sample")
+    def send_to_client(server_storage, client_id):
+        msg = FedAvg.send_to_client(server_storage, client_id)
+        msg["average_sample"] = server_storage.read("running_stats").get("avg_m")
         msg["mu"] = server_storage.read("mu")
         return msg
 
     def send_to_server(
-        self,
         id,
         rounds,
         storage,
@@ -140,7 +96,6 @@ class AdaBest(fedavg.FedAvg):
         ctx=None,
         step_closure=None,
     ):
-        train_split_name = self.get_train_split_name()
         model = ctx["model"]
         mu = ctx["mu"]
         average_sample = ctx["average_sample"]
@@ -160,7 +115,7 @@ class AdaBest(fedavg.FedAvg):
         step_closure_ = partial(
             default_step_closure, transform_grads=transform_grads_fn
         )
-        opt_res = super(AdaBest, self).send_to_server(
+        opt_res = FedAvg.send_to_server(
             id,
             rounds,
             storage,
@@ -193,12 +148,12 @@ class AdaBest(fedavg.FedAvg):
         return opt_res
 
     def receive_from_client(
-        self,
         server_storage,
         client_id,
         client_msg,
         train_split_name,
-        aggregation_results,
+        serial_aggregator,
+        appendix_aggregator,
     ):
         weight = 1
         agg_res = serial_aggregation(
@@ -206,18 +161,18 @@ class AdaBest(fedavg.FedAvg):
             client_id,
             client_msg,
             train_split_name,
-            aggregation_results,
+            serial_aggregator,
             train_weight=weight,
         )
-        n_train = client_msg["num_samples"][self.get_train_split_name()]
-        self.general_agg.add("avg_m", n_train / client_msg["num_steps"], 1)
-        server_storage.write("average_sample", self.general_agg.get("avg_m"))
+        n_train = client_msg["num_samples"][train_split_name]
+        running_stats = server_storage.read("running_stats")
+        running_stats.add("avg_m", n_train / client_msg["num_steps"], 1)
         return agg_res
 
-    def optimize(self, server_storage, aggregator):
-        if "local_params" in aggregator:
+    def optimize(server_storage, serial_aggregator, appendix_aggregator):
+        if "local_params" in serial_aggregator:
             beta = server_storage.read("beta")
-            param_avg = aggregator.pop("local_params")
+            param_avg = serial_aggregator.pop("local_params")
             optimizer = server_storage.read("optimizer")
             lr_scheduler = server_storage.read("lr_scheduler")
             cloud_params = server_storage.read("cloud_params")
@@ -231,9 +186,9 @@ class AdaBest(fedavg.FedAvg):
             if lr_scheduler is not None:
                 lr_scheduler.step()
             server_storage.write("avg_params", param_avg.detach().clone())
-        return aggregator.pop_all()
+        return serial_aggregator.pop_all()
 
-    def deploy(self, server_storage):
+    def deploy(server_storage):
         return dict(
             cloud=server_storage.read("cloud_params"),
             avg=server_storage.read("avg_params"),

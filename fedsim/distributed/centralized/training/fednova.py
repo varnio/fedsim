@@ -2,15 +2,11 @@ r"""
 FedNova
 -------
 """
-from functools import partial
-
-from torch.optim import SGD
-
-from . import fedavg
+from .fedavg import FedAvg
 from .utils import serial_aggregation
 
 
-class FedNova(fedavg.FedAvg):
+class FedNova(FedAvg):
     r"""Implements FedNova algorithm for centralized FL.
 
     For further details regarding the algorithm we refer to `Tackling the Objective
@@ -51,53 +47,14 @@ class FedNova(fedavg.FedAvg):
         Optimization: https://arxiv.org/abs/2007.07481
     """
 
-    def __init__(
-        self,
-        data_manager,
-        metric_logger,
-        num_clients,
-        sample_scheme,
-        sample_rate,
-        model_def,
-        epochs,
-        criterion_def,
-        optimizer_def=partial(SGD, lr=0.1, weight_decay=0.001),
-        local_optimizer_def=partial(SGD, lr=1.0),
-        lr_scheduler_def=None,
-        local_lr_scheduler_def=None,
-        r2r_local_lr_scheduler_def=None,
-        batch_size=32,
-        test_batch_size=64,
-        device="cuda",
-    ):
-        super(FedNova, self).__init__(
-            data_manager,
-            metric_logger,
-            num_clients,
-            sample_scheme,
-            sample_rate,
-            model_def,
-            epochs,
-            criterion_def,
-            optimizer_def,
-            local_optimizer_def,
-            lr_scheduler_def,
-            local_lr_scheduler_def,
-            r2r_local_lr_scheduler_def,
-            batch_size,
-            test_batch_size,
-            device,
-        )
-
     def receive_from_client(
-        self,
         server_storage,
         client_id,
         client_msg,
         train_split_name,
-        aggregation_results,
+        serial_aggregator,
+        appendix_aggregator,
     ):
-        train_split_name = self.get_train_split_name()
         n_train = client_msg["num_samples"][train_split_name]
         weight = n_train / client_msg["num_steps"]
 
@@ -106,6 +63,6 @@ class FedNova(fedavg.FedAvg):
             client_id,
             client_msg,
             train_split_name,
-            aggregation_results,
+            serial_aggregator,
             train_weight=weight,
         )

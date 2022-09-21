@@ -5,16 +5,15 @@ FedProx
 from functools import partial
 
 from torch.nn.utils import parameters_to_vector
-from torch.optim import SGD
 
 from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import vector_to_parameters_like
 from fedsim.utils import vectorize_module
 
-from . import fedavg
+from .fedavg import FedAvg
 
 
-class FedProx(fedavg.FedAvg):
+class FedProx(FedAvg):
     r"""Implements FedProx algorithm for centralized FL.
 
     For further details regarding the algorithm we refer to `Federated Optimization in
@@ -56,54 +55,17 @@ class FedProx(fedavg.FedAvg):
         https://arxiv.org/abs/1812.06127
     """
 
-    def __init__(
-        self,
-        data_manager,
-        metric_logger,
-        num_clients,
-        sample_scheme,
-        sample_rate,
-        model_def,
-        epochs,
-        criterion_def,
-        optimizer_def=partial(SGD, lr=0.1, weight_decay=0.001),
-        local_optimizer_def=partial(SGD, lr=1.0),
-        lr_scheduler_def=None,
-        local_lr_scheduler_def=None,
-        r2r_local_lr_scheduler_def=None,
-        batch_size=32,
-        test_batch_size=64,
-        device="cuda",
-        mu=0.0001,
-    ):
-        super(FedProx, self).__init__(
-            data_manager,
-            metric_logger,
-            num_clients,
-            sample_scheme,
-            sample_rate,
-            model_def,
-            epochs,
-            criterion_def,
-            optimizer_def,
-            local_optimizer_def,
-            lr_scheduler_def,
-            local_lr_scheduler_def,
-            r2r_local_lr_scheduler_def,
-            batch_size,
-            test_batch_size,
-            device,
-        )
-        server_storage = self.get_server_storage()
-        server_storage.write("mu", mu)
+    def init(server_storage, *args, **kwrag):
+        default_mu = 0.0001
+        FedAvg.init(server_storage)
+        server_storage.write("mu", kwrag.get("mu", default_mu))
 
-    def send_to_client(self, server_storage, client_id):
-        server_msg = super().send_to_client(server_storage, client_id)
+    def send_to_client(server_storage, client_id):
+        server_msg = FedAvg.send_to_client(server_storage, client_id)
         server_msg["mu"] = server_storage.read("mu")
         return server_msg
 
     def send_to_server(
-        self,
         id,
         rounds,
         storage,
@@ -137,7 +99,7 @@ class FedProx(fedavg.FedAvg):
         step_closure_ = partial(
             default_step_closure, transform_grads=transform_grads_fn
         )
-        return super(FedProx, self).send_to_server(
+        return FedAvg.send_to_server(
             id,
             rounds,
             storage,

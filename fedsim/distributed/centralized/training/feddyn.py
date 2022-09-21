@@ -5,17 +5,16 @@ FedDyn
 from functools import partial
 
 import torch
-from torch.optim import SGD
 
 from fedsim.local.training.step_closures import default_step_closure
 from fedsim.utils import vector_to_parameters_like
 from fedsim.utils import vectorize_module
 
-from . import fedavg
+from .fedavg import FedAvg
 from .utils import serial_aggregation
 
 
-class FedDyn(fedavg.FedAvg):
+class FedDyn(FedAvg):
     r"""Implements FedDyn algorithm for centralized FL.
 
     For further details regarding the algorithm we refer to `Federated Learning Based
@@ -58,73 +57,34 @@ class FedDyn(fedavg.FedAvg):
         https://openreview.net/forum?id=B7v4QMR6Z9w
     """
 
-    def __init__(
-        self,
-        data_manager,
-        metric_logger,
-        num_clients,
-        sample_scheme,
-        sample_rate,
-        model_def,
-        epochs,
-        criterion_def,
-        optimizer_def=partial(SGD, lr=0.1, weight_decay=0.001),
-        local_optimizer_def=partial(SGD, lr=1.0),
-        lr_scheduler_def=None,
-        local_lr_scheduler_def=None,
-        r2r_local_lr_scheduler_def=None,
-        batch_size=32,
-        test_batch_size=64,
-        device="cuda",
-        alpha=0.1,
-    ):
-
-        super(FedDyn, self).__init__(
-            data_manager,
-            metric_logger,
-            num_clients,
-            sample_scheme,
-            sample_rate,
-            model_def,
-            epochs,
-            criterion_def,
-            optimizer_def,
-            local_optimizer_def,
-            lr_scheduler_def,
-            local_lr_scheduler_def,
-            r2r_local_lr_scheduler_def,
-            batch_size,
-            test_batch_size,
-            device,
-        )
-
-        server_storage = self.get_server_storage()
+    def init(server_storage, *args, **kwrag):
+        default_alpha = 0.1
+        local_train_split_name = "train"
+        FedAvg.init(server_storage)
         cloud_params = server_storage.read("cloud_params")
         server_storage.write("avg_params", cloud_params.clone().detach())
         server_storage.write("h", torch.zeros_like(cloud_params))
-        server_storage.write("alpha", alpha)
-
+        server_storage.write("average_sample", 0)
+        server_storage.write("alpha", kwrag.get("alpha", default_alpha))
         # oracle read violation, num_clients read violation
         print("Warning: private access violation")
         print("\t", end="")
         print(
             "FedDyn assumes prior knowledge on the number of clients and oracle samples"
         )
-        private_storage = self.get_server_private_storage()
-        oracle_dataset = private_storage.read("oracle_dataset")
-        num_clients = private_storage.read("num_clients")
-        average_sample = len(oracle_dataset[self.get_train_split_name()]) / num_clients
-        server_storage.write("average_sample", average_sample)
-        server_storage.write("violation_shouted", False)
+        oracle_dataset = server_storage.read("oracle_dataset")[local_train_split_name]
+        num_clients = server_storage.read("num_clients")
 
-    def send_to_client(self, server_storage, client_id):
-        msg = super().send_to_client(server_storage, client_id)
+        average_sample = len(oracle_dataset) / num_clients
+        server_storage.write("average_sample", average_sample)
+
+    def send_to_client(server_storage, client_id):
+        msg = FedAvg.send_to_client(server_storage, client_id)
         msg["average_sample"] = server_storage.read("average_sample")
         msg["alpha"] = server_storage.read("alpha")
         return msg
 
     def send_to_server(
-        self,
         id,
         rounds,
         storage,
@@ -141,7 +101,6 @@ class FedDyn(fedavg.FedAvg):
         ctx=None,
         step_closure=None,
     ):
-        train_split_name = self.get_train_split_name()
         model = ctx["model"]
         alpha = ctx["alpha"]
         average_sample = ctx["average_sample"]
@@ -165,7 +124,7 @@ class FedDyn(fedavg.FedAvg):
         step_closure_ = partial(
             default_step_closure, transform_grads=transform_grads_fn
         )
-        opt_res = super(FedDyn, self).send_to_server(
+        opt_res = FedAvg.send_to_server(
             id,
             rounds,
             storage,
@@ -190,12 +149,12 @@ class FedDyn(fedavg.FedAvg):
         return opt_res
 
     def receive_from_client(
-        self,
         server_storage,
         client_id,
         client_msg,
         train_split_name,
-        aggregation_results,
+        serial_aggregator,
+        appendix_aggregator,
     ):
         weight = 1
         return serial_aggregation(
@@ -203,26 +162,22 @@ class FedDyn(fedavg.FedAvg):
             client_id,
             client_msg,
             train_split_name,
-            aggregation_results,
+            serial_aggregator,
             train_weight=weight,
         )
 
-    def optimize(self, server_storage, aggregator):
-        if "local_params" in aggregator:
-            weight = aggregator.get_weight("local_params")
-            param_avg = aggregator.pop("local_params")
+    def optimize(server_storage, serial_aggregator, appendix_aggregator):
+        if "local_params" in serial_aggregator:
+            weight = serial_aggregator.get_weight("local_params")
+            param_avg = serial_aggregator.pop("local_params")
             optimizer = server_storage.read("optimizer")
             lr_scheduler = server_storage.read("lr_scheduler")
             cloud_params = server_storage.read("cloud_params")
             pseudo_grads = cloud_params.data - param_avg
             h = server_storage.read("h")
-            # read total clients VIOLATION
-            silent = server_storage.read("violation_shouted")
-            private_storage = self.get_server_private_storage(verbose=not silent)
-            if not silent:
-                server_storage.write("violation_shouted", True)
-            num_clients = private_storage.read("num_clients")
-
+            num_clients = server_storage.read("num_clients")
+            # already warned, disable read protection from num_clients
+            server_storage.change_protection("num_clients", False, False)
             h = h + weight / num_clients * pseudo_grads
             new_params = param_avg - h
             modified_pseudo_grads = cloud_params.data - new_params
@@ -236,9 +191,9 @@ class FedDyn(fedavg.FedAvg):
             server_storage.write("h", h.data)
             # purge aggregated results
             del param_avg
-        return aggregator.pop_all()
+        return serial_aggregator.pop_all()
 
-    def deploy(self, server_storage):
+    def deploy(server_storage):
         return dict(
             cloud=server_storage.read("cloud_params"),
             avg=server_storage.read("avg_params"),

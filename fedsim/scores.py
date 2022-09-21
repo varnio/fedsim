@@ -265,3 +265,82 @@ class CrossEntropyScore(Score):
 
     def is_differentiable(self) -> bool:
         return True
+
+
+class KLDivScore(Score):
+    r"""updatable pointwise KL-divergence score
+
+    .. automethod:: __call__
+
+    Args:
+        log_freq (int, optional): how many steps gap between two evaluations.
+            Defaults to 1.
+        split (str, optional): data split to evaluate on . Defaults to 'test'.
+        score_name (str): name of the score object
+        reduction (str): Specifies the reduction to apply to the output:
+        ``'micro'`` | ``'macro'``. ``'micro'``: as if mini-batches are
+        concatenated. ``'macro'``: mean of cross entropy of each mini-batch
+        (update). Default: ``'micro'``
+    """
+
+    def __init__(
+        self,
+        log_freq: int = 1,
+        split="test",
+        score_name="kl_dic_score",
+        reduction: str = "micro",
+        log_target=False,
+    ) -> None:
+        super().__init__(log_freq, split, score_name, reduction)
+        self._base_class = torch.nn.KLDivLoss(log_target=log_target, reduction="sum")
+        self._sum = 0
+        self._weight = 0
+
+    def __call__(self, input, target) -> Tensor:
+        r"""updates the KL-divergence score on a mini-batch detached from the
+        computational graph. It also returns the current batch score without detaching
+        from the graph.
+
+        Args:
+
+            input (Tensor) : Predicted unnormalized scores (often referred to as\
+                logits); see Shape section below for supported shapes.
+            target (Tensor) : Ground truth class indices or class probabilities;
+                see Shape section below for supported shapes.
+
+        Shape:
+            - Input: :math:`(*)`, where :math:`*` means any number of dimensions.
+            - Target: :math:`(*)`, same shape as the input.
+            - Output: scalar by default. If :attr:`reduction` is `'none'`,
+                then :math:`(*)`, same shape as the input.
+
+        Returns:
+            Tensor: KL-divergence score of current batch
+
+
+        """
+        if not (target.shape[0] == input.shape[0]):
+            raise Exception(
+                f"size mismatch between input {input.shape[0]} and" f"{target.shape[0]}"
+            )
+        cur_sum = self._base_class(input, target)
+
+        if self.reduction == "micro":
+            self._sum += cur_sum.item()
+            self._weight += input.shape[0]
+        elif self.reduction == "macro":
+            self._sum += cur_sum.item() / input.shape[0]
+            self._weight += 1
+        return cur_sum / input.shape[0]
+
+    def get_score(self) -> float:
+        if self._weight < 1:
+            return 0
+        return self._sum / self._weight
+
+    def reset(self) -> None:
+        self._sum = 0
+        self._weight = 0
+
+    def is_differentiable(self) -> bool:
+        return True
