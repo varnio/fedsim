@@ -65,7 +65,7 @@ class FedDyn(FedAvg):
         server_storage.write("avg_params", cloud_params.clone().detach())
         server_storage.write("h", torch.zeros_like(cloud_params))
         server_storage.write("average_sample", 0)
-        server_storage.write("mu", kwrag.get("alpha", default_alpha))
+        server_storage.write("alpha", kwrag.get("alpha", default_alpha))
         # oracle read violation, num_clients read violation
         print("Warning: private access violation")
         print("\t", end="")
@@ -149,7 +149,6 @@ class FedDyn(FedAvg):
         return opt_res
 
     def receive_from_client(
-        self,
         server_storage,
         client_id,
         client_msg,

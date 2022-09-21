@@ -71,7 +71,7 @@ class Storage(object):
         """
         keys = []
         for key, item in self._storage.items():
-            r_p, _, _ = item
+            _, r_p, _ = item
             if not r_p:
                 keys.append(key)
         return keys
@@ -91,14 +91,14 @@ class Storage(object):
         if key not in self._storage:
             raise Exception(f"key {key} not in storage.")
 
-        r_p, w_p, obj = self._storage[key]
+        obj, r_p, w_p = self._storage[key]
         if not silent and r_p and not read_protected:
             print(f"read protection removed from storage entry {key}.")
 
         if not silent and w_p and not write_protected:
             print(f"write protection removed from storage entry {key}.")
 
-        self._storage[key] = (read_protected, write_protected, obj)
+        self._storage[key] = (obj, read_protected, write_protected)
 
     def get_protection_status(self, key):
         """fetches the protection status of an entry.
@@ -111,7 +111,7 @@ class Storage(object):
         """
         if key not in self._storage:
             raise Exception(f"key {key} not in storage.")
-        r_p, w_p, _ = self._storage[key]
+        _, r_p, w_p = self._storage[key]
         return r_p, w_p
 
     def remove(self, key, silent=False):
@@ -124,7 +124,7 @@ class Storage(object):
         """
         if key not in self._storage:
             raise Exception(f"key {key} not in storage.")
-        _, w_p, _ = self._storage[key]
+        _, _, w_p = self._storage[key]
         if not silent and w_p:
             print(f"write protected entry {key} is removed from the storage.")
         del self._storage[key]

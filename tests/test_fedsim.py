@@ -5,6 +5,7 @@ from logall import TensorboardLogger
 
 from fedsim.distributed.centralized import AdaBest
 from fedsim.distributed.centralized import FedAvg
+from fedsim.distributed.centralized import FedDF
 from fedsim.distributed.centralized import FedDyn
 from fedsim.distributed.centralized import FedNova
 from fedsim.distributed.centralized import FedProx
@@ -39,7 +40,7 @@ def acc_check(alg):
 
 def test_algs():
     n_clients = 5000
-    dm = BasicDataManager("./data", "cifar100", n_clients)
+    dm = BasicDataManager("./data", "cifar100", n_clients, global_valid_portion=0.4)
     sw = TensorboardLogger(path=None)
     # device = "cuda" if torch.cuda.is_available() else "cpu"
     device = "cpu"
@@ -84,3 +85,13 @@ def test_algs():
     alg_hook(alg, dm)
     acc_check(alg)
     del alg
+
+    # test AdaBest
+    alg = FedDF(**common_cfg)
+    alg_hook(alg, dm)
+    acc_check(alg)
+    del alg
+
+
+# if __name__ == "__main__":
+#     test_algs()

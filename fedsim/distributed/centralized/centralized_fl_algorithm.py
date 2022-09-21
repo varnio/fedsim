@@ -77,14 +77,14 @@ class CentralFLAlgorithm(object):
         model_def,
         epochs,
         criterion_def,
-        optimizer_def,
-        local_optimizer_def,
-        lr_scheduler_def,
-        local_lr_scheduler_def,
-        r2r_local_lr_scheduler_def,
-        batch_size,
-        test_batch_size,
-        device,
+        optimizer_def=partial(torch.optim.SGD, lr=1.0),
+        local_optimizer_def=partial(torch.optim.SGD, lr=0.1),
+        lr_scheduler_def=None,
+        local_lr_scheduler_def=None,
+        r2r_local_lr_scheduler_def=None,
+        batch_size=32,
+        test_batch_size=64,
+        device="cpu",
         *args,
         **kwargs,
     ):
@@ -286,6 +286,14 @@ class CentralFLAlgorithm(object):
             send_to_client=self.__class__.send_to_client,
             send_to_server=self.__class__.send_to_server,
         )
+        for key, value in self.user_methods.items():
+            sig = inspect.signature(value)
+            if "self" in sig.parameters.keys():
+                raise Exception(
+                    f"Remove `self` from {key} arguments. "
+                    "All user methods should be static!"
+                )
+
         self.user_methods["init"](self._server_memory, *args, **kwargs)
 
     def _sample_clients(self):
@@ -295,7 +303,6 @@ class CentralFLAlgorithm(object):
         last_client_sampled = self._server_memory.read(
             "last_client_sampled", silent=True
         )
-
         if sample_scheme == "uniform":
             clients = random.sample(range(num_clients), sample_count)
         elif sample_scheme == "sequential":
