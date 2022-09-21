@@ -26,16 +26,11 @@ def vector_to_parameters_like(vec, parameters_like):
         raise TypeError(
             "expected torch.Tensor, but got: {}".format(torch.typename(vec))
         )
-    # Flag for the device where the parameter is located
-    param_device = None
 
     # Pointer for slicing the vector for each parameter
     pointer = 0
     new_params = []
     for param in parameters_like:
-        # Ensure the parameters are located in the same device
-        param_device = _check_param_device(param, param_device)
-
         # The length of the parameter
         num_param = param.numel()
         # Slice the vector, reshape it, and replace the old data of the
@@ -64,21 +59,16 @@ def vector_to_named_parameters_like(
         raise TypeError(
             "expected torch.Tensor, but got: {}".format(torch.typename(vec))
         )
-    # Flag for the device where the parameter is located
-    param_device = None
 
     # Pointer for slicing the vector for each parameter
     pointer = 0
     new_params = OrderedDict()
     for key, param in named_parameters_like:
-        # Ensure the parameters are located in the same device
-        param_device = _check_param_device(param, param_device)
-
         # The length of the parameter
         num_param = param.numel()
         # Slice the vector, reshape it, and replace the old data of the
         # parameter
-        new_params[key] = vec[pointer : pointer + num_param].view_as(param).data
+        new_params[key] = vec[pointer : pointer + num_param].view_as(param)
 
         # Increment the pointer
         pointer += num_param

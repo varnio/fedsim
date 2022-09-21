@@ -3,22 +3,19 @@ AvgLogits
 ---------
 """
 
-from functools import partial
-
 from torch.nn.functional import log_softmax
 from torch.nn.utils.stateless import functional_call
-from torch.optim import SGD
 
 from fedsim.scores import KLDivScore
 from fedsim.utils import SerialAggregator
 from fedsim.utils import initialize_module
 from fedsim.utils import vector_to_named_parameters_like
-from fedsim.utils import vectorize_module_grads
 
-from . import fedavg
+from .fedavg import FedAvg
+from .utils import serial_aggregation
 
 
-class FedDF(fedavg.FedAvg):
+class FedDF(FedAvg):
     r"""Ensemble Distillation for Robust Model Fusion in Federated Learning.
 
     For further details regarding the algorithm we refer to `Ensemble Distillation for
@@ -45,6 +42,8 @@ class FedDF(fedavg.FedAvg):
         batch_size (int): batch size of the local trianing
         test_batch_size (int): inference time batch size
         device (str): cpu, cuda, or gpu number
+        global_train_split (str): the name of train split to be used on server
+        global_epochs (int): number of training epochs on the server
 
     .. note::
         definition of
@@ -64,138 +63,82 @@ class FedDF(fedavg.FedAvg):
         https://openreview.net/forum?id=gjrMQoAhSRq
     """
 
-    def __init__(
-        self,
-        data_manager,
-        metric_logger,
-        num_clients,
-        sample_scheme,
-        sample_rate,
-        model_def,
-        epochs,
-        criterion_def,
-        optimizer_def=partial(SGD, lr=0.1),
-        local_optimizer_def=partial(SGD, lr=0.1),
-        lr_scheduler_def=None,
-        local_lr_scheduler_def=None,
-        r2r_local_lr_scheduler_def=None,
-        batch_size=32,
-        test_batch_size=64,
-        device="cuda",
-        global_train_split="valid",
-        global_epochs=1,
-    ):
-        super().__init__(
-            data_manager,
-            metric_logger,
-            num_clients,
-            sample_scheme,
-            sample_rate,
-            model_def,
-            epochs,
-            criterion_def,
-            optimizer_def,
-            local_optimizer_def,
-            lr_scheduler_def,
-            local_lr_scheduler_def,
-            r2r_local_lr_scheduler_def,
-            batch_size,
-            test_batch_size,
-            device,
+    def init(server_storage, *args, **kwrag):
+        default_global_train_split = "valid"
+        default_global_epochs = 1
+        FedAvg.init(server_storage)
+        server_storage.write(
+            "global_train_split",
+            kwrag.get("global_train_split", default_global_train_split),
         )
-        server_storage = self.get_server_storage()
-        server_storage.write("global_train_split", global_train_split)
-        server_storage.write("global_epochs", global_epochs)
+        server_storage.write(
+            "global_epochs",
+            kwrag.get("global_epochs", default_global_epochs),
+        )
 
     def receive_from_client(
-        self,
         server_storage,
         client_id,
         client_msg,
         train_split_name,
-        aggregation_results,
+        serial_aggregator,
+        appendix_aggregator,
     ):
         params = client_msg["local_params"].clone().detach().data
-        diverged = client_msg["diverged"]
-        metrics = client_msg["metrics"]
-        n_samples = client_msg["num_samples"]
+        appendix_aggregator.append("local_params", params)
+        return serial_aggregation(
+            server_storage,
+            client_id,
+            client_msg,
+            train_split_name,
+            serial_aggregator,
+        )
 
-        if diverged:
-            return False
+    def optimize(server_storage, serial_aggregator, appendix_aggregator):
+        if "local_params" in serial_aggregator:
+            param_avg = serial_aggregator.pop("local_params")
+            cloud_params = server_storage.read("cloud_params")
+            cloud_params.data = param_avg.data
 
-        # logic_collector = list()
-        if n_samples[train_split_name] > 0:
-            # global_train_split = server_storage.read("global_train_split")
-            # train_data_loader = self.get_global_loader_split(global_train_split)
-            # model = server_storage.read("model")
-            # load cloud params in model
-            # cloud_params = server_storage.read("cloud_params")
-            # initialize_module(model, cloud_params)
-            # set model to eval
-            # model.eval()
+            model = server_storage.read("model")
+            global_train_split = server_storage.read("global_train_split")
+            train_data_loader = server_storage.read("global_dataloaders").get(
+                global_train_split
+            )
+            if train_data_loader is None:
+                raise Exception(
+                    f"no dataloader made for split {global_train_split} on the server!"
+                )
+            global_epochs = server_storage.read("global_epochs")
+            optimizer = server_storage.read("optimizer")
+            lr_scheduler = server_storage.read("lr_scheduler")
+            device = server_storage.read("device")
 
-            aggregation_results.add(f"local_params.{client_id}", params, 1)
-            ids = server_storage.read("ids")
-            if ids is None:
-                ids = [
-                    client_id,
-                ]
-                server_storage.write("ids", ids)
-            else:
-                ids.append(client_id)
+            for _ in range(global_epochs):
+                for x, _ in train_data_loader:
+                    x = x.to(device)
+                    target_agg = SerialAggregator()
+                    for local_params in appendix_aggregator.get_values("local_params"):
+                        initialize_module(model, local_params)
+                        target = model(x).clone().detach()
+                        target_agg.add("target", target, 1)
 
-            for split_name, metrics in metrics.items():
-                for key, metric in metrics.items():
-                    aggregation_results.add(
-                        f"clients.{split_name}.{key}", metric, n_samples[split_name]
+                    target_out = log_softmax(target_agg.get("target"), 1)
+
+                    # initialize_module(model, cloud_params)
+                    criterion = KLDivScore(log_target=True)
+                    param_dict = vector_to_named_parameters_like(
+                        cloud_params, model.named_parameters()
                     )
-        # purge client info
-        del client_msg
-        return True
+                    pred = functional_call(model, param_dict, x)
+                    pred_out = log_softmax(pred, 1)
 
-    def optimize(self, server_storage, aggregator):
-        ids = server_storage.read("ids")
-        server_storage.write("ids", None)
-        model = server_storage.read("model")
-        cloud_params = server_storage.read("cloud_params")
-        initialize_module(model, cloud_params)
-        global_train_split = server_storage.read("global_train_split")
-        train_data_loader = self.get_global_loader_split(global_train_split)
-        global_epochs = server_storage.read("global_epochs")
-        optimizer = server_storage.read("optimizer")
-        lr_scheduler = server_storage.read("lr_scheduler")
-        device = self.get_device()
-        criterion = KLDivScore(log_target=True)
-        for _ in range(global_epochs):
-            for x, _ in train_data_loader:
-                x = x.to(device)
-                target_agg = SerialAggregator()
-                for id in ids:
-                    local_params = aggregator.get(f"local_params.{id}")
-                    named_local_params = vector_to_named_parameters_like(
-                        local_params, model.named_parameters()
-                    )
-                    target = functional_call(model, named_local_params, x).detach().data
-                    target_agg.add("target", target, 1)
+                    loss = criterion(pred_out, target_out.data)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    if lr_scheduler is not None:
+                        lr_scheduler.step()
+                    del target_agg
 
-                target_out = log_softmax(target_agg.get("target"), 1)
-                pred = model(x)
-                pred_out = log_softmax(pred, 1)
-
-                loss = criterion(pred_out, target_out.data)
-                optimizer.zero_grad()
-                loss.backward()
-
-                grads = vectorize_module_grads(model)
-                cloud_params.grad = grads
-
-                optimizer.step()
-                if lr_scheduler is not None:
-                    lr_scheduler.step()
-                del target_agg
-                # update cloud parameters
-
-        for id in ids:
-            aggregator.pop(f"local_params.{id}")
-
-        return aggregator.pop_all()
+        return serial_aggregator.pop_all()

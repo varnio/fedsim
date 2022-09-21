@@ -85,6 +85,8 @@ class CentralFLAlgorithm(object):
         batch_size,
         test_batch_size,
         device,
+        *args,
+        **kwargs,
     ):
         sample_count = int(sample_rate * num_clients)
         if not 1 <= sample_count <= num_clients:
@@ -151,48 +153,148 @@ class CentralFLAlgorithm(object):
 
         oracle_dataset = data_manager.get_oracle_dataset()
 
-        self._psm = Storage()  # private server memory
-        self._psm.write("data_manager", data_manager)
-        self._psm.write("num_clients", num_clients)
-        self._psm.write("sample_count", sample_count)
-        self._psm.write("sample_scheme", sample_scheme)
-        self._psm.write("test_batch_size", test_batch_size)
-        self._psm.write("optimizer_def", optimizer_def)
-        self._psm.write("lr_scheduler_def", lr_scheduler_def)
-        self._psm.write("r2r_local_lr_scheduler", r2r_local_lr_scheduler)
-        self._psm.write("criterion_def", criterion_def)
-        self._psm.write("model_def", model_def)
-        self._psm.write("metric_logger", metric_logger)
-        self._psm.write("device", device)
-        self._psm.write("global_dataloaders", global_dataloaders)
-        self._psm.write("oracle_dataset", oracle_dataset)
-        self._psm.write("rounds", 0)
-        self._psm.write("last_client_sampled", None)
+        # server storage
+        self._server_memory = Storage()
 
-        self._pcm = Storage()  # private client memory
-        self._pcm.write("epochs", epochs)
-        self._pcm.write("batch_size", batch_size)
-        self._pcm.write("test_batch_size", test_batch_size)
-        self._pcm.write("criterion_def", criterion_def)
-        self._pcm.write("local_optimizer_def", local_optimizer_def)
-        self._pcm.write("local_lr_scheduler_def", local_lr_scheduler_def)
-        self._pcm.write("device", device)
+        # initial storage writes
+        # write and read protected entries
+        self._server_memory.write(
+            "data_manager",
+            data_manager,
+            read_protected=True,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "num_clients",
+            num_clients,
+            read_protected=True,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "sample_count",
+            sample_count,
+            read_protected=True,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "sample_scheme",
+            sample_scheme,
+            read_protected=True,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "oracle_dataset",
+            oracle_dataset,
+            read_protected=True,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "last_client_sampled",
+            None,
+            read_protected=True,
+            write_protected=True,
+        )
+        # write protected entries
+        self._server_memory.write(
+            "test_batch_size",
+            test_batch_size,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "optimizer_def",
+            optimizer_def,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "lr_scheduler_def",
+            lr_scheduler_def,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "r2r_local_lr_scheduler",
+            r2r_local_lr_scheduler,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "criterion_def",
+            criterion_def,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "model_def",
+            model_def,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "metric_logger",
+            metric_logger,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "device",
+            device,
+            write_protected=True,
+        )
+        self._server_memory.write(
+            "global_dataloaders",
+            global_dataloaders,
+            write_protected=True,
+        )
+
+        self._server_memory.write(
+            "rounds",
+            0,
+            write_protected=True,
+        )
+
+        # client storage
+        self._client_memory = {k: Storage() for k in range(num_clients)}
+
+        self._local_cfg = Storage()  # private client memory
+        self._local_cfg.write("epochs", epochs, write_protected=True)
+        self._local_cfg.write("batch_size", batch_size, write_protected=True)
+        self._local_cfg.write("test_batch_size", test_batch_size, write_protected=True)
+        self._local_cfg.write("criterion_def", criterion_def, write_protected=True)
+        self._local_cfg.write(
+            "local_optimizer_def",
+            local_optimizer_def,
+            write_protected=True,
+        )
+        self._local_cfg.write(
+            "local_lr_scheduler_def",
+            local_lr_scheduler_def,
+            write_protected=True,
+        )
+        self._local_cfg.write("device", device)
 
         # this is over written in train method
         self._train_split_name = "train"
 
-        self._server_memory = Storage()
-        self._client_memory = {k: Storage() for k in range(num_clients)}
         self._server_scores = {key: dict() for key in global_dataloaders}
         self._client_scores = {
             key: dict() for key in data_manager.get_local_splits_names()
         }
 
+        self.user_methods = dict(
+            init=self.__class__.init,
+            at_round_start=self.__class__.at_round_start,
+            at_round_end=self.__class__.at_round_end,
+            deploy=self.__class__.deploy,
+            optimize=self.__class__.optimize,
+            report=self.__class__.report,
+            receive_from_client=self.__class__.receive_from_client,
+            send_to_client=self.__class__.send_to_client,
+            send_to_server=self.__class__.send_to_server,
+        )
+        self.user_methods["init"](self._server_memory, *args, **kwargs)
+
     def _sample_clients(self):
-        sample_scheme = self._psm.read("sample_scheme")
-        sample_count = self._psm.read("sample_count")
-        num_clients = self._psm.read("num_clients")
-        last_client_sampled = self._psm.read("last_client_sampled")
+        sample_scheme = self._server_memory.read("sample_scheme", silent=True)
+        sample_count = self._server_memory.read("sample_count", silent=True)
+        num_clients = self._server_memory.read("num_clients", silent=True)
+        last_client_sampled = self._server_memory.read(
+            "last_client_sampled", silent=True
+        )
 
         if sample_scheme == "uniform":
             clients = random.sample(range(num_clients), sample_count)
@@ -202,26 +304,28 @@ class CentralFLAlgorithm(object):
                 (i + 1) % num_clients
                 for i in range(last_sampled, last_sampled + sample_count)
             ]
-            self._psm.write("last_client_sampled", clients[-1])
+            self._server_memory.write("last_client_sampled", clients[-1], silent=True)
         else:
             raise NotImplementedError
         return clients
 
     def _send_to_client(self, client_id):
-        return self.send_to_client(self._server_memory, client_id=client_id)
+        return self.user_methods["send_to_client"](
+            self._server_memory, client_id=client_id
+        )
 
     def _send_to_server(self, client_id):
-        r2r_local_lr_scheduler = self._psm.read("r2r_local_lr_scheduler")
-        data_manager = self._psm.read("data_manager")
-        rounds = self._psm.read("rounds")
+        r2r_local_lr_scheduler = self._server_memory.read("r2r_local_lr_scheduler")
+        data_manager = self._server_memory.read("data_manager", silent=True)
+        rounds = self._server_memory.read("rounds")
 
-        epochs = self._pcm.read("epochs")
-        batch_size = self._pcm.read("batch_size")
-        test_batch_size = self._pcm.read("test_batch_size")
-        local_optimizer_def = self._pcm.read("local_optimizer_def")
-        criterion_def = self._pcm.read("criterion_def")
-        local_lr_scheduler_def = self._pcm.read("local_lr_scheduler_def")
-        device = self._pcm.read("device")
+        epochs = self._local_cfg.read("epochs")
+        batch_size = self._local_cfg.read("batch_size")
+        test_batch_size = self._local_cfg.read("test_batch_size")
+        local_optimizer_def = self._local_cfg.read("local_optimizer_def")
+        criterion_def = self._local_cfg.read("criterion_def")
+        local_lr_scheduler_def = self._local_cfg.read("local_lr_scheduler_def")
+        device = self._local_cfg.read("device")
 
         if r2r_local_lr_scheduler is None:
             local_optimizer_def = local_optimizer_def
@@ -236,7 +340,7 @@ class CentralFLAlgorithm(object):
         storage = self._client_memory[client_id]
         train_split_name = self.get_train_split_name()
 
-        client_ctx = self.send_to_server(
+        client_ctx = self.user_methods["send_to_server"](
             client_id,
             rounds,
             storage,
@@ -256,26 +360,33 @@ class CentralFLAlgorithm(object):
             raise Exception("client should only return a dict!")
         return {**client_ctx, "client_id": client_id}
 
-    def _receive_from_client(self, client_msg, aggregator):
+    def _receive_from_client(self, client_msg, serial_aggregator, appendix_aggregator):
         client_id = client_msg.pop("client_id")
         train_split_name = self.get_train_split_name()
-        return self.receive_from_client(
-            self._server_memory, client_id, client_msg, train_split_name, aggregator
+        return self.user_methods["receive_from_client"](
+            self._server_memory,
+            client_id,
+            client_msg,
+            train_split_name,
+            serial_aggregator,
+            appendix_aggregator,
         )
 
-    def _optimize(self, aggregator):
-        reports = self.optimize(self._server_memory, aggregator)
+    def _optimize(self, serial_aggregator, appendix_aggregator):
+        reports = self.user_methods["optimize"](
+            self._server_memory, serial_aggregator, appendix_aggregator
+        )
         # purge aggregated results
-        del aggregator
+        del serial_aggregator
         return reports
 
     def _report(self, round_scores, optimize_reports=None, deployment_points=None):
-        global_dataloaders = self._psm.read("global_dataloaders")
-        metric_logger = self._psm.read("metric_logger")
-        rounds = self._psm.read("rounds")
-        device = self._psm.read("device")
+        global_dataloaders = self._server_memory.read("global_dataloaders", silent=True)
+        metric_logger = self._server_memory.read("metric_logger")
+        rounds = self._server_memory.read("rounds")
+        device = self._server_memory.read("device")
 
-        report_metrics = self.report(
+        report_metrics = self.user_methods["report"](
             self._server_memory,
             global_dataloaders,
             rounds,
@@ -292,14 +403,19 @@ class CentralFLAlgorithm(object):
 
     def _train(self, rounds, num_score_report_point=None):
         diverged = False
-        cur_round = self._psm.read("rounds")
+        cur_round = self._server_memory.read("rounds")
         score_aggregator = AppendixAggregator(max_deque_lenght=num_score_report_point)
         for round_num in trange(rounds + 1):
             self._at_round_start()
-            round_aggregator = SerialAggregator()
+            round_serial_aggregator = SerialAggregator()
+            round_appendix_aggregator = AppendixAggregator()
             for client_id in self._sample_clients():
                 client_msg = self._send_to_server(client_id)
-                success = self._receive_from_client(client_msg, round_aggregator)
+                success = self._receive_from_client(
+                    client_msg,
+                    round_serial_aggregator,
+                    round_appendix_aggregator,
+                )
                 # signal divergence
                 if not success:
                     diverged = True
@@ -308,28 +424,29 @@ class CentralFLAlgorithm(object):
             if diverged:
                 return score_aggregator.pop_all()
             # optimzie
-            opt_reports = self._optimize(round_aggregator)
-            deploy_poiont = self.deploy(self._server_memory)
+            opt_reports = self._optimize(
+                round_serial_aggregator, round_appendix_aggregator
+            )
+            deploy_poiont = self.user_methods["deploy"](self._server_memory)
             round_scores = self.get_global_scores()
             score_dict = self._report(round_scores, opt_reports, deploy_poiont)
             score_aggregator.append_all(score_dict, step=cur_round)
             self._at_round_end(score_aggregator)
-            self._psm.write("rounds", cur_round + round_num + 1)
-
+            self._server_memory.write("rounds", cur_round + round_num + 1, silent=True)
         return score_aggregator.pop_all()
 
     def _at_round_start(self) -> None:
-        self.at_round_start(self._server_memory)
+        self.user_methods["at_round_start"](self._server_memory)
 
     def _at_round_end(self, score_aggregator) -> None:
-        r2r_local_lr_scheduler = self._psm.read("r2r_local_lr_scheduler")
+        r2r_local_lr_scheduler = self._server_memory.read("r2r_local_lr_scheduler")
         if r2r_local_lr_scheduler is not None:
             r2r_local_lr_scheduler.step()
-        self.at_round_end(self._server_memory, score_aggregator)
+        self.user_methods["at_round_end"](self._server_memory, score_aggregator)
 
     def _get_round_scores(self, score_def_deck):
         # filter out the scores that should not be present in the current round
-        rounds = self._psm.read("rounds")
+        rounds = self._server_memory.read("rounds")
         round_scores = dict()
         for name, definition in score_def_deck.items():
             obj = definition()
@@ -381,7 +498,7 @@ class CentralFLAlgorithm(object):
             Callable: definition of the model. To instantiate, you may call the
             returned value with paranthesis in front.
         """
-        model_def = self._psm.read("model_def")
+        model_def = self._server_memory.read("model_def")
         return model_def
 
     def get_server_storage(self):
@@ -392,32 +509,13 @@ class CentralFLAlgorithm(object):
         """
         return self._server_memory
 
-    def get_server_private_storage(self, verbose=True):
-        """To access the private configs of the server. Accessing this method is not
-        recommended and often violates a principle of the common FL algorithms. Almost
-        always ``get_server_storage`` is preferred to this method.
-
-        Args:
-            verbose (bool, optional): To show a warning message for access violation.
-            Defaults to True.
-
-        Returns:
-            Storage: private server storage.
-        """
-        if verbose:
-            print(
-                "Warning: private server's storage is fetched! "
-                "This is most probably due to a violation!"
-            )
-        return self._psm
-
     def get_round_number(self):
         """To get the current round number, starting from zero.
 
         Returns:
             int: current round number, starting from zero.
         """
-        return self._psm.read("rounds")
+        return self._server_memory.read("rounds")
 
     def get_train_split_name(self):
         """To get the name of the split used to perform local training.
@@ -436,7 +534,7 @@ class CentralFLAlgorithm(object):
         Returns:
             Iterable: data loader for global split <split_name>
         """
-        return self._psm.read("global_dataloaders")[split_name]
+        return self._server_memory.read("global_dataloaders")[split_name]
 
     def get_device(self) -> str:
         """To get the device name or number
@@ -444,7 +542,7 @@ class CentralFLAlgorithm(object):
         Returns:
             str: device name or number
         """
-        return self._psm.read("device")
+        return self._server_memory.read("device")
 
     def hook_local_score(self, score_def, score_name, split_name) -> None:
         """To hook a score measurment on local data.
@@ -528,16 +626,32 @@ class CentralFLAlgorithm(object):
     # we do not do type hinting, however, the hints for abstract
     # methods are provided to help clarity for users
 
+    def init(server_storage: Storage, *args, **kwargs) -> None:
+        """this method is executed only once at the time of instantiating the
+        algorithm object. Here you define your model and whatever needed during the
+        training. Remember to write the outcome of your processing to server_storage
+        for access in other methods.
+
+        .. note::
+            ``*args`` and ``**kwargs`` are directly passed through from algorithm
+            constructor.
+
+        Args:
+            server_storage (Storage): server storage object
+
+        """
+        pass
+
     # optional methods
-    def at_round_start(self, server_storage: Storage) -> None:
-        """to inject code at the beginning of rounds in training loop
+    def at_round_start(server_storage: Storage) -> None:
+        """to inject code at the beginning of rounds in training loop.
+
         Args:
             server_storage (Storage): server storage object.
         """
         pass
 
     def at_round_end(
-        self,
         server_storage: Storage,
         score_aggregator: AppendixAggregator,
     ) -> None:
@@ -550,7 +664,7 @@ class CentralFLAlgorithm(object):
         pass
 
     # abstract methods
-    def send_to_client(self, server_storage, client_id: int) -> Mapping[Hashable, Any]:
+    def send_to_client(server_storage, client_id: int) -> Mapping[Hashable, Any]:
         """returns context to send to the client corresponding to client_id.
 
         .. warning::
@@ -568,12 +682,10 @@ class CentralFLAlgorithm(object):
             Mapping[Hashable, Any]: the context to be sent in form of a Mapping
         """
         raise NotImplementedError(
-            f"Algorithm [{type(self).__name__}] is missing the"
-            f"required 'send_to_client' function"
+            "Algorithm is missing the required 'send_to_client' function"
         )
 
     def send_to_server(
-        self,
         id: int,
         rounds: int,
         storage: Dict[Hashable, Any],
@@ -620,12 +732,12 @@ class CentralFLAlgorithm(object):
         )
 
     def receive_from_client(
-        self,
         server_storage: Storage,
         client_id: int,
         client_msg: Mapping[Hashable, Any],
         train_split_name: str,
-        aggregator,
+        serial_aggregator: SerialAggregator,
+        appendix_aggregator: AppendixAggregator,
     ) -> bool:
         """receive and aggregate info from selected clients
 
@@ -645,13 +757,18 @@ class CentralFLAlgorithm(object):
         raise NotImplementedError
 
     def optimize(
-        self, server_storage: Storage, aggregator: SerialAggregator
+        server_storage: Storage,
+        serial_aggregator: SerialAggregator,
+        appendix_aggregator: AppendixAggregator,
     ) -> Mapping[Hashable, Any]:
         """optimize server mdoel(s) and return scores to be reported
 
         Args:
             server_storage (Storage): server storage object.
-            aggregator (SerialAggregator): Aggregator instance
+            serial_aggregator (SerialAggregator): serial aggregator instance of current
+                round.
+            appendix_aggregator (AppendixAggregator): appendix aggregator instance of
+                current round.
 
         Raises:
             NotImplementedError: abstract class to be implemented by child
@@ -661,7 +778,7 @@ class CentralFLAlgorithm(object):
         """
         raise NotImplementedError
 
-    def deploy(self, server_storage: Storage) -> Optional[Mapping[Hashable, Any]]:
+    def deploy(server_storage: Storage) -> Optional[Mapping[Hashable, Any]]:
         """return Mapping of name -> parameters_set to test the model
 
         Args:
@@ -670,7 +787,6 @@ class CentralFLAlgorithm(object):
         raise NotImplementedError
 
     def report(
-        self,
         server_storage: Storage,
         dataloaders: Dict[str, Any],
         round_scores: Dict[str, Dict[str, Any]],

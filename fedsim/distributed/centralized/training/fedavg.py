@@ -3,9 +3,7 @@ FedAvg
 ------
 """
 import math
-from functools import partial
 
-from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.utils.data import RandomSampler
 
@@ -18,10 +16,12 @@ from fedsim.utils import vectorize_module
 from ..centralized_fl_algorithm import CentralFLAlgorithm
 from .utils import serial_aggregation
 
+# from ._shared_docs import doc_args, doc_arc, doc_note
+
 
 class FedAvg(CentralFLAlgorithm):
-    r"""Implements FedAvg algorithm for centralized FL.
-
+    r"""
+    Implements FedAvg algorithm for centralized FL.
     For further details regarding the algorithm we refer to `Communication-Efficient
     Learning of Deep Networks from Decentralized Data`_.
 
@@ -60,62 +60,22 @@ class FedAvg(CentralFLAlgorithm):
         Data: https://arxiv.org/abs/1602.05629
     """
 
-    def __init__(
-        self,
-        data_manager,
-        metric_logger,
-        num_clients,
-        sample_scheme,
-        sample_rate,
-        model_def,
-        epochs,
-        criterion_def,
-        optimizer_def=partial(SGD, lr=1.0),
-        local_optimizer_def=partial(SGD, lr=0.1),
-        lr_scheduler_def=None,
-        local_lr_scheduler_def=None,
-        r2r_local_lr_scheduler_def=None,
-        batch_size=32,
-        test_batch_size=64,
-        device="cuda",
-    ):
-        super(FedAvg, self).__init__(
-            data_manager,
-            metric_logger,
-            num_clients,
-            sample_scheme,
-            sample_rate,
-            model_def,
-            epochs,
-            criterion_def,
-            optimizer_def,
-            local_optimizer_def,
-            lr_scheduler_def,
-            local_lr_scheduler_def,
-            r2r_local_lr_scheduler_def,
-            batch_size,
-            test_batch_size,
-            device,
-        )
-
-        # make mode and optimizer
-        model = self.get_model_def()().to(device)
+    def init(server_storage):
+        device = server_storage.read("device")
+        model = server_storage.read("model_def")().to(device)
         params = vectorize_module(model, clone=True, detach=True)
-        optimizer = optimizer_def(params=[params])
+        params.requires_grad = True
+        optimizer = server_storage.read("optimizer_def")(params=[params])
         lr_scheduler = None
+        lr_scheduler_def = server_storage.read("lr_scheduler_def")
         if lr_scheduler_def is not None:
             lr_scheduler = lr_scheduler_def(optimizer=optimizer)
-        # write model and optimizer to server
-        server_storage = self.get_server_storage()
         server_storage.write("model", model)
         server_storage.write("cloud_params", params)
         server_storage.write("optimizer", optimizer)
         server_storage.write("lr_scheduler", lr_scheduler)
 
-    def send_to_client(self, server_storage, client_id):
-        # since fedavg broadcast the same model to all selected clients,
-        # the argument client_id is not used
-
+    def send_to_client(server_storage, client_id):
         # load cloud stuff
         cloud_params = server_storage.read("cloud_params")
         model = server_storage.read("model")
@@ -126,7 +86,6 @@ class FedAvg(CentralFLAlgorithm):
 
     # define client operation
     def send_to_server(
-        self,
         id,
         rounds,
         storage,
@@ -220,20 +179,20 @@ class FedAvg(CentralFLAlgorithm):
         )
 
     def receive_from_client(
-        self,
         server_storage,
         client_id,
         client_msg,
         train_split_name,
-        aggregation_results,
+        serial_aggregator,
+        appendix_aggregator,
     ):
         return serial_aggregation(
-            server_storage, client_id, client_msg, train_split_name, aggregation_results
+            server_storage, client_id, client_msg, train_split_name, serial_aggregator
         )
 
-    def optimize(self, server_storage, aggregator):
-        if "local_params" in aggregator:
-            param_avg = aggregator.pop("local_params")
+    def optimize(server_storage, serial_aggregator, appendix_aggregator):
+        if "local_params" in serial_aggregator:
+            param_avg = serial_aggregator.pop("local_params")
             optimizer = server_storage.read("optimizer")
             lr_scheduler = server_storage.read("lr_scheduler")
             cloud_params = server_storage.read("cloud_params")
@@ -246,13 +205,12 @@ class FedAvg(CentralFLAlgorithm):
                 lr_scheduler.step()
             # purge aggregated results
             del param_avg
-        return aggregator.pop_all()
+        return serial_aggregator.pop_all()
 
-    def deploy(self, server_storage):
+    def deploy(server_storage):
         return dict(avg=server_storage.read("cloud_params"))
 
     def report(
-        self,
         server_storage,
         dataloaders,
         rounds,
@@ -275,21 +233,21 @@ class FedAvg(CentralFLAlgorithm):
 
                 for split_name, loader in dataloaders.items():
                     if split_name in scores:
-                        scores = scores[split_name]
+                        split_scores = scores[split_name]
                         _ = local_inference(
                             model,
                             loader,
-                            scores=scores,
+                            scores=split_scores,
                             device=device,
                         )
-                        split_scores = {
+                        split_score_results = {
                             f"server.{point_name}.{split_name}."
                             f"{score_name}": score.get_score()
-                            for score_name, score in scores.items()
+                            for score_name, score in split_scores.items()
                         }
                         scores_from_deploy = {
                             **scores_from_deploy,
-                            **split_scores,
+                            **split_score_results,
                         }
                     if rounds % norm_report_freq == 0:
                         norm_reports[

@@ -312,7 +312,7 @@ class KLDivScore(Score):
             - Input: :math:`(*)`, where :math:`*` means any number of dimensions.
             - Target: :math:`(*)`, same shape as the input.
             - Output: scalar by default. If :attr:`reduction` is `'none'`,
-            then :math:`(*)`, same shape as the input.
+                then :math:`(*)`, same shape as the input.
 
         Returns:
             Tensor: KL-divergence score of current batch

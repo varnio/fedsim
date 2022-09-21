@@ -12,6 +12,7 @@ def serial_aggregation(
     aggregator,
     train_weight=None,
     other_weight=None,
+    purge_msg=True,
 ):
     """To serially aggregate received message from a client
 
@@ -50,6 +51,7 @@ def serial_aggregation(
                 aggregator.add(f"clients.{split_name}.{key}", metric, other_weight)
 
     # purge client info
-    del client_msg
+    if purge_msg:
+        del client_msg
 
     return True
