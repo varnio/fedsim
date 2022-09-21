@@ -1,3 +1,10 @@
+0.9.0 (2022-09-21)
+------------------
+
+* make all user methods in algorithms static (no self argument).
+* better encapsulation.
+* expand definition of storage for read and write protection.
+
 0.8.3 (2022-09-18)
 ------------------
 
