@@ -11,7 +11,7 @@ API Reference
 
 This reference manual details functions, modules, and objects
 included in FedSim, describing what they are and what they do.
-For learning how to use NumPy, see the :ref:`complete documentation <fedsim_docs_mainpage>`.
+For learning how to use FedSim, see the :ref:`complete documentation <fedsim_docs_mainpage>`.
 
 
 .. toctree::
