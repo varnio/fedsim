@@ -44,13 +44,13 @@ def vector_to_parameters_like(vec, parameters_like):
 
 def vector_to_named_parameters_like(
     vec: Tensor,
-    named_parameters_like: OrderedDict[str, Tensor],
-) -> OrderedDict[str, Tensor]:
+    named_parameters_like: OrderedDict,
+) -> OrderedDict:
     r"""Convert one vector to new named parameters like the ones provided
 
     Args:
         vec (Tensor): a single vector represents the parameters of a model.
-        parameters (OrderedDict[str, Tensor]): a dictioanry of Tensors that are the
+        parameters (OrderedDict): a dictioanry of Tensors that are the
             parameters of a model. This is only used to get the sizes and keys. New
             parametere are defined.
     """
