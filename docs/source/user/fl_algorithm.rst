@@ -37,8 +37,8 @@ Included FL algorithms
         :alt: arXiv
 
    * - FedDF
-     - .. image:: https://img.shields.io/badge/arXiv-2006.07242v2-b31b1b.svg?style=flat-square
-        :target: https://arxiv.org/abs/2006.07242v2
+     - .. image:: https://img.shields.io/badge/arXiv-2006.07242-b31b1b.svg?style=flat-square
+        :target: https://arxiv.org/abs/2006.07242
         :alt: arXiv
 
 Algorithm interface
