@@ -34,7 +34,7 @@ class BasicDataManager(DataManager):
     Args:
         root (str): root dir of the dataset to partition
         dataset (str): name of the dataset
-        num_clients (int): number of partitions or clients
+        num_partitions (int): number of partitions or clients
         rule (str): rule of partitioning
         sample_balance (float): balance of number of samples among clients
         label_balance (float): balance of the labels on each clietns
