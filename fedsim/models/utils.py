@@ -8,10 +8,11 @@ import torch
 
 
 class ModelReconstructor(torch.nn.Module):
-    """reconstructs a model out of a feature_extractor and a classifier.
+    """reconstructs a model out of a features_extractor of a base model and a
+    classifier.
 
     Args:
-            feature_extractor (Module): feature-extractor module
+            base_model (Module): module that implements a get_features method.
             classifier (Module): classifier module
             connection_fn (Callable, optional): optional connection function to apply
                 on the output of feature-extractor before feeding to the classifier.
@@ -19,14 +20,16 @@ class ModelReconstructor(torch.nn.Module):
 
     """
 
-    def __init__(self, feature_extractor, classifier, connection_fn=None) -> None:
+    def __init__(self, base_model, classifier, connection_fn=None) -> None:
         super(ModelReconstructor, self).__init__()
-        self.feature_extractor = feature_extractor
+        self.base_model = base_model
         self.classifier = classifier
         self.connection_fn = connection_fn
 
+    # TODO define parameters() method to return all parameters except the old classifier
+
     def forward(self, input):
-        features = self.feature_extractor(input)
+        features = self.base_model.get_features(input)
         if self.connection_fn is not None:
             features = self.connection_fn(features)
         return self.classifier(features)
