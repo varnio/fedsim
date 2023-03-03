@@ -23,7 +23,6 @@ from fedsim import scores
 from fedsim.utils import AppendixAggregator
 from fedsim.utils import SerialAggregator
 from fedsim.utils import Storage
-from fedsim.utils import apply_on_dict
 from fedsim.utils import get_from_module
 
 
@@ -404,8 +403,14 @@ class CentralFLAlgorithm(object):
             deployment_points,
         )
         if metric_logger is not None:
-            log_fn = metric_logger.log_scalar
-            apply_on_dict(report_metrics, log_fn, step=rounds)
+            for key, value in report_metrics.items():
+                if hasattr(value, "__len__"):
+                    pass
+                else:
+                    metric_logger.log_scalar(key, value, step=rounds)
+
+            # log_fn = metric_logger.log_scalar
+            # apply_on_dict(report_metrics, log_fn, step=rounds)
         return report_metrics
 
     def _train(self, rounds, num_score_report_point=None):
